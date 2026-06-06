@@ -1,42 +1,6 @@
-import { useState } from 'react'
-
-async function copyTextToClipboard(text) {
-  if (!text) return false
-
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch (error) {
-    console.warn('Clipboard API failed, trying fallback copy.', error)
-  }
-
-  try {
-    const textArea = document.createElement('textarea')
-    textArea.value = text
-    textArea.setAttribute('readonly', '')
-    textArea.style.position = 'fixed'
-    textArea.style.top = '-9999px'
-    textArea.style.left = '-9999px'
-    document.body.appendChild(textArea)
-    textArea.focus()
-    textArea.select()
-    textArea.setSelectionRange(0, text.length)
-
-    const copied = document.execCommand('copy')
-    document.body.removeChild(textArea)
-    return copied
-  } catch (error) {
-    console.error('Fallback copy failed:', error)
-    return false
-  }
-}
-
 export default function FamilyPage({
   styles,
   activeFamily,
-  activeFamilyUrl,
   families,
   publicFamilies,
   familyInput,
@@ -50,23 +14,7 @@ export default function FamilyPage({
   familyMessage,
   displayName,
 }) {
-  const [copyMessage, setCopyMessage] = useState('')
   const activeMembers = activeFamily?.members || []
-  const totalFamilyMembers = families.reduce(
-    (total, family) => total + (family.members?.length || 0),
-    0
-  )
-
-  async function handleCopy(label, value) {
-    const copied = await copyTextToClipboard(value)
-
-    if (copied) {
-      setCopyMessage(`${label} copied.`)
-      return
-    }
-
-    setCopyMessage(`Could not copy automatically. Tap and hold this ${label.toLowerCase()} to copy it manually.`)
-  }
 
   return (
     <>
@@ -77,21 +25,44 @@ export default function FamilyPage({
         <p style={styles.labelDark}>Rave Identity</p>
         <h1 style={styles.rankTitle}>{displayName || 'Rave Traveler'}</h1>
         <p>{families.length} families joined</p>
-        <p>{totalFamilyMembers} total family members visible</p>
       </div>
 
       {activeFamily ? (
         <div style={styles.crewHero}>
           <p style={styles.labelDark}>Active Family</p>
           <h1 style={styles.rankTitle}>{activeFamily.name}</h1>
-          <p>Invite Code: {activeFamily.code}</p>
+
+          <div style={{
+            margin: '20px 0',
+            padding: '20px',
+            borderRadius: '18px',
+            background: 'rgba(0,0,0,0.75)',
+            border: '2px solid rgba(255,255,255,0.35)',
+            textAlign: 'center',
+          }}>
+            <p style={{ margin: 0, fontSize: '13px', letterSpacing: '2px' }}>
+              FAMILY CODE
+            </p>
+            <h1 style={{
+              margin: '10px 0',
+              fontSize: '42px',
+              letterSpacing: '4px',
+              wordBreak: 'break-word',
+            }}>
+              {activeFamily.code}
+            </h1>
+            <p style={{ margin: 0 }}>
+              Show this code to friends so they can join.
+            </p>
+          </div>
+
           <p>Your Role: {activeFamily.role}</p>
           <p>{activeMembers.length} members</p>
         </div>
       ) : (
         <div style={styles.linkCard}>
           <strong>No active family yet.</strong>
-          <small>Create a family or join one with an invite code.</small>
+          <small>Create a family or join one with a family code.</small>
         </div>
       )}
 
@@ -130,41 +101,18 @@ export default function FamilyPage({
                 <div key={member.user_id} style={styles.linkCard}>
                   <strong>{member.rave_name || 'Rave Traveler'}</strong>
                   <small>{member.role || 'Member'}</small>
-                  <small>Joined: {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'Festival family'}</small>
+                  <small>
+                    Joined:{' '}
+                    {member.joined_at
+                      ? new Date(member.joined_at).toLocaleDateString()
+                      : 'Festival family'}
+                  </small>
                 </div>
               ))
             ) : (
               <div style={styles.linkCard}>No visible members yet.</div>
             )}
           </div>
-
-          <h3>Invite Family</h3>
-
-          <div style={styles.linkCard}>
-            <strong>Family Invite Code</strong>
-            <small>{activeFamily.code}</small>
-          </div>
-
-          <div style={styles.linkCard}>
-            <strong>Family Invite Link</strong>
-            <small>{activeFamilyUrl}</small>
-          </div>
-
-          <button
-            style={styles.mainButton}
-            onClick={() => handleCopy('Family code', activeFamily.code)}
-          >
-            COPY FAMILY CODE
-          </button>
-
-          <button
-            style={styles.secondaryButton}
-            onClick={() => handleCopy('Family invite link', activeFamilyUrl)}
-          >
-            COPY QR / NFC FAMILY LINK
-          </button>
-
-          {copyMessage && <p style={styles.successText}>{copyMessage}</p>}
 
           <button
             style={styles.dangerButton}
