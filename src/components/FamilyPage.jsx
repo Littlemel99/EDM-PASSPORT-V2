@@ -17,7 +17,7 @@ export default function FamilyPage({
   const activeMembers = activeFamily?.members || []
 
   const familyJoinUrl = activeFamily?.code
-    ? `https://edm-passport-v2.vercel.app?familyCode=${encodeURIComponent(activeFamily.code)}`
+    ? `https://edm-passport-v2.vercel.app?joincrew=${encodeURIComponent(activeFamily.code)}`
     : ''
 
   const qrImageUrl = familyJoinUrl
