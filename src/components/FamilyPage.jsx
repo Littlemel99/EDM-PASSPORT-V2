@@ -16,6 +16,14 @@ export default function FamilyPage({
 }) {
   const activeMembers = activeFamily?.members || []
 
+  const familyJoinUrl = activeFamily?.code
+    ? `https://edm-passport-v2.vercel.app?familyCode=${encodeURIComponent(activeFamily.code)}`
+    : ''
+
+  const qrImageUrl = familyJoinUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(familyJoinUrl)}`
+    : ''
+
   return (
     <>
       <p style={styles.pageNumber}>Passport Page 6</p>
@@ -32,29 +40,75 @@ export default function FamilyPage({
           <p style={styles.labelDark}>Active Family</p>
           <h1 style={styles.rankTitle}>{activeFamily.name}</h1>
 
-          <div style={{
-            margin: '20px 0',
-            padding: '20px',
-            borderRadius: '18px',
-            background: 'rgba(0,0,0,0.75)',
-            border: '2px solid rgba(255,255,255,0.35)',
-            textAlign: 'center',
-          }}>
+          <div
+            style={{
+              margin: '20px 0',
+              padding: '20px',
+              borderRadius: '18px',
+              background: 'rgba(0,0,0,0.75)',
+              border: '2px solid rgba(255,255,255,0.35)',
+              textAlign: 'center',
+            }}
+          >
             <p style={{ margin: 0, fontSize: '13px', letterSpacing: '2px' }}>
               FAMILY CODE
             </p>
-            <h1 style={{
-              margin: '10px 0',
-              fontSize: '42px',
-              letterSpacing: '4px',
-              wordBreak: 'break-word',
-            }}>
+
+            <h1
+              style={{
+                margin: '10px 0',
+                fontSize: '42px',
+                letterSpacing: '4px',
+                wordBreak: 'break-word',
+              }}
+            >
               {activeFamily.code}
             </h1>
+
             <p style={{ margin: 0 }}>
-              Show this code to friends so they can join.
+              Friends can type this code to join your family.
             </p>
           </div>
+
+          {qrImageUrl && (
+            <div
+              style={{
+                margin: '20px 0',
+                padding: '20px',
+                borderRadius: '18px',
+                background: 'rgba(255,255,255,0.95)',
+                color: '#111',
+                textAlign: 'center',
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Scan to Join</h3>
+
+              <img
+                src={qrImageUrl}
+                alt="Family join QR code"
+                style={{
+                  width: '260px',
+                  maxWidth: '100%',
+                  borderRadius: '12px',
+                }}
+              />
+
+              <p style={{ fontSize: '13px' }}>
+                New users scan this QR code, login, then tap JOIN FAMILY.
+              </p>
+            </div>
+          )}
+
+          {familyJoinUrl && (
+            <div style={styles.linkCard}>
+              <strong>NFC Tap Link</strong>
+              <small style={{ wordBreak: 'break-word' }}>{familyJoinUrl}</small>
+              <small>
+                Program this link onto an NFC tag. When someone taps it, the app
+                opens with your family code ready.
+              </small>
+            </div>
+          )}
 
           <p>Your Role: {activeFamily.role}</p>
           <p>{activeMembers.length} members</p>
@@ -176,3 +230,4 @@ export default function FamilyPage({
     </>
   )
 }
+
