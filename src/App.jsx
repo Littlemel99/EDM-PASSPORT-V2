@@ -5,7 +5,7 @@ import RecapPage from './components/RecapPage'
 import PublicProfile from './components/PublicProfile'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
-import { stamps } from './data/stamps'
+import { stamps as builtInStamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
 import { getGpsStatus } from './lib/gps'
@@ -50,13 +50,13 @@ import {
   loadFestivalRecords,
   createFestivalRecord,
 } from './services/festivalService'
+import {
+  loadAdminStamps,
+  createAdminStamp,
+} from './services/adminStampService'
 
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
-
-function getActiveStamp(id) {
-  return stamps.find((stamp) => stamp.id === id) || stamps[0]
-}
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -127,6 +127,13 @@ export default function App() {
   const [dropLegendary, setDropLegendary] = useState(false)
   const [dropMaxClaims, setDropMaxClaims] = useState('')
   const [adminMessage, setAdminMessage] = useState('')
+  const [adminCreatedStamps, setAdminCreatedStamps] = useState([])
+  const [adminStampNameInput, setAdminStampNameInput] = useState('')
+  const [adminStampImageUrlInput, setAdminStampImageUrlInput] = useState('')
+  const [adminStampRarityInput, setAdminStampRarityInput] = useState('normal')
+  const [adminStampLocationInput, setAdminStampLocationInput] = useState('')
+  const [adminStampXpInput, setAdminStampXpInput] = useState('500')
+  const [adminStampCreatorMessage, setAdminStampCreatorMessage] = useState('')
   const [gpsTitle, setGpsTitle] = useState('')
   const [gpsLatitude, setGpsLatitude] = useState('')
   const [gpsLongitude, setGpsLongitude] = useState('')
@@ -141,9 +148,11 @@ export default function App() {
   const gpsDropsRef = useRef(gpsDrops)
   const autoCollectLastCheckRef = useRef(0)
 
+  const stamps = useMemo(() => [...builtInStamps, ...adminCreatedStamps], [adminCreatedStamps])
+
   const isAdmin = user?.email === ADMIN_EMAIL
   const maxPage = isAdmin ? 11 : 10
-  const activeStamp = useMemo(() => getActiveStamp(activeId), [activeId])
+  const activeStamp = useMemo(() => stamps.find((stamp) => stamp.id === activeId) || stamps[0] || builtInStamps[0], [activeId, stamps])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
   const collectedStamps = stamps.filter((stamp) => collectedIds.includes(stamp.id))
   const stats = getStats(collectedStamps, stamps.length)
@@ -189,6 +198,7 @@ export default function App() {
   }, [gpsDrops])
 
   useEffect(() => {
+    refreshAdminCreatedStamps()
     refreshLiveDrops()
     refreshPublicFamilies()
     refreshGpsDrops()
@@ -204,7 +214,7 @@ export default function App() {
       loadPublicPassportProfile(passportProfileId)
     }
 
-    if (claimId && stamps.some((stamp) => stamp.id === claimId)) {
+    if (claimId) {
       const cleanClaimId = claimId.trim()
       setActiveId(cleanClaimId)
       setPendingStampClaimId(cleanClaimId)
@@ -229,18 +239,19 @@ export default function App() {
     if (!pendingStampClaimId) return
 
     const pendingStamp = stamps.find((stamp) => stamp.id === pendingStampClaimId)
-    if (!pendingStamp) return
 
     setActiveId(pendingStampClaimId)
     setBookOpen(true)
     setPageIndex(2)
 
+    const claimName = pendingStamp?.name || 'Stamp'
+
     if (user) {
-      setClaimMessage(`${pendingStamp.name} claim loaded. Tap COLLECT STAMP to unlock it.`)
+      setClaimMessage(`${claimName} claim loaded. Tap COLLECT STAMP to unlock it.`)
     } else {
-      setClaimMessage(`${pendingStamp.name} claim loaded. Login first, then tap COLLECT STAMP.`)
+      setClaimMessage(`${claimName} claim loaded. Login first, then tap COLLECT STAMP.`)
     }
-  }, [user, pendingStampClaimId])
+  }, [user, pendingStampClaimId, stamps])
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -415,6 +426,45 @@ export default function App() {
       setPublicSmartMessage(error.message || 'Could not join this family.')
     } finally {
       setPublicJoinLoading(false)
+    }
+  }
+
+
+  async function refreshAdminCreatedStamps() {
+    try {
+      setAdminCreatedStamps(await loadAdminStamps())
+    } catch (error) {
+      console.error('Could not load admin-created stamps:', error)
+    }
+  }
+
+  async function handleCreateAdminStamp() {
+    if (!isAdmin) {
+      setAdminStampCreatorMessage('Admin access required.')
+      return
+    }
+
+    try {
+      setAdminStampCreatorMessage('Creating admin stamp...')
+
+      const createdStamp = await createAdminStamp({
+        name: adminStampNameInput,
+        rarity: adminStampRarityInput,
+        imageUrl: adminStampImageUrlInput,
+        location: adminStampLocationInput,
+        xp: adminStampXpInput,
+      })
+
+      await refreshAdminCreatedStamps()
+      setAdminStampId(createdStamp.id)
+      setAdminStampNameInput('')
+      setAdminStampImageUrlInput('')
+      setAdminStampRarityInput('normal')
+      setAdminStampLocationInput('')
+      setAdminStampXpInput('500')
+      setAdminStampCreatorMessage(`${createdStamp.name} created. Claim URL is ready below.`)
+    } catch (error) {
+      setAdminStampCreatorMessage(error.message || 'Could not create admin stamp.')
     }
   }
 
@@ -1769,6 +1819,19 @@ export default function App() {
                   setFestivalMapUrl={setFestivalMapUrl}
                   handleCreateFestival={handleCreateFestival}
                   festivalAdminMessage={festivalAdminMessage}
+                  adminCreatedStamps={adminCreatedStamps}
+                  adminStampNameInput={adminStampNameInput}
+                  setAdminStampNameInput={setAdminStampNameInput}
+                  adminStampImageUrlInput={adminStampImageUrlInput}
+                  setAdminStampImageUrlInput={setAdminStampImageUrlInput}
+                  adminStampRarityInput={adminStampRarityInput}
+                  setAdminStampRarityInput={setAdminStampRarityInput}
+                  adminStampLocationInput={adminStampLocationInput}
+                  setAdminStampLocationInput={setAdminStampLocationInput}
+                  adminStampXpInput={adminStampXpInput}
+                  setAdminStampXpInput={setAdminStampXpInput}
+                  adminStampCreatorMessage={adminStampCreatorMessage}
+                  handleCreateAdminStamp={handleCreateAdminStamp}
                 />
               )}
             </div>

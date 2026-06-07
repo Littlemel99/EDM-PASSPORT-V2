@@ -92,6 +92,19 @@ export default function AdminPage({
   setFestivalMapUrl,
   handleCreateFestival,
   festivalAdminMessage,
+  adminCreatedStamps = [],
+  adminStampNameInput,
+  setAdminStampNameInput,
+  adminStampImageUrlInput,
+  setAdminStampImageUrlInput,
+  adminStampRarityInput,
+  setAdminStampRarityInput,
+  adminStampLocationInput,
+  setAdminStampLocationInput,
+  adminStampXpInput,
+  setAdminStampXpInput,
+  adminStampCreatorMessage,
+  handleCreateAdminStamp,
 }) {
   const mapRef = useRef(null)
   const leafletMapRef = useRef(null)
@@ -573,6 +586,85 @@ export default function AdminPage({
           <div style={styles.linkCard}>No active GPS drops yet.</div>
         )}
       </div>
+      <h3>Admin Stamp Creator</h3>
+
+      <div style={styles.adminCard}>
+        <strong>Create New Stamp from Image URL</strong>
+        <small>
+          Build 13A creates new admin stamps using an existing image URL. Build 13B will add direct image upload.
+        </small>
+
+        <input
+          style={styles.inputLight}
+          placeholder="Stamp name"
+          value={adminStampNameInput}
+          onChange={(event) => setAdminStampNameInput(event.target.value)}
+        />
+
+        <input
+          style={styles.inputLight}
+          placeholder="Stamp image URL"
+          value={adminStampImageUrlInput}
+          onChange={(event) => setAdminStampImageUrlInput(event.target.value)}
+        />
+
+        <input
+          style={styles.inputLight}
+          placeholder="Location / event name"
+          value={adminStampLocationInput}
+          onChange={(event) => setAdminStampLocationInput(event.target.value)}
+        />
+
+        <input
+          style={styles.inputLight}
+          placeholder="XP value"
+          value={adminStampXpInput}
+          onChange={(event) => setAdminStampXpInput(event.target.value)}
+        />
+
+        <select
+          style={styles.inputLight}
+          value={adminStampRarityInput}
+          onChange={(event) => setAdminStampRarityInput(event.target.value)}
+        >
+          <option value="normal">Normal</option>
+          <option value="secret">Secret</option>
+          <option value="legendary">Legendary</option>
+        </select>
+
+        <button style={styles.mainButton} onClick={handleCreateAdminStamp}>
+          CREATE ADMIN STAMP
+        </button>
+
+        {adminStampCreatorMessage && <p style={styles.successText}>{adminStampCreatorMessage}</p>}
+      </div>
+
+      <h3>Admin-Created Stamps</h3>
+
+      <div style={styles.linkList}>
+        {adminCreatedStamps.length ? (
+          adminCreatedStamps.map((stamp) => (
+            <div key={`admin-created-${stamp.id}`} style={styles.adminCard}>
+              <strong>{stamp.name}</strong>
+              <small>{stamp.rarity || 'normal'} • {stamp.location}</small>
+              <img
+                src={stamp.image}
+                alt={stamp.name}
+                style={{ width: 110, height: 110, objectFit: 'cover', borderRadius: 18 }}
+              />
+              <input
+                style={styles.inputLight}
+                readOnly
+                value={getClaimUrl(stamp.id)}
+                onClick={(event) => event.target.select()}
+              />
+            </div>
+          ))
+        ) : (
+          <div style={styles.linkCard}>No admin-created stamps yet.</div>
+        )}
+      </div>
+
 <h3>Admin QR / NFC Stamp Generator</h3>
 
 <div style={styles.linkList}>
