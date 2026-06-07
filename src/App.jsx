@@ -194,7 +194,7 @@ export default function App() {
 
     const params = new URLSearchParams(window.location.search)
     const claimId = params.get('claim')
-    const joinCrewCode = params.get('joincrew')
+    const joinCrewCode = params.get('joincrew') || params.get('familyCode')
     const passportProfileId = params.get('passport') || params.get('profile')
 
     if (passportProfileId) {
@@ -216,7 +216,7 @@ export default function App() {
       localStorage.setItem('edm-pending-family-invite', cleanInviteCode)
       setBookOpen(true)
       setPageIndex(5)
-      setFamilyMessage('Family invite detected. Login and EDM Passport will join it automatically.')
+      setFamilyMessage('Family code loaded. Login first, then tap JOIN FAMILY.')
     }
   }, [])
 
@@ -239,9 +239,17 @@ export default function App() {
 
 
   useEffect(() => {
-    if (!user || !pendingFamilyInviteCode) return
+    if (!pendingFamilyInviteCode) return
 
-    autoJoinPendingFamilyInvite(user, pendingFamilyInviteCode)
+    setJoinCode(pendingFamilyInviteCode)
+    setBookOpen(true)
+    setPageIndex(5)
+
+    if (user) {
+      setFamilyMessage('Family code loaded. Tap JOIN FAMILY to join.')
+    } else {
+      setFamilyMessage('Family code loaded. Login first, then tap JOIN FAMILY.')
+    }
   }, [user, pendingFamilyInviteCode])
 
   useEffect(() => {
