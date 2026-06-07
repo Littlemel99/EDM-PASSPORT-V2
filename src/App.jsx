@@ -103,6 +103,7 @@ export default function App() {
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationError, setLocationError] = useState('')
   const [claimMessage, setClaimMessage] = useState('')
+  const [pendingStampClaimId, setPendingStampClaimId] = useState(localStorage.getItem('edm-pending-stamp-claim') || '')
   const [adminTestMode, setAdminTestMode] = useState(false)
 
   const [families, setFamilies] = useState([])
@@ -204,10 +205,13 @@ export default function App() {
     }
 
     if (claimId && stamps.some((stamp) => stamp.id === claimId)) {
-      setActiveId(claimId)
+      const cleanClaimId = claimId.trim()
+      setActiveId(cleanClaimId)
+      setPendingStampClaimId(cleanClaimId)
+      localStorage.setItem('edm-pending-stamp-claim', cleanClaimId)
       setBookOpen(true)
       setPageIndex(2)
-      setClaimMessage('QR/NFC claim detected.')
+      setClaimMessage('Stamp claim loaded. Login first, then tap COLLECT STAMP.')
     }
 
     if (joinCrewCode) {
@@ -220,6 +224,23 @@ export default function App() {
       setFamilyMessage('Family code loaded. Login first, then tap JOIN FAMILY.')
     }
   }, [])
+
+  useEffect(() => {
+    if (!pendingStampClaimId) return
+
+    const pendingStamp = stamps.find((stamp) => stamp.id === pendingStampClaimId)
+    if (!pendingStamp) return
+
+    setActiveId(pendingStampClaimId)
+    setBookOpen(true)
+    setPageIndex(2)
+
+    if (user) {
+      setClaimMessage(`${pendingStamp.name} claim loaded. Tap COLLECT STAMP to unlock it.`)
+    } else {
+      setClaimMessage(`${pendingStamp.name} claim loaded. Login first, then tap COLLECT STAMP.`)
+    }
+  }, [user, pendingStampClaimId])
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -691,7 +712,16 @@ export default function App() {
   }
 
   async function collectActiveStamp(method = 'manual') {
-    const status = adminTestMode
+    if (!user) {
+      setPendingStampClaimId(activeStamp.id)
+      localStorage.setItem('edm-pending-stamp-claim', activeStamp.id)
+      setClaimMessage('Login first, then tap COLLECT STAMP again.')
+      return
+    }
+
+    const isQrNfcClaim = method.includes('qr') || method.includes('nfc') || pendingStampClaimId === activeStamp.id
+
+    const status = adminTestMode || isQrNfcClaim
       ? { required: false, unlocked: true }
       : getGpsStatus(activeStamp.id, location)
 
@@ -708,10 +738,17 @@ export default function App() {
       return updated
     })
 
-    if (user) await saveStamp(user, activeStamp.id, method)
+    if (user) await saveStamp(user, activeStamp.id, isQrNfcClaim ? 'qr-nfc' : method)
+
+    if (pendingStampClaimId === activeStamp.id) {
+      setPendingStampClaimId('')
+      localStorage.removeItem('edm-pending-stamp-claim')
+      const cleanUrl = window.location.origin + window.location.pathname
+      window.history.replaceState({}, '', cleanUrl)
+    }
 
     if (!wasAlreadyCollected) {
-      showStampReveal(activeStamp.id, method)
+      showStampReveal(activeStamp.id, isQrNfcClaim ? 'qr-nfc claim' : method)
       setClaimMessage(`${activeStamp.name} discovered and saved.`)
     } else {
       setClaimMessage(`${activeStamp.name} was already in your passport.`)
@@ -1337,18 +1374,18 @@ export default function App() {
 
                       return (
                         <button
-  key={stamp.id}
-  style={styles.stampButton}
-  onClick={() => {
-    if (!collected && !live && !isAdmin) {
-      alert('This stamp is still hidden. Find it at EDC to unlock it.')
-      return
-    }
+                          key={stamp.id}
+                          style={styles.stampButton}
+                          onClick={() => {
+                            if (!collected && !live && !isAdmin) {
+                              alert('This stamp is still hidden. Find it at EDC to unlock it.')
+                              return
+                            }
 
-    chooseStamp(stamp)
-  }}
->
-                          <Stamp stamp={stamp} collected={collected || live} />
+                            chooseStamp(stamp)
+                          }}
+                        >
+                          <Stamp stamp={stamp} collected={collected || live} isAdmin={isAdmin} />
                           <small>{stamp.name}</small>
                           <small>{collected ? 'COLLECTED' : live ? 'LIVE' : 'LOCKED'}</small>
                           <small>{memoryCount} memories</small>
@@ -1401,7 +1438,9 @@ export default function App() {
                       CHECK NEARBY GPS DROPS
                     </button>
 
-                    <button style={styles.mainButton} onClick={() => collectActiveStamp('qr-nfc-gps')}>COLLECT STAMP</button>
+                    <button style={styles.mainButton} onClick={() => collectActiveStamp(pendingStampClaimId === activeStamp.id ? 'qr-nfc' : 'qr-nfc-gps')}>
+                      {pendingStampClaimId === activeStamp.id ? 'COLLECT QR / NFC STAMP' : 'COLLECT STAMP'}
+                    </button>
 
                     {locationError && <p style={styles.errorText}>{locationError}</p>}
                     {claimMessage && <p style={styles.successText}>{claimMessage}</p>}
