@@ -580,9 +580,12 @@ export default function AdminPage({
     <div key={`generator-${stamp.id}`} style={styles.adminCard}>
       <strong>{stamp.name}</strong>
 
-      <small>
-        {getClaimUrl(stamp.id)}
-      </small>
+     <input
+  style={styles.inputLight}
+  readOnly
+  value={getClaimUrl(stamp.id)}
+  onClick={(event) => event.target.select()}
+/>
 
       <button
         style={styles.secondaryButton}
