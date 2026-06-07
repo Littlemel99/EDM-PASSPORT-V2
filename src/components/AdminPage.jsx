@@ -573,7 +573,29 @@ export default function AdminPage({
           <div style={styles.linkCard}>No active GPS drops yet.</div>
         )}
       </div>
+<h3>Admin QR / NFC Stamp Generator</h3>
 
+<div style={styles.linkList}>
+  {stamps.map((stamp) => (
+    <div key={`generator-${stamp.id}`} style={styles.adminCard}>
+      <strong>{stamp.name}</strong>
+
+      <small>
+        {getClaimUrl(stamp.id)}
+      </small>
+
+      <button
+        style={styles.secondaryButton}
+        onClick={() => {
+          navigator.clipboard.writeText(getClaimUrl(stamp.id))
+          alert('Claim URL copied')
+        }}
+      >
+        COPY CLAIM URL
+      </button>
+    </div>
+  ))}
+</div>
       <h3>Current Live Drops</h3>
 
       <div style={styles.linkList}>
