@@ -1336,7 +1336,18 @@ export default function App() {
                       const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
 
                       return (
-                        <button key={stamp.id} style={styles.stampButton} onClick={() => chooseStamp(stamp)}>
+                        <button
+  key={stamp.id}
+  style={styles.stampButton}
+  onClick={() => {
+    if (!collected && !live && !isAdmin) {
+      alert('This stamp is still hidden. Find it at EDC to unlock it.')
+      return
+    }
+
+    chooseStamp(stamp)
+  }}
+>
                           <Stamp stamp={stamp} collected={collected || live} />
                           <small>{stamp.name}</small>
                           <small>{collected ? 'COLLECTED' : live ? 'LIVE' : 'LOCKED'}</small>
