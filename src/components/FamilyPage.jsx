@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 export default function FamilyPage({
   styles,
   activeFamily,
@@ -14,6 +16,7 @@ export default function FamilyPage({
   familyMessage,
   displayName,
 }) {
+  const [showFamilyCard, setShowFamilyCard] = useState(false)
   const activeMembers = activeFamily?.members || []
 
   const familyJoinUrl = activeFamily?.code
@@ -21,11 +24,140 @@ export default function FamilyPage({
     : ''
 
   const qrImageUrl = familyJoinUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(familyJoinUrl)}`
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${encodeURIComponent(familyJoinUrl)}`
     : ''
 
   return (
     <>
+      {showFamilyCard && activeFamily && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            padding: '18px',
+            background:
+              'radial-gradient(circle at top, rgba(255,0,230,0.45), rgba(0,0,0,0.96) 45%, #000 100%)',
+            color: 'white',
+            overflowY: 'auto',
+          }}
+        >
+          <div
+            style={{
+              minHeight: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '520px',
+                padding: '24px',
+                borderRadius: '28px',
+                background: 'rgba(0,0,0,0.82)',
+                border: '2px solid rgba(255,255,255,0.35)',
+                boxShadow: '0 0 40px rgba(0,255,255,0.35)',
+                textAlign: 'center',
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13px',
+                  letterSpacing: '3px',
+                  textTransform: 'uppercase',
+                  opacity: 0.85,
+                }}
+              >
+                EDM Passport Family
+              </p>
+
+              <h1
+                style={{
+                  margin: '12px 0 6px',
+                  fontSize: '36px',
+                  lineHeight: 1.05,
+                }}
+              >
+                {activeFamily.name}
+              </h1>
+
+              <p style={{ margin: '0 0 18px', opacity: 0.85 }}>
+                Scan or tap to join this rave family.
+              </p>
+
+              {qrImageUrl && (
+                <div
+                  style={{
+                    margin: '0 auto 18px',
+                    padding: '14px',
+                    borderRadius: '22px',
+                    background: 'white',
+                    display: 'inline-block',
+                  }}
+                >
+                  <img
+                    src={qrImageUrl}
+                    alt="Family join QR code"
+                    style={{
+                      width: '320px',
+                      maxWidth: '78vw',
+                      display: 'block',
+                      borderRadius: '12px',
+                    }}
+                  />
+                </div>
+              )}
+
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13px',
+                  letterSpacing: '2px',
+                  textTransform: 'uppercase',
+                  opacity: 0.85,
+                }}
+              >
+                Family Code
+              </p>
+
+              <h2
+                style={{
+                  margin: '6px 0 16px',
+                  fontSize: '46px',
+                  letterSpacing: '5px',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {activeFamily.code}
+              </h2>
+
+              <p style={{ margin: '0 0 18px', fontSize: '14px', opacity: 0.9 }}>
+                After scanning, login if needed. The code will stay filled in,
+                then tap JOIN FAMILY.
+              </p>
+
+              <button
+                style={{
+                  ...styles.mainButton,
+                  width: '100%',
+                  marginBottom: '10px',
+                }}
+                onClick={() => setShowFamilyCard(false)}
+              >
+                BACK TO FAMILY PAGE
+              </button>
+
+              <small style={{ wordBreak: 'break-word', opacity: 0.72 }}>
+                NFC: {familyJoinUrl}
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
+
       <p style={styles.pageNumber}>Passport Page 6</p>
       <h2 style={styles.bookTitle}>My Family</h2>
 
@@ -69,6 +201,13 @@ export default function FamilyPage({
               Friends can type this code to join your family.
             </p>
           </div>
+
+          <button
+            style={styles.mainButton}
+            onClick={() => setShowFamilyCard(true)}
+          >
+            SHOW FULL-SCREEN FAMILY QR CARD
+          </button>
 
           {qrImageUrl && (
             <div
@@ -230,4 +369,3 @@ export default function FamilyPage({
     </>
   )
 }
-
