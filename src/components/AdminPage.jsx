@@ -291,6 +291,30 @@ export default function AdminPage({
     }
   }, [gpsLatitude, gpsLongitude])
 
+  const selectedClaimStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
+  const stampClaimUrl = selectedClaimStamp
+    ? `${window.location.origin}?claim=${encodeURIComponent(selectedClaimStamp.id)}`
+    : ''
+  const stampClaimQrUrl = stampClaimUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(stampClaimUrl)}`
+    : ''
+
+  async function copyAdminClaimUrl() {
+    if (!stampClaimUrl) return
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(stampClaimUrl)
+        alert('Stamp claim link copied.')
+        return
+      }
+    } catch (error) {
+      console.warn('Clipboard copy failed', error)
+    }
+
+    window.prompt('Copy this stamp claim link:', stampClaimUrl)
+  }
+
   const mapShellStyle = mapExpanded
     ? {
         position: 'fixed',
@@ -361,6 +385,75 @@ export default function AdminPage({
       </button>
 
       {adminMessage && <p style={styles.successText}>{adminMessage}</p>}
+
+      <h2 style={styles.bookTitle}>Admin Stamp QR / NFC Claim Generator</h2>
+
+      <div style={styles.adminCard}>
+        <strong>Generate claim links for existing stamps</strong>
+        <small>Pick a stamp above. Use this QR code or NFC URL to let users unlock that stamp.</small>
+        <small>This does not create new stamp art. It uses the existing stamp image already in the app.</small>
+      </div>
+
+      {selectedClaimStamp && (
+        <div
+          style={{
+            ...styles.adminCard,
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: 12,
+          }}
+        >
+          <strong>{selectedClaimStamp.name}</strong>
+
+          {selectedClaimStamp.image && (
+            <img
+              src={selectedClaimStamp.image}
+              alt={selectedClaimStamp.name}
+              style={{
+                width: 130,
+                height: 130,
+                objectFit: 'cover',
+                borderRadius: 999,
+                border: '3px solid rgba(255,255,255,.55)',
+              }}
+            />
+          )}
+
+          {stampClaimQrUrl && (
+            <div
+              style={{
+                background: 'white',
+                color: '#111',
+                padding: 16,
+                borderRadius: 18,
+                display: 'grid',
+                gap: 8,
+                justifyItems: 'center',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <strong>QR CLAIM CODE</strong>
+              <img
+                src={stampClaimQrUrl}
+                alt={`${selectedClaimStamp.name} claim QR`}
+                style={{ width: 240, maxWidth: '100%', borderRadius: 12 }}
+              />
+              <small>Scan this to unlock the selected stamp.</small>
+            </div>
+          )}
+
+          <div style={styles.linkCard}>
+            <strong>QR / NFC Claim URL</strong>
+            <small style={{ wordBreak: 'break-word' }}>{stampClaimUrl}</small>
+            <small>Program this same URL onto an NFC tag.</small>
+          </div>
+
+          <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
+            COPY CLAIM LINK
+          </button>
+        </div>
+      )}
 
       <h2 style={styles.bookTitle}>Festival Manager</h2>
 
