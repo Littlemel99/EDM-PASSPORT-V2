@@ -88,6 +88,7 @@ export default function App() {
   const [bookOpen, setBookOpen] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [selectedStamp, setSelectedStamp] = useState(null)
+  const [revealedStamp, setRevealedStamp] = useState(null)
 
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
@@ -498,6 +499,17 @@ export default function App() {
     }
   }
 
+  function showStampReveal(stampId, method = 'festival-discovery') {
+    const stampToReveal = stamps.find((stamp) => stamp.id === stampId)
+    if (!stampToReveal) return
+
+    setRevealedStamp({
+      ...stampToReveal,
+      revealMethod: method,
+      collectedAt: new Date().toLocaleString(),
+    })
+  }
+
   async function collectNearbyGpsDropsAtLocation(currentLocation, options = {}) {
     if (options.updateLocation !== false) {
       setLocation(currentLocation)
@@ -544,6 +556,8 @@ export default function App() {
         collectedIdsRef.current = updated
         return updated
       })
+
+      showStampReveal(newUnlockedIds[0], options.method || 'gps-pin-drop')
 
       if (user) {
         await Promise.all(
@@ -686,11 +700,22 @@ export default function App() {
       return
     }
 
-    setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
+    const wasAlreadyCollected = collectedIdsRef.current.includes(activeStamp.id)
+
+    setCollectedIds((current) => {
+      const updated = Array.from(new Set([...current, activeStamp.id, 'world-party-parade']))
+      collectedIdsRef.current = updated
+      return updated
+    })
 
     if (user) await saveStamp(user, activeStamp.id, method)
 
-    setClaimMessage(`${activeStamp.name} collected and saved.`)
+    if (!wasAlreadyCollected) {
+      showStampReveal(activeStamp.id, method)
+      setClaimMessage(`${activeStamp.name} discovered and saved.`)
+    } else {
+      setClaimMessage(`${activeStamp.name} was already in your passport.`)
+    }
   }
 
 
@@ -1710,12 +1735,101 @@ export default function App() {
         )}
       </section>
 
+      {revealedStamp && (
+        <div style={styles.revealBackdrop} onClick={() => setRevealedStamp(null)}>
+          <div style={styles.revealCard} onClick={(event) => event.stopPropagation()}>
+            <p style={styles.revealEyebrow}>⚡ Stamp Discovered ⚡</p>
+            <h1 style={styles.revealTitle}>{revealedStamp.name}</h1>
+            <img src={revealedStamp.image} alt={revealedStamp.name} style={styles.revealImage} />
+            <p style={styles.revealRarity}>{revealedStamp.rarity || 'Festival Drop'}</p>
+            <p style={styles.revealLocation}>{revealedStamp.location}</p>
+            <div style={styles.revealXp}>+{revealedStamp.xp || 100} XP</div>
+            <p style={styles.revealMethod}>Collected by {revealedStamp.revealMethod || 'festival discovery'}</p>
+            <button style={styles.mainButton} onClick={() => setRevealedStamp(null)}>
+              ADD TO PASSPORT
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectedStamp && <StampModal stamp={selectedStamp} onClose={() => setSelectedStamp(null)} />}
     </main>
   )
 }
 
 const styles = {
+  revealBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 10000,
+    background: 'radial-gradient(circle at top, rgba(255,0,200,.38), transparent 38%), rgba(0,0,0,.88)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+  },
+  revealCard: {
+    width: '100%',
+    maxWidth: 390,
+    padding: 20,
+    borderRadius: 28,
+    background: 'linear-gradient(180deg, rgba(5,5,16,.98), rgba(18,8,34,.98))',
+    border: '2px solid rgba(103,232,249,.55)',
+    boxShadow: '0 0 50px rgba(255,79,216,.28)',
+    color: 'white',
+    textAlign: 'center',
+  },
+  revealEyebrow: {
+    margin: '0 0 10px',
+    color: '#67e8f9',
+    fontSize: 12,
+    letterSpacing: '.20em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+  revealTitle: {
+    margin: '0 0 14px',
+    fontSize: 30,
+    fontWeight: 900,
+    lineHeight: 1,
+  },
+  revealImage: {
+    width: 'min(72vw, 280px)',
+    height: 'min(72vw, 280px)',
+    objectFit: 'cover',
+    borderRadius: 999,
+    border: '5px solid rgba(255,255,255,.72)',
+    boxShadow: '0 0 34px rgba(103,232,249,.42)',
+  },
+  revealRarity: {
+    margin: '14px 0 4px',
+    color: '#facc15',
+    fontSize: 12,
+    letterSpacing: '.16em',
+    textTransform: 'uppercase',
+    fontWeight: 900,
+  },
+  revealLocation: {
+    margin: '0 0 12px',
+    color: 'rgba(255,255,255,.72)',
+    fontWeight: 700,
+  },
+  revealXp: {
+    display: 'inline-block',
+    padding: '10px 16px',
+    borderRadius: 999,
+    background: 'linear-gradient(90deg, #ff4fd8, #fb923c, #22d3ee)',
+    color: 'black',
+    fontWeight: 900,
+    fontSize: 18,
+  },
+  revealMethod: {
+    margin: '12px 0 0',
+    color: 'rgba(255,255,255,.58)',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '.08em',
+  },
   screen: { minHeight: '100vh', padding: 16, background: 'radial-gradient(circle at top, rgba(255,0,200,.28), transparent 40%), radial-gradient(circle at bottom, rgba(0,255,255,.20), transparent 45%), #050510', color: 'white', fontFamily: 'Arial, Helvetica, sans-serif', boxSizing: 'border-box' },
   card: { width: '100%', maxWidth: 430, margin: '0 auto', padding: 18, borderRadius: 24, background: 'rgba(0,0,0,.72)', border: '1px solid rgba(0,255,255,.25)', boxSizing: 'border-box' },
   logo: { width: 120, height: 120, borderRadius: 999, objectFit: 'cover', display: 'block', margin: '0 auto 16px' },
