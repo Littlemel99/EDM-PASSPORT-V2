@@ -665,53 +665,45 @@ export default function AdminPage({
         )}
       </div>
 
-<h3>Admin QR / NFC Stamp Generator</h3>
+<<div style={styles.linkList}>
+  {stamps.map((stamp) => {
+    const claimUrl = getClaimUrl(stamp.id)
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(claimUrl)}`
 
-<div style={styles.linkList}>
-  {stamps.map((stamp) => (
-    <div key={`generator-${stamp.id}`} style={styles.adminCard}>
-      <strong>{stamp.name}</strong>
+    return (
+      <div key={`generator-${stamp.id}`} style={styles.adminCard}>
+        <strong>{stamp.name}</strong>
 
-     <input
-  style={styles.inputLight}
-  readOnly
-  value={getClaimUrl(stamp.id)}
-  onClick={(event) => event.target.select()}
-/>
+        <img
+          src={qrUrl}
+          alt={`${stamp.name} claim QR code`}
+          style={{
+            width: '220px',
+            maxWidth: '100%',
+            borderRadius: '14px',
+            background: 'white',
+            padding: '10px',
+            margin: '12px 0',
+          }}
+        />
 
-      <button
-        style={styles.secondaryButton}
-        onClick={() => {
-          navigator.clipboard.writeText(getClaimUrl(stamp.id))
-          alert('Claim URL copied')
-        }}
-      >
-        COPY CLAIM URL
-      </button>
-    </div>
-  ))}
-</div>
-      <h3>Current Live Drops</h3>
+        <input
+          style={styles.inputLight}
+          readOnly
+          value={claimUrl}
+          onClick={(event) => event.target.select()}
+        />
 
-      <div style={styles.linkList}>
-        {stamps.map((stamp) => {
-          const live = activeDrops.includes(stamp.id)
-          const window = activeDropWindows[stamp.id]
-
-          return (
-            <div key={stamp.id} style={styles.adminCard}>
-              <strong>{stamp.name}</strong>
-              <small>{live ? 'LIVE' : 'OFF'}</small>
-              <small>{getClaimUrl(stamp.id, window?.token)}</small>
-              {window?.startsAt && <small>Start: {new Date(window.startsAt).toLocaleString()}</small>}
-              {window?.endsAt && <small>End: {new Date(window.endsAt).toLocaleString()}</small>}
-              {window?.isSecret && <small>SECRET</small>}
-              {window?.isLegendary && <small>LEGENDARY</small>}
-              {window?.maxClaims && <small>Limit: {window.claimCount || 0}/{window.maxClaims}</small>}
-            </div>
-          )
-        })}
+        <button
+          style={styles.secondaryButton}
+          onClick={() => {
+            navigator.clipboard.writeText(claimUrl)
+            alert('Claim URL copied')
+          }}
+        >
+          COPY CLAIM URL
+        </button>
       </div>
-    </>
-  )
-}
+    )
+  })}
+</div>
