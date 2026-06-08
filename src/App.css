@@ -1,213 +1,201 @@
+:root {
+  --edm-bg: #03030b;
+  --edm-panel: rgba(7, 8, 24, 0.88);
+  --edm-panel-2: rgba(16, 8, 34, 0.86);
+  --edm-cyan: #22d3ee;
+  --edm-purple: #a855f7;
+  --edm-pink: #ff3bd4;
+  --edm-blue: #38bdf8;
+  --edm-gold: #facc15;
+  --edm-text: #f8fbff;
+  --edm-muted: rgba(226, 232, 240, 0.72);
+  --edm-line: rgba(34, 211, 238, 0.34);
+  --edm-glow: 0 0 26px rgba(34, 211, 238, 0.24), 0 0 52px rgba(255, 59, 212, 0.16);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  min-height: 100%;
+  margin: 0;
+}
 
 body {
   margin: 0;
-  background: #03040a;
-  color: white;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-.screen {
-  min-height: 100vh;
-  padding: 28px 18px;
   background:
-    radial-gradient(circle at top, rgba(255,0,200,.28), transparent 42%),
-    radial-gradient(circle at bottom, rgba(0,255,255,.24), transparent 45%),
-    #03040a;
+    radial-gradient(circle at 15% 5%, rgba(255, 59, 212, 0.30), transparent 34%),
+    radial-gradient(circle at 88% 12%, rgba(34, 211, 238, 0.24), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(168, 85, 247, 0.22), transparent 42%),
+    linear-gradient(180deg, #02020a 0%, #070016 48%, #02020a 100%) !important;
+  color: var(--edm-text) !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  overflow-x: hidden;
 }
 
-.logoScreen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  cursor: pointer;
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.7), transparent 70%);
 }
 
-.logo {
-  width: 290px;
-  height: 290px;
-  object-fit: cover;
-  border-radius: 999px;
-  border: 1px solid rgba(0,255,255,.35);
-  box-shadow: 0 0 100px rgba(0,255,255,.35);
+button, input, select, textarea {
+  font: inherit;
 }
 
-.smallLogo {
-  width: 88px;
-  height: 88px;
-  object-fit: cover;
-  border-radius: 24px;
+/* App shell */
+[style*="min-height: 100vh"],
+.screen {
+  background:
+    radial-gradient(circle at top left, rgba(255, 59, 212, 0.28), transparent 42%),
+    radial-gradient(circle at bottom right, rgba(34, 211, 238, 0.22), transparent 44%),
+    linear-gradient(180deg, #03030b, #09001f 58%, #03030b) !important;
+  color: var(--edm-text) !important;
 }
 
-h1, h2 {
-  margin: 0;
-  font-weight: 900;
+/* Passport interior pages */
+[style*="linear-gradient(135deg, #fff6d7"],
+[style*="background: linear-gradient(135deg, #fff6d7"],
+[style*="bookPage"] {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 59, 212, 0.20), transparent 36%),
+    radial-gradient(circle at 100% 15%, rgba(34, 211, 238, 0.18), transparent 30%),
+    linear-gradient(145deg, rgba(8, 10, 28, 0.96), rgba(15, 5, 36, 0.94)) !important;
+  color: var(--edm-text) !important;
+  border: 1px solid rgba(34, 211, 238, 0.30) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 59, 212, 0.10), var(--edm-glow) !important;
 }
 
-h1 {
-  font-size: 38px;
+h1, h2, h3, strong {
+  color: var(--edm-text) !important;
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.18);
 }
 
-span {
-  color: #ff4fd8;
+p, small, span, label {
+  color: var(--edm-muted) !important;
 }
 
-.tag, .eyebrow {
-  color: #67e8f9;
-  font-size: 11px;
-  letter-spacing: .28em;
-  text-transform: uppercase;
-  font-weight: 900;
+/* Page numbers, labels, badges */
+[style*="letterSpacing"],
+[style*="letter-spacing"] {
+  color: var(--edm-cyan) !important;
 }
 
-.pink {
-  color: #f9a8d4;
-}
-
-.small, .muted {
-  color: rgba(255,255,255,.6);
-}
-
-.card {
-  max-width: 440px;
-  margin: 0 auto 22px;
-  padding: 22px;
-  border-radius: 32px;
-  background: rgba(0,0,0,.68);
-  border: 1px solid rgba(0,255,255,.22);
-  box-shadow: 0 0 80px rgba(255,0,255,.16);
+/* Cards */
+[style*="rgba(255,255,255,.45)"],
+[style*="rgba(255,255,255,.08)"],
+[style*="rgba(255,255,255,.06)"],
+[style*="rgba(42,22,8,.08)"],
+.card,
+.linkCard,
+.adminCard {
+  background:
+    linear-gradient(145deg, rgba(11, 15, 36, 0.88), rgba(18, 7, 39, 0.82)) !important;
+  color: var(--edm-text) !important;
+  border: 1px solid rgba(34, 211, 238, 0.26) !important;
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.12), inset 0 0 18px rgba(255, 59, 212, 0.06) !important;
   backdrop-filter: blur(18px);
 }
 
-.topRow, .stampPreview, .activeDrop {
-  display: flex;
-  gap: 16px;
-  align-items: center;
+/* Inputs */
+input, select, textarea,
+[style*="inputLight"] {
+  background: rgba(3, 7, 18, 0.92) !important;
+  color: #f8fbff !important;
+  border: 1px solid rgba(34, 211, 238, 0.38) !important;
+  box-shadow: inset 0 0 16px rgba(34, 211, 238, 0.08), 0 0 18px rgba(168, 85, 247, 0.10) !important;
+  outline: none !important;
 }
 
-.stampPreview, .activeDrop {
-  margin: 22px 0;
-  padding: 16px;
-  border-radius: 24px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.1);
+input::placeholder, textarea::placeholder {
+  color: rgba(226, 232, 240, 0.52) !important;
 }
 
-.stamp {
-  width: 96px;
-  height: 96px;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 3px solid rgba(255,255,255,.25);
-  box-shadow: 0 0 35px rgba(255,0,255,.25);
-  flex-shrink: 0;
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(255, 59, 212, 0.70) !important;
+  box-shadow: 0 0 0 3px rgba(255, 59, 212, 0.12), 0 0 26px rgba(34, 211, 238, 0.18) !important;
 }
 
-.stampLarge {
-  width: 150px;
-  height: 150px;
-}
-
-.stamp img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-label {
-  display: block;
-  margin-top: 18px;
-  color: #67e8f9;
-  text-transform: uppercase;
-  letter-spacing: .16em;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-select, input {
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 8px;
-  padding: 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.72);
-  color: white;
-  font-weight: 700;
-}
-
+/* Buttons */
 button {
-  width: 100%;
-  margin-top: 12px;
-  padding: 16px;
-  border-radius: 18px;
-  border: 0;
-  font-weight: 900;
+  color: #ffffff !important;
+  border: 1px solid rgba(34, 211, 238, 0.36) !important;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.16) !important;
+  transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
 }
 
-.mainButton, .googleButton {
-  background: linear-gradient(90deg, #ff4fd8, #fb923c, #22d3ee);
-  color: black;
+button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+  box-shadow: 0 0 26px rgba(255, 59, 212, 0.26), 0 0 38px rgba(34, 211, 238, 0.16) !important;
 }
 
+button:active { transform: translateY(0) scale(.99); }
+
+button[style*="linear-gradient"],
+.mainButton,
+.googleButton {
+  background: linear-gradient(100deg, #00e5ff 0%, #9d4edd 48%, #ff3bd4 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  text-shadow: 0 0 10px rgba(0,0,0,.35);
+}
+
+button[style*="rgba(255,255,255,.08)"],
+.secondaryButton,
 .emailButton {
-  background: rgba(255,255,255,.08);
-  color: white;
-  border: 1px solid rgba(255,255,255,.14);
+  background: linear-gradient(135deg, rgba(8, 13, 36, 0.94), rgba(31, 9, 60, 0.88)) !important;
+  color: #dffaff !important;
+  border: 1px solid rgba(34, 211, 238, 0.46) !important;
 }
 
-.backButton {
-  background: transparent;
-  color: rgba(255,255,255,.55);
-  font-size: 11px;
-  letter-spacing: .2em;
+button[style*="fb7185"],
+.dangerButton {
+  background: linear-gradient(100deg, #ff2e63, #ff8a00) !important;
+  color: #fff !important;
 }
 
-button:disabled {
-  opacity: .35;
-}
-
-.stageList {
-  display: grid;
-  gap: 10px;
-}
-
-.stage {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  color: white;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.1);
-}
-
-.stage.active {
-  border-color: #ff4fd8;
-  background: rgba(255,0,200,.18);
-}
-
-.stage img {
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  object-fit: cover;
-}
-
+/* Stamp vault */
+[style*="gridTemplateColumns"],
 .grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  text-align: center;
+  gap: 14px !important;
 }
 
-.grid p {
-  font-size: 12px;
-  font-weight: 900;
+[style*="borderRadius: 999"],
+.stamp {
+  box-shadow: 0 0 26px rgba(34, 211, 238, 0.26), 0 0 40px rgba(255, 59, 212, 0.16) !important;
+  border-color: rgba(34, 211, 238, 0.48) !important;
 }
 
-.locked {
-  opacity: .3;
-  filter: grayscale(1);
+img[alt*="QR"], img[alt*="QR code"], img[alt*="claim QR"] {
+  background: white !important;
+  box-shadow: 0 0 26px rgba(34, 211, 238, 0.32), 0 0 42px rgba(255, 59, 212, 0.18) !important;
+}
+
+/* Passport cover remains premium but neon-framed */
+img[alt*="Passport"],
+[style*="passportCover"] {
+  border: 1px solid rgba(34, 211, 238, .46) !important;
+  box-shadow: 0 0 34px rgba(34, 211, 238, .16), 0 0 56px rgba(255, 59, 212, .12) !important;
+}
+
+/* Reveal modal */
+[style*="zIndex: 10000"],
+[style*="z-index: 10000"] {
+  background:
+    radial-gradient(circle at top, rgba(255, 59, 212, .42), transparent 40%),
+    radial-gradient(circle at bottom, rgba(34, 211, 238, .30), transparent 42%),
+    rgba(0, 0, 0, .90) !important;
+}
+
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  button { display: none !important; }
+  input { color: #000 !important; background: #fff !important; border: 1px solid #222 !important; }
 }
