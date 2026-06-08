@@ -665,7 +665,7 @@ export default function AdminPage({
         )}
       </div>
 
-<<div style={styles.linkList}>
+<div style={styles.linkList}>
   {stamps.map((stamp) => {
     const claimUrl = getClaimUrl(stamp.id)
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(claimUrl)}`
