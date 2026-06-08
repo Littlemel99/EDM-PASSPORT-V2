@@ -58,6 +58,19 @@ export async function saveStamp(user, stampId, claimMethod = 'manual') {
   if (error) throw error
 }
 
+export async function claimStampDrop(user, stampId, claimMethod = 'qr-nfc') {
+  if (!user) throw new Error('Login required.')
+  if (!stampId) throw new Error('Missing stamp claim.')
+
+  const { data, error } = await supabase.rpc('claim_stamp_drop', {
+    p_stamp_id: stampId,
+    p_claim_method: claimMethod,
+  })
+
+  if (error) throw error
+  return data
+}
+
 export async function loadLiveDrops() {
   const now = new Date().toISOString()
 

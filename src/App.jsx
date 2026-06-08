@@ -16,6 +16,7 @@ import {
   loadCollectedIds,
   loadCollectedIdsByUserId,
   saveStamp,
+  claimStampDrop,
   loadLiveDrops,
   setLiveDrop,
   setAdvancedLiveDrop,
@@ -782,26 +783,41 @@ export default function App() {
 
     const wasAlreadyCollected = collectedIdsRef.current.includes(activeStamp.id)
 
-    setCollectedIds((current) => {
-      const updated = Array.from(new Set([...current, activeStamp.id, 'world-party-parade']))
-      collectedIdsRef.current = updated
-      return updated
-    })
+    try {
+      let claimResult = null
 
-    if (user) await saveStamp(user, activeStamp.id, isQrNfcClaim ? 'qr-nfc' : method)
+      if (isQrNfcClaim) {
+        claimResult = await claimStampDrop(user, activeStamp.id, 'qr-nfc')
+      } else {
+        await saveStamp(user, activeStamp.id, method)
+      }
 
-    if (pendingStampClaimId === activeStamp.id) {
-      setPendingStampClaimId('')
-      localStorage.removeItem('edm-pending-stamp-claim')
-      const cleanUrl = window.location.origin + window.location.pathname
-      window.history.replaceState({}, '', cleanUrl)
-    }
+      setCollectedIds((current) => {
+        const updated = Array.from(new Set([...current, activeStamp.id, 'world-party-parade']))
+        collectedIdsRef.current = updated
+        return updated
+      })
 
-    if (!wasAlreadyCollected) {
-      showStampReveal(activeStamp.id, isQrNfcClaim ? 'qr-nfc claim' : method)
-      setClaimMessage(`${activeStamp.name} discovered and saved.`)
-    } else {
-      setClaimMessage(`${activeStamp.name} was already in your passport.`)
+      if (pendingStampClaimId === activeStamp.id) {
+        setPendingStampClaimId('')
+        localStorage.removeItem('edm-pending-stamp-claim')
+        const cleanUrl = window.location.origin + window.location.pathname
+        window.history.replaceState({}, '', cleanUrl)
+      }
+
+      if (isQrNfcClaim) {
+        await refreshLiveDrops()
+      }
+
+      if (!wasAlreadyCollected && !claimResult?.already_collected) {
+        showStampReveal(activeStamp.id, isQrNfcClaim ? 'qr-nfc claim' : method)
+        setClaimMessage(`${activeStamp.name} discovered and saved.`)
+      } else {
+        setClaimMessage(`${activeStamp.name} was already in your passport.`)
+      }
+    } catch (error) {
+      await refreshLiveDrops()
+      setClaimMessage(error.message || 'Could not claim this stamp drop.')
     }
   }
 
