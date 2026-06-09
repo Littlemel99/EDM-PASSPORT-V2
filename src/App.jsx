@@ -88,7 +88,6 @@ export default function App() {
   const [bookOpen, setBookOpen] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [selectedStamp, setSelectedStamp] = useState(null)
-  const [unlockCelebration, setUnlockCelebration] = useState(null)
 
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
@@ -103,6 +102,7 @@ export default function App() {
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationError, setLocationError] = useState('')
   const [claimMessage, setClaimMessage] = useState('')
+  const [unlockCelebration, setUnlockCelebration] = useState(null)
   const [adminTestMode, setAdminTestMode] = useState(false)
 
   const [families, setFamilies] = useState([])
@@ -158,29 +158,6 @@ export default function App() {
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
   const upcomingFestivals = managedFestivals.filter((festival) => festival.status === 'upcoming')
   const attendedFestivals = managedFestivals.filter((festival) => festival.status === 'attended')
-
-  function openUnlockCelebration(stamp, method = 'festival-claim') {
-    if (!stamp) return
-
-    const dropWindow = activeDropWindows[stamp.id] || {}
-    const rarity = dropWindow.isLegendary
-      ? 'LEGENDARY'
-      : dropWindow.isSecret
-        ? 'SECRET'
-        : (stamp.rarity || 'FESTIVAL').toUpperCase()
-
-    const xp = stamp.xp || (dropWindow.isLegendary ? 1000 : dropWindow.isSecret ? 750 : 500)
-
-    setUnlockCelebration({
-      stamp,
-      method,
-      rarity,
-      xp,
-      isSecret: Boolean(dropWindow.isSecret),
-      isLegendary: Boolean(dropWindow.isLegendary),
-      claimedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-    })
-  }
 
   useEffect(() => {
     localStorage.setItem('edm-country', country)
@@ -576,9 +553,7 @@ export default function App() {
       }
 
       const firstUnlockedStamp = stamps.find((stamp) => stamp.id === newUnlockedIds[0])
-      if (firstUnlockedStamp) {
-        openUnlockCelebration(firstUnlockedStamp, options.method || 'gps-pin-drop')
-      }
+      openUnlockCelebration(firstUnlockedStamp, options.method || 'gps-pin-drop')
     }
 
     const message = newUnlockedIds.length
@@ -705,6 +680,25 @@ export default function App() {
     )
   }
 
+  function openUnlockCelebration(stamp, method = 'festival-claim') {
+    if (!stamp) return
+
+    const rarity = stamp.rarity || (stamp.isLegendary ? 'legendary' : stamp.isSecret ? 'secret' : 'festival')
+    const rarityLabel = String(rarity).toUpperCase()
+
+    setUnlockCelebration({
+      id: stamp.id,
+      name: stamp.name,
+      image: stamp.image,
+      location: stamp.location || 'EDM Passport Drop',
+      xp: stamp.xp || 100,
+      rarity,
+      rarityLabel,
+      method,
+      claimedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+    })
+  }
+
   async function collectActiveStamp(method = 'manual') {
     const status = adminTestMode
       ? { required: false, unlocked: true }
@@ -715,21 +709,12 @@ export default function App() {
       return
     }
 
-    const wasAlreadyCollected = collectedIdsRef.current.includes(activeStamp.id)
-
-    setCollectedIds((current) => {
-      const updated = Array.from(new Set([...current, activeStamp.id, 'world-party-parade']))
-      collectedIdsRef.current = updated
-      return updated
-    })
+    setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
 
     if (user) await saveStamp(user, activeStamp.id, method)
 
     setClaimMessage(`${activeStamp.name} collected and saved.`)
-
-    if (!wasAlreadyCollected) {
-      openUnlockCelebration(activeStamp, method)
-    }
+    openUnlockCelebration(activeStamp, method)
   }
 
 
@@ -1749,285 +1734,102 @@ export default function App() {
         )}
       </section>
 
-      {unlockCelebration && (
-        <div style={styles.unlockOverlay}>
-          <div
-            style={
-              unlockCelebration.isLegendary
-                ? { ...styles.unlockModal, ...styles.unlockModalLegendary }
-                : unlockCelebration.isSecret
-                  ? { ...styles.unlockModal, ...styles.unlockModalSecret }
-                  : styles.unlockModal
-            }
-          >
-            <div style={styles.unlockPulse}>⚡</div>
-            <p style={styles.unlockEyebrow}>STAMP DISCOVERED</p>
-            <h1 style={styles.unlockTitle}>{unlockCelebration.stamp.name}</h1>
-
-            <div style={styles.unlockImageWrap}>
-              <img
-                src={unlockCelebration.stamp.image}
-                alt={unlockCelebration.stamp.name}
-                style={styles.unlockImage}
-              />
-            </div>
-
-            <div style={styles.unlockBadgeRow}>
-              <span
-                style={
-                  unlockCelebration.isLegendary
-                    ? { ...styles.unlockBadge, ...styles.unlockLegendaryBadge }
-                    : unlockCelebration.isSecret
-                      ? { ...styles.unlockBadge, ...styles.unlockSecretBadge }
-                      : styles.unlockBadge
-                }
-              >
-                {unlockCelebration.rarity}
-              </span>
-              <span style={styles.unlockXp}>+{unlockCelebration.xp} XP</span>
-            </div>
-
-            <p style={styles.unlockCopy}>
-              Added to your EDM Passport at {unlockCelebration.claimedAt}. Keep collecting to complete your festival story.
-            </p>
-
-            <button
-              style={styles.mainButton}
-              onClick={() => {
-                setActiveId(unlockCelebration.stamp.id)
-                setUnlockCelebration(null)
-                setBookOpen(true)
-                setPageIndex(1)
-              }}
-            >
-              VIEW IN PASSPORT
-            </button>
-
-            <button style={styles.secondaryButton} onClick={() => setUnlockCelebration(null)}>
-              KEEP EXPLORING
-            </button>
-          </div>
-        </div>
-      )}
-
       {selectedStamp && <StampModal stamp={selectedStamp} onClose={() => setSelectedStamp(null)} />}
     </main>
   )
 }
 
 const styles = {
-  screen: {
-    minHeight: '100vh',
-    padding: 16,
-    background: 'radial-gradient(circle at 12% 8%, rgba(255,45,214,.34), transparent 32%), radial-gradient(circle at 88% 12%, rgba(34,211,238,.30), transparent 34%), radial-gradient(circle at 50% 92%, rgba(124,58,237,.35), transparent 42%), linear-gradient(180deg, #030014 0%, #070018 42%, #020008 100%)',
-    color: '#f8fbff',
-    fontFamily: 'Arial, Helvetica, sans-serif',
-    boxSizing: 'border-box',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 440,
-    margin: '0 auto',
-    padding: 18,
-    borderRadius: 30,
-    background: 'linear-gradient(180deg, rgba(8,5,28,.92), rgba(16,2,35,.88))',
-    border: '1px solid rgba(34,211,238,.55)',
-    boxSizing: 'border-box',
-    boxShadow: '0 0 34px rgba(34,211,238,.18), 0 0 70px rgba(255,45,214,.14), inset 0 0 26px rgba(255,255,255,.04)',
-    backdropFilter: 'blur(10px)',
-  },
-  logo: { width: 126, height: 126, borderRadius: 999, objectFit: 'cover', display: 'block', margin: '0 auto 16px', border: '2px solid rgba(34,211,238,.75)', boxShadow: '0 0 30px rgba(34,211,238,.45), 0 0 55px rgba(255,45,214,.22)' },
-  title: { textAlign: 'center', fontSize: 34, margin: '8px 0', fontWeight: 900, letterSpacing: '.02em', textShadow: '0 0 16px rgba(255,45,214,.65), 0 0 28px rgba(34,211,238,.35)' },
-  tag: { textAlign: 'center', color: '#22d3ee', fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 12px rgba(34,211,238,.9)' },
-  festivalHero: { marginTop: 18, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.22), rgba(124,58,237,.24), rgba(34,211,238,.18))', border: '1px solid rgba(255,45,214,.45)', textAlign: 'center', boxShadow: '0 0 26px rgba(255,45,214,.18)' },
-  festivalHeroTitle: { margin: '0 0 8px', fontSize: 26, fontWeight: 900, color: '#ffffff', textShadow: '0 0 14px rgba(34,211,238,.55)' },
-  sectionTitle: { margin: '22px 0 10px', color: '#22d3ee', fontSize: 13, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 10px rgba(34,211,238,.8)' },
-  festivalList: { display: 'grid', gap: 12, marginTop: 10 },
-  festivalCard: { width: '100%', padding: 15, borderRadius: 20, border: '1px solid rgba(34,211,238,.42)', background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.08), rgba(255,45,214,.06))', color: 'white', display: 'grid', gap: 6, textAlign: 'left', fontWeight: 900, boxShadow: 'inset 0 0 18px rgba(255,255,255,.03), 0 0 18px rgba(34,211,238,.10)' },
-  festivalBadge: { justifySelf: 'start', marginTop: 4, padding: '6px 10px', borderRadius: 999, background: 'linear-gradient(90deg, #ff2dd6, #8b5cf6, #22d3ee)', color: '#030014', fontSize: 10, fontWeight: 900, letterSpacing: '.08em', boxShadow: '0 0 18px rgba(255,45,214,.35)' },
-  passportButton: { width: '100%', marginTop: 18, padding: 0, border: 0, borderRadius: 28, background: 'transparent', filter: 'drop-shadow(0 0 22px rgba(34,211,238,.28))' },
-  passportCover: { width: '100%', maxHeight: 440, objectFit: 'cover', borderRadius: 26, border: '1px solid rgba(34,211,238,.65)', boxShadow: '0 0 34px rgba(34,211,238,.25), 0 0 55px rgba(255,45,214,.15)' },
-  emptyPassport: { padding: 60, borderRadius: 24, background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.7)', fontWeight: 900, border: '1px dashed rgba(34,211,238,.45)' },
-  label: { display: 'block', marginTop: 18, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900 },
-  input: { width: '100%', marginTop: 8, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.36)', background: 'rgba(3,0,20,.78)', color: 'white', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 0 18px rgba(34,211,238,.08)' },
-  inputLight: { width: '100%', marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.48)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 900, outline: 'none', boxShadow: 'inset 0 0 16px rgba(34,211,238,.10), 0 0 12px rgba(34,211,238,.10)' },
-  uploadButton: { width: '100%', marginTop: 12, padding: 18, borderRadius: 18, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(90deg, #ff2dd6, #7c3aed, #22d3ee)', color: '#050510', boxSizing: 'border-box', fontWeight: 900, display: 'block', textAlign: 'center', fontSize: 15, boxShadow: '0 0 22px rgba(34,211,238,.22)' },
-  mainButton: { width: '100%', marginTop: 16, padding: 15, borderRadius: 18, border: '1px solid rgba(255,255,255,.16)', fontWeight: 900, background: 'linear-gradient(90deg, #ff2dd6 0%, #8b5cf6 48%, #22d3ee 100%)', color: '#030014', boxShadow: '0 0 22px rgba(255,45,214,.28), 0 0 28px rgba(34,211,238,.18)', letterSpacing: '.04em' },
-  secondaryButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(135deg, rgba(34,211,238,.18), rgba(124,58,237,.18), rgba(255,45,214,.12))', color: '#f8fbff', fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.14)', letterSpacing: '.03em' },
-  dangerButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(251,113,133,.35)', background: 'linear-gradient(90deg, #fb7185, #f97316)', color: '#12020a', fontWeight: 900, boxShadow: '0 0 18px rgba(251,113,133,.2)' },
-  loginBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.28)' },
-  bookPage: { minHeight: '70vh', padding: 18, borderRadius: 26, background: 'radial-gradient(circle at top left, rgba(255,45,214,.20), transparent 38%), radial-gradient(circle at bottom right, rgba(34,211,238,.18), transparent 38%), linear-gradient(180deg, rgba(10,5,35,.96), rgba(5,0,20,.96))', color: '#f8fbff', boxSizing: 'border-box', touchAction: 'pan-y', border: '1px solid rgba(34,211,238,.55)', boxShadow: '0 0 38px rgba(34,211,238,.18), inset 0 0 30px rgba(255,255,255,.035)' },
-  pageNumber: { color: '#22d3ee', fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 10px rgba(34,211,238,.9)' },
-  bookTitle: { fontSize: 30, margin: '8px 0', fontWeight: 900, color: '#ffffff', textShadow: '0 0 16px rgba(255,45,214,.65), 0 0 22px rgba(34,211,238,.32)' },
-  bookText: { color: '#c7f9ff', fontWeight: 800, lineHeight: 1.45 },
-  claimBox: { marginTop: 16, padding: 16, borderRadius: 20, background: 'linear-gradient(135deg, rgba(34,211,238,.13), rgba(255,45,214,.12))', border: '1px solid rgba(34,211,238,.38)', textAlign: 'center', boxShadow: '0 0 20px rgba(34,211,238,.12)' },
-  autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.35)', display: 'grid', gap: 8 },
-  labelDark: { marginTop: 14, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, display: 'block', textShadow: '0 0 8px rgba(34,211,238,.75)' },
-  checkboxRow: { marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.22)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
+  screen: { minHeight: '100vh', padding: 16, background: 'radial-gradient(circle at top, rgba(255,0,200,.28), transparent 40%), radial-gradient(circle at bottom, rgba(0,255,255,.20), transparent 45%), #050510', color: 'white', fontFamily: 'Arial, Helvetica, sans-serif', boxSizing: 'border-box' },
+  card: { width: '100%', maxWidth: 430, margin: '0 auto', padding: 18, borderRadius: 24, background: 'rgba(0,0,0,.72)', border: '1px solid rgba(0,255,255,.25)', boxSizing: 'border-box' },
+  logo: { width: 120, height: 120, borderRadius: 999, objectFit: 'cover', display: 'block', margin: '0 auto 16px' },
+  title: { textAlign: 'center', fontSize: 34, margin: '8px 0', fontWeight: 900 },
+  tag: { textAlign: 'center', color: '#67e8f9', fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 900 },
+  festivalHero: { marginTop: 18, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,0,200,.20), rgba(0,255,255,.16), rgba(251,146,60,.18))', border: '1px solid rgba(0,255,255,.24)', textAlign: 'center' },
+  festivalHeroTitle: { margin: '0 0 8px', fontSize: 26, fontWeight: 900 },
+  sectionTitle: { margin: '22px 0 10px', color: '#67e8f9', fontSize: 13, letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 900 },
+  festivalList: { display: 'grid', gap: 10, marginTop: 10 },
+  festivalCard: { width: '100%', padding: 14, borderRadius: 18, border: '1px solid rgba(0,255,255,.22)', background: 'rgba(255,255,255,.08)', color: 'white', display: 'grid', gap: 6, textAlign: 'left', fontWeight: 900 },
+  festivalBadge: { justifySelf: 'start', marginTop: 4, padding: '6px 10px', borderRadius: 999, background: 'linear-gradient(90deg, #ff4fd8, #fb923c, #22d3ee)', color: 'black', fontSize: 10, fontWeight: 900, letterSpacing: '.08em' },
+  passportButton: { width: '100%', marginTop: 18, padding: 0, border: 0, borderRadius: 24, background: 'transparent' },
+  passportCover: { width: '100%', maxHeight: 440, objectFit: 'cover', borderRadius: 24, border: '1px solid rgba(0,255,255,.35)' },
+  emptyPassport: { padding: 60, borderRadius: 24, background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.7)', fontWeight: 900 },
+  label: { display: 'block', marginTop: 18, color: '#67e8f9', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 900 },
+  input: { width: '100%', marginTop: 8, padding: 14, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(0,0,0,.65)', color: 'white', boxSizing: 'border-box' },
+  inputLight: { width: '100%', marginTop: 12, padding: 14, borderRadius: 14, border: '1px solid rgba(42,22,8,.18)', background: 'rgba(255,255,255,.55)', color: '#2a1608', boxSizing: 'border-box', fontWeight: 900 },
+  uploadButton: { width: '100%', marginTop: 12, padding: 18, borderRadius: 16, border: '2px solid rgba(42,22,8,.24)', background: 'linear-gradient(90deg, #f9a8d4, #fde68a, #67e8f9)', color: '#2a1608', boxSizing: 'border-box', fontWeight: 900, display: 'block', textAlign: 'center', fontSize: 15 },
+  mainButton: { width: '100%', marginTop: 16, padding: 14, borderRadius: 16, border: 0, fontWeight: 900, background: 'linear-gradient(90deg, #ff4fd8, #fb923c, #22d3ee)', color: 'black' },
+  secondaryButton: { width: '100%', marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.08)', color: 'white', fontWeight: 900 },
+  dangerButton: { width: '100%', marginTop: 12, padding: 12, borderRadius: 14, border: 0, background: 'linear-gradient(90deg, #fb7185, #f97316)', color: 'black', fontWeight: 900 },
+  loginBox: { marginTop: 16, padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.08)' },
+  bookPage: { minHeight: '70vh', padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, #fff6d7, #e8cf96)', color: '#2a1608', boxSizing: 'border-box', touchAction: 'pan-y' },
+  pageNumber: { color: '#7c4a14', fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 900 },
+  bookTitle: { fontSize: 30, margin: '8px 0', fontWeight: 900 },
+  bookText: { color: '#7c4a14', fontWeight: 700 },
+  claimBox: { marginTop: 16, padding: 16, borderRadius: 18, background: 'rgba(255,255,255,.45)', textAlign: 'center' },
+  autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,0,200,.18), rgba(0,255,255,.16))', border: '1px solid rgba(42,22,8,.18)', display: 'grid', gap: 8 },
+  labelDark: { marginTop: 14, color: '#7c4a14', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 900, display: 'block' },
+  checkboxRow: { marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.45)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
   stampGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 18 },
-  stampButton: { border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 8, fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.12), inset 0 0 18px rgba(255,255,255,.025)' },
+  stampButton: { border: 0, background: 'rgba(42,22,8,.08)', color: '#2a1608', borderRadius: 16, padding: 10, display: 'grid', justifyItems: 'center', gap: 8, fontWeight: 900 },
   pageControls: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginTop: 12 },
-  pageCounter: { margin: 0, color: '#22d3ee', fontSize: 12, fontWeight: 900, textShadow: '0 0 9px rgba(34,211,238,.8)' },
-  successBox: { marginTop: 14, padding: 12, borderRadius: 14, background: 'rgba(34,197,94,.16)', border: '1px solid rgba(34,197,94,.42)', color: '#dcfce7' },
-  warningBox: { marginTop: 14, padding: 12, borderRadius: 14, background: 'rgba(251,146,60,.15)', border: '1px solid rgba(251,146,60,.4)', color: '#ffedd5' },
-  errorText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(127,29,29,.50)', color: '#fecaca', fontWeight: 900, border: '1px solid rgba(248,113,113,.34)' },
-  successText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(22,101,52,.30)', color: '#bbf7d0', fontWeight: 900, border: '1px solid rgba(34,197,94,.34)' },
-  linkList: { display: 'grid', gap: 12, marginTop: 16 },
-  linkCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.07))', border: '1px solid rgba(34,211,238,.30)', color: '#f8fbff', display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 16px rgba(34,211,238,.10)' },
-  adminCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(34,211,238,.10), rgba(124,58,237,.10), rgba(255,45,214,.08))', border: '1px solid rgba(34,211,238,.34)', color: '#f8fbff', display: 'grid', gap: 8, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 18px rgba(34,211,238,.12)' },
-  crewHero: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.24), rgba(124,58,237,.20), rgba(34,211,238,.20))', textAlign: 'center', border: '1px solid rgba(34,211,238,.42)', boxShadow: '0 0 24px rgba(255,45,214,.16)' },
-  familyCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.06))', display: 'grid', gap: 4, textAlign: 'left', border: '1px solid rgba(34,211,238,.30)', color: '#f8fbff', fontWeight: 900 },
-  familyActive: { padding: 13, borderRadius: 16, background: 'linear-gradient(90deg, rgba(255,45,214,.32), rgba(34,211,238,.26))', display: 'grid', gap: 4, textAlign: 'left', border: '2px solid rgba(34,211,238,.58)', color: '#f8fbff', fontWeight: 900, boxShadow: '0 0 20px rgba(34,211,238,.18)' },
-  rankCard: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.30)', textAlign: 'center' },
-  rankTitle: { margin: '8px 0', fontSize: 32, fontWeight: 900, color: '#ffffff', textShadow: '0 0 14px rgba(255,45,214,.55)' },
+  pageCounter: { margin: 0, color: '#67e8f9', fontSize: 12, fontWeight: 900 },
+  successBox: { marginTop: 14, padding: 12, borderRadius: 14, background: 'rgba(34,197,94,.18)', border: '1px solid rgba(34,197,94,.35)' },
+  warningBox: { marginTop: 14, padding: 12, borderRadius: 14, background: 'rgba(251,146,60,.18)', border: '1px solid rgba(251,146,60,.35)' },
+  errorText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(127,29,29,.45)', color: '#fecaca', fontWeight: 900 },
+  successText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(22,101,52,.30)', color: '#bbf7d0', fontWeight: 900 },
+  linkList: { display: 'grid', gap: 10, marginTop: 16 },
+  linkCard: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 11 },
+  adminCard: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 8, overflowWrap: 'anywhere', fontSize: 11 },
+  crewHero: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,0,200,.22), rgba(0,255,255,.20), rgba(251,146,60,.20))', textAlign: 'center', border: '1px solid rgba(42,22,8,.18)' },
+  familyCard: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 4, textAlign: 'left', border: 0, color: '#2a1608', fontWeight: 900 },
+  familyActive: { padding: 12, borderRadius: 14, background: 'linear-gradient(90deg, rgba(255,0,200,.25), rgba(0,255,255,.25))', display: 'grid', gap: 4, textAlign: 'left', border: '2px solid rgba(42,22,8,.35)', color: '#2a1608', fontWeight: 900 },
+  rankCard: { marginTop: 16, padding: 18, borderRadius: 20, background: 'linear-gradient(135deg, rgba(255,0,200,.18), rgba(0,255,255,.16))', textAlign: 'center' },
+  rankTitle: { margin: '8px 0', fontSize: 32, fontWeight: 900 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 16 },
   statsMiniGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 16 },
-  statBox: { padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.26)', color: '#f8fbff', display: 'grid', gap: 4, textAlign: 'center', fontWeight: 900 },
-  achievementUnlocked: { padding: 12, borderRadius: 14, background: 'linear-gradient(135deg, rgba(253,224,71,.20), rgba(255,45,214,.12))', border: '1px solid rgba(253,224,71,.42)', display: 'grid', gap: 4 },
-  achievementLocked: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', opacity: 0.45, display: 'grid', gap: 4 },
-  flexCard: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.38), rgba(124,58,237,.28), rgba(34,211,238,.28))', color: 'white', textAlign: 'center', boxShadow: '0 0 45px rgba(255,45,214,.22), 0 0 50px rgba(34,211,238,.14)' },
-  memoryBox: { width: '100%', minHeight: 180, marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.35)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 800, outline: 'none' },
-  storyHero: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,45,214,.22), rgba(34,211,238,.20))', border: '1px solid rgba(34,211,238,.34)', textAlign: 'center' },
-  timelineCard: { padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 8 },
-  adminMapHeader: { marginTop: 18, padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 6, fontWeight: 900 },
+  statBox: { padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 4, textAlign: 'center', fontWeight: 900 },
+  achievementUnlocked: { padding: 12, borderRadius: 14, background: 'rgba(253,224,71,.35)', display: 'grid', gap: 4 },
+  achievementLocked: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.22)', opacity: 0.45, display: 'grid', gap: 4 },
+  flexCard: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,0,200,.35), rgba(0,255,255,.24), rgba(251,146,60,.28))', color: 'white', textAlign: 'center', boxShadow: '0 0 45px rgba(255,0,255,.22)' },
+  memoryBox: { width: '100%', minHeight: 180, marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(42,22,8,.18)', background: 'rgba(255,255,255,.55)', color: '#2a1608', boxSizing: 'border-box', fontWeight: 800 },
+  storyHero: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,0,200,.22), rgba(0,255,255,.20), rgba(251,146,60,.20))', textAlign: 'center' },
+  timelineCard: { padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 8 },
+  adminMapHeader: { marginTop: 18, padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 6, fontWeight: 900 },
   adminMap: {
     position: 'relative',
     height: 360,
     marginTop: 12,
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: 'hidden',
-    border: '2px solid rgba(34,211,238,.42)',
-    backgroundImage: 'linear-gradient(rgba(34,211,238,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,.12) 1px, transparent 1px), radial-gradient(circle at 40% 35%, rgba(255,45,214,.24), transparent 26%), radial-gradient(circle at 60% 70%, rgba(34,211,238,.25), transparent 30%), linear-gradient(135deg, #050510, #14022e)',
+    border: '2px solid rgba(42,22,8,.22)',
+    backgroundImage: 'linear-gradient(rgba(42,22,8,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(42,22,8,.16) 1px, transparent 1px), radial-gradient(circle at 40% 35%, rgba(255,0,200,.22), transparent 26%), radial-gradient(circle at 60% 70%, rgba(0,255,255,.24), transparent 30%), linear-gradient(135deg, #fef3c7, #d9a441)',
     backgroundSize: '32px 32px, 32px 32px, 100% 100%, 100% 100%, 100% 100%',
-    boxShadow: 'inset 0 0 40px rgba(34,211,238,.12), 0 0 24px rgba(34,211,238,.12)',
+    boxShadow: 'inset 0 0 35px rgba(42,22,8,.18)',
     touchAction: 'manipulation',
   },
-  adminMapLabel: { position: 'absolute', left: 12, top: 12, padding: '6px 10px', borderRadius: 999, background: 'rgba(3,0,20,.78)', color: '#22d3ee', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', border: '1px solid rgba(34,211,238,.35)' },
-  adminMapPin: { position: 'absolute', transform: 'translate(-50%, -100%)', border: 0, background: 'transparent', fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 0 8px rgba(255,45,214,.95))', cursor: 'pointer' },
-  adminMapSelectedPin: { position: 'absolute', transform: 'translate(-50%, -50%)', fontSize: 24, filter: 'drop-shadow(0 0 10px rgba(34,211,238,.95))', pointerEvents: 'none' },
+  adminMapLabel: { position: 'absolute', left: 12, top: 12, padding: '6px 10px', borderRadius: 999, background: 'rgba(0,0,0,.62)', color: '#67e8f9', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' },
+  adminMapPin: { position: 'absolute', transform: 'translate(-50%, -100%)', border: 0, background: 'transparent', fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 0 8px rgba(255,0,200,.85))', cursor: 'pointer' },
+  adminMapSelectedPin: { position: 'absolute', transform: 'translate(-50%, -50%)', fontSize: 24, filter: 'drop-shadow(0 0 10px rgba(0,255,255,.95))', pointerEvents: 'none' },
   exportGrid: { display: 'grid', gap: 14, marginTop: 16 },
-  exportCard: { padding: 14, borderRadius: 20, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.05))', display: 'grid', gap: 10, textAlign: 'center', border: '1px solid rgba(34,211,238,.32)', color: '#f8fbff', boxShadow: '0 0 20px rgba(34,211,238,.12)' },
-  exportMiniPassport: { padding: 12, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,45,214,.14), rgba(34,211,238,.12))', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 6, justifyItems: 'center' },
-  exportBadgePreview: { minHeight: 170, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.20), rgba(34,211,238,.16), rgba(124,58,237,.18))', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center' },
-  lockScreenPreview: { minHeight: 260, padding: 12, borderRadius: 24, background: 'radial-gradient(circle at top, rgba(255,45,214,.30), transparent 45%), radial-gradient(circle at bottom, rgba(34,211,238,.24), transparent 45%), #050510', color: 'white', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center', border: '1px solid rgba(34,211,238,.35)' },
-  exportCover: { width: '100%', maxWidth: 150, borderRadius: 12, border: '1px solid rgba(34,211,238,.45)', boxShadow: '0 0 18px rgba(34,211,238,.18)' },
-  exportCoverSmall: { width: 90, borderRadius: 10, border: '1px solid rgba(34,211,238,.45)' },
-  qrPlaceholder: { width: 82, height: 82, borderRadius: 10, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)' },
-  qrImage: { width: 92, height: 92, borderRadius: 12, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)', boxSizing: 'border-box' },
-  memoryImage: { width: '100%', borderRadius: 14, marginTop: 8, border: '1px solid rgba(34,211,238,.28)' },
-  unlockOverlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 1000,
-    padding: 18,
-    display: 'grid',
-    placeItems: 'center',
-    background: 'radial-gradient(circle at 50% 20%, rgba(255,45,214,.34), transparent 30%), radial-gradient(circle at 50% 80%, rgba(34,211,238,.30), transparent 34%), rgba(3,0,20,.86)',
-    backdropFilter: 'blur(12px)',
-  },
-  unlockModal: {
-    width: '100%',
-    maxWidth: 390,
-    padding: 22,
-    borderRadius: 32,
-    textAlign: 'center',
-    color: '#f8fbff',
-    background: 'linear-gradient(180deg, rgba(10,5,35,.96), rgba(22,3,46,.94))',
-    border: '1px solid rgba(34,211,238,.62)',
-    boxShadow: '0 0 34px rgba(34,211,238,.32), 0 0 70px rgba(255,45,214,.24), inset 0 0 28px rgba(255,255,255,.05)',
-    animation: 'stampPop .55s ease both',
-  },
-  unlockModalLegendary: {
-    border: '1px solid rgba(255,214,10,.86)',
-    boxShadow: '0 0 38px rgba(255,214,10,.42), 0 0 86px rgba(255,45,214,.28), inset 0 0 34px rgba(255,214,10,.08)',
-  },
-  unlockModalSecret: {
-    border: '1px solid rgba(255,45,214,.75)',
-    boxShadow: '0 0 38px rgba(255,45,214,.42), 0 0 86px rgba(34,211,238,.24), inset 0 0 34px rgba(255,45,214,.08)',
-  },
-  unlockPulse: {
-    width: 58,
-    height: 58,
-    margin: '0 auto 10px',
-    borderRadius: 999,
-    display: 'grid',
-    placeItems: 'center',
-    fontSize: 34,
-    background: 'linear-gradient(135deg, #ff2dd6, #8b5cf6, #22d3ee)',
-    color: '#030014',
-    boxShadow: '0 0 28px rgba(34,211,238,.55), 0 0 50px rgba(255,45,214,.35)',
-  },
-  unlockEyebrow: {
-    margin: 0,
-    color: '#22d3ee',
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: '.22em',
-    textTransform: 'uppercase',
-    textShadow: '0 0 12px rgba(34,211,238,.8)',
-  },
-  unlockTitle: {
-    margin: '8px 0 14px',
-    fontSize: 28,
-    lineHeight: 1.05,
-    fontWeight: 900,
-    textShadow: '0 0 18px rgba(255,45,214,.72), 0 0 26px rgba(34,211,238,.42)',
-  },
-  unlockImageWrap: {
-    width: 190,
-    height: 190,
-    margin: '0 auto 14px',
-    borderRadius: 999,
-    padding: 8,
-    background: 'conic-gradient(from 180deg, #ff2dd6, #22d3ee, #8b5cf6, #ffd60a, #ff2dd6)',
-    boxShadow: '0 0 32px rgba(255,45,214,.38), 0 0 56px rgba(34,211,238,.28)',
-  },
-  unlockImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    borderRadius: 999,
-    border: '4px solid rgba(3,0,20,.95)',
-    background: '#030014',
-  },
-  unlockBadgeRow: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-    margin: '10px 0',
-  },
-  unlockBadge: {
-    padding: '8px 12px',
-    borderRadius: 999,
-    background: 'linear-gradient(90deg, #22d3ee, #8b5cf6)',
-    color: '#030014',
-    fontSize: 11,
-    fontWeight: 900,
-    letterSpacing: '.12em',
-    boxShadow: '0 0 18px rgba(34,211,238,.34)',
-  },
-  unlockLegendaryBadge: {
-    background: 'linear-gradient(90deg, #ffd60a, #ff9f1c)',
-    boxShadow: '0 0 22px rgba(255,214,10,.55)',
-  },
-  unlockSecretBadge: {
-    background: 'linear-gradient(90deg, #ff2dd6, #22d3ee)',
-    boxShadow: '0 0 22px rgba(255,45,214,.55)',
-  },
-  unlockXp: {
-    padding: '8px 12px',
-    borderRadius: 999,
-    background: 'rgba(255,255,255,.10)',
-    border: '1px solid rgba(34,211,238,.34)',
-    color: '#f8fbff',
-    fontSize: 11,
-    fontWeight: 900,
-    letterSpacing: '.10em',
-  },
-  unlockCopy: {
-    color: 'rgba(248,251,255,.82)',
-    fontSize: 14,
-    lineHeight: 1.45,
-  }
+  exportCard: { padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.45)', display: 'grid', gap: 10, textAlign: 'center', border: '1px solid rgba(42,22,8,.12)' },
+  exportMiniPassport: { padding: 12, borderRadius: 16, background: 'linear-gradient(135deg, rgba(42,22,8,.12), rgba(255,255,255,.40))', display: 'grid', gap: 6, justifyItems: 'center' },
+  exportBadgePreview: { minHeight: 170, padding: 12, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,0,200,.20), rgba(0,255,255,.16), rgba(253,224,71,.28))', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center' },
+  lockScreenPreview: { minHeight: 260, padding: 12, borderRadius: 24, background: 'radial-gradient(circle at top, rgba(255,0,200,.28), transparent 45%), radial-gradient(circle at bottom, rgba(0,255,255,.22), transparent 45%), #050510', color: 'white', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center' },
+  exportCover: { width: '100%', maxWidth: 150, borderRadius: 12, border: '1px solid rgba(42,22,8,.2)' },
+  exportCoverSmall: { width: 90, borderRadius: 10, border: '1px solid rgba(42,22,8,.2)' },
+  qrPlaceholder: { width: 82, height: 82, borderRadius: 10, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(0,0,0,.22)' },
+  qrImage: { width: 92, height: 92, borderRadius: 12, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(0,0,0,.22)', boxSizing: 'border-box' },
+  memoryImage: { width: '100%', borderRadius: 14, marginTop: 8 },
+  unlockOverlay: { position: 'fixed', inset: 0, zIndex: 1000, padding: 18, display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at top, rgba(255,0,200,.35), transparent 45%), radial-gradient(circle at bottom, rgba(0,255,255,.25), transparent 45%), rgba(0,0,0,.88)', boxSizing: 'border-box' },
+  unlockModal: { width: '100%', maxWidth: 390, padding: 22, borderRadius: 28, background: 'linear-gradient(145deg, rgba(10,0,30,.96), rgba(30,0,70,.92), rgba(0,20,40,.94))', border: '1px solid rgba(0,255,255,.42)', boxShadow: '0 0 60px rgba(255,0,200,.30), 0 0 80px rgba(0,255,255,.20)', color: 'white', textAlign: 'center', display: 'grid', gap: 12 },
+  unlockPulse: { width: 58, height: 58, margin: '0 auto', borderRadius: 999, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, #ff4fd8, #22d3ee)', color: '#050510', fontSize: 30, fontWeight: 900, boxShadow: '0 0 30px rgba(34,211,238,.65)' },
+  unlockEyebrow: { margin: 0, color: '#67e8f9', fontSize: 12, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 900 },
+  unlockTitle: { margin: 0, fontSize: 30, lineHeight: 1.05, fontWeight: 900, textShadow: '0 0 18px rgba(255,0,200,.65)' },
+  unlockImageWrap: { margin: '4px auto', width: 176, height: 176, borderRadius: 999, padding: 8, background: 'linear-gradient(135deg, #ff4fd8, #fde047, #22d3ee)', boxShadow: '0 0 35px rgba(255,0,200,.35)' },
+  unlockImage: { width: '100%', height: '100%', borderRadius: 999, objectFit: 'cover', display: 'block', background: '#050510' },
+  unlockFallback: { width: '100%', height: '100%', borderRadius: 999, display: 'grid', placeItems: 'center', background: '#050510', fontSize: 54 },
+  unlockBadgeRow: { display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' },
+  unlockBadge: { padding: '7px 11px', borderRadius: 999, background: 'linear-gradient(90deg, #ff4fd8, #22d3ee)', color: '#050510', fontSize: 11, fontWeight: 900, letterSpacing: '.10em' },
+  unlockText: { margin: 0, color: 'rgba(255,255,255,.78)', fontWeight: 800, lineHeight: 1.45 },
 }
