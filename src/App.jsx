@@ -5,7 +5,7 @@ import RecapPage from './components/RecapPage'
 import PublicProfile from './components/PublicProfile'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
-import { stamps as builtInStamps } from './data/stamps'
+import { stamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
 import { getGpsStatus } from './lib/gps'
@@ -16,7 +16,6 @@ import {
   loadCollectedIds,
   loadCollectedIdsByUserId,
   saveStamp,
-  claimStampDrop,
   loadLiveDrops,
   setLiveDrop,
   setAdvancedLiveDrop,
@@ -51,13 +50,13 @@ import {
   loadFestivalRecords,
   createFestivalRecord,
 } from './services/festivalService'
-import {
-  loadAdminStamps,
-  createAdminStamp,
-} from './services/adminStampService'
 
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
+
+function getActiveStamp(id) {
+  return stamps.find((stamp) => stamp.id === id) || stamps[0]
+}
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -89,7 +88,6 @@ export default function App() {
   const [bookOpen, setBookOpen] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [selectedStamp, setSelectedStamp] = useState(null)
-  const [revealedStamp, setRevealedStamp] = useState(null)
 
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
@@ -104,7 +102,6 @@ export default function App() {
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationError, setLocationError] = useState('')
   const [claimMessage, setClaimMessage] = useState('')
-  const [pendingStampClaimId, setPendingStampClaimId] = useState(localStorage.getItem('edm-pending-stamp-claim') || '')
   const [adminTestMode, setAdminTestMode] = useState(false)
 
   const [families, setFamilies] = useState([])
@@ -128,13 +125,6 @@ export default function App() {
   const [dropLegendary, setDropLegendary] = useState(false)
   const [dropMaxClaims, setDropMaxClaims] = useState('')
   const [adminMessage, setAdminMessage] = useState('')
-  const [adminCreatedStamps, setAdminCreatedStamps] = useState([])
-  const [adminStampNameInput, setAdminStampNameInput] = useState('')
-  const [adminStampImageUrlInput, setAdminStampImageUrlInput] = useState('')
-  const [adminStampRarityInput, setAdminStampRarityInput] = useState('normal')
-  const [adminStampLocationInput, setAdminStampLocationInput] = useState('')
-  const [adminStampXpInput, setAdminStampXpInput] = useState('500')
-  const [adminStampCreatorMessage, setAdminStampCreatorMessage] = useState('')
   const [gpsTitle, setGpsTitle] = useState('')
   const [gpsLatitude, setGpsLatitude] = useState('')
   const [gpsLongitude, setGpsLongitude] = useState('')
@@ -149,11 +139,9 @@ export default function App() {
   const gpsDropsRef = useRef(gpsDrops)
   const autoCollectLastCheckRef = useRef(0)
 
-  const stamps = useMemo(() => [...builtInStamps, ...adminCreatedStamps], [adminCreatedStamps])
-
   const isAdmin = user?.email === ADMIN_EMAIL
   const maxPage = isAdmin ? 11 : 10
-  const activeStamp = useMemo(() => stamps.find((stamp) => stamp.id === activeId) || stamps[0] || builtInStamps[0], [activeId, stamps])
+  const activeStamp = useMemo(() => getActiveStamp(activeId), [activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
   const collectedStamps = stamps.filter((stamp) => collectedIds.includes(stamp.id))
   const stats = getStats(collectedStamps, stamps.length)
@@ -199,7 +187,6 @@ export default function App() {
   }, [gpsDrops])
 
   useEffect(() => {
-    refreshAdminCreatedStamps()
     refreshLiveDrops()
     refreshPublicFamilies()
     refreshGpsDrops()
@@ -207,7 +194,7 @@ export default function App() {
 
     const params = new URLSearchParams(window.location.search)
     const claimId = params.get('claim')
-    const joinCrewCode = params.get('joincrew') || params.get('familyCode')
+    const joinCrewCode = params.get('joincrew')
     const passportProfileId = params.get('passport') || params.get('profile')
 
     if (passportProfileId) {
@@ -215,14 +202,11 @@ export default function App() {
       loadPublicPassportProfile(passportProfileId)
     }
 
-    if (claimId) {
-      const cleanClaimId = claimId.trim()
-      setActiveId(cleanClaimId)
-      setPendingStampClaimId(cleanClaimId)
-      localStorage.setItem('edm-pending-stamp-claim', cleanClaimId)
+    if (claimId && stamps.some((stamp) => stamp.id === claimId)) {
+      setActiveId(claimId)
       setBookOpen(true)
       setPageIndex(2)
-      setClaimMessage('Stamp claim loaded. Login first, then tap COLLECT STAMP.')
+      setClaimMessage('QR/NFC claim detected.')
     }
 
     if (joinCrewCode) {
@@ -232,27 +216,9 @@ export default function App() {
       localStorage.setItem('edm-pending-family-invite', cleanInviteCode)
       setBookOpen(true)
       setPageIndex(5)
-      setFamilyMessage('Family code loaded. Login first, then tap JOIN FAMILY.')
+      setFamilyMessage('Family invite detected. Login and EDM Passport will join it automatically.')
     }
   }, [])
-
-  useEffect(() => {
-    if (!pendingStampClaimId) return
-
-    const pendingStamp = stamps.find((stamp) => stamp.id === pendingStampClaimId)
-
-    setActiveId(pendingStampClaimId)
-    setBookOpen(true)
-    setPageIndex(2)
-
-    const claimName = pendingStamp?.name || 'Stamp'
-
-    if (user) {
-      setClaimMessage(`${claimName} claim loaded. Tap COLLECT STAMP to unlock it.`)
-    } else {
-      setClaimMessage(`${claimName} claim loaded. Login first, then tap COLLECT STAMP.`)
-    }
-  }, [user, pendingStampClaimId, stamps])
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -430,45 +396,6 @@ export default function App() {
     }
   }
 
-
-  async function refreshAdminCreatedStamps() {
-    try {
-      setAdminCreatedStamps(await loadAdminStamps())
-    } catch (error) {
-      console.error('Could not load admin-created stamps:', error)
-    }
-  }
-
-  async function handleCreateAdminStamp() {
-    if (!isAdmin) {
-      setAdminStampCreatorMessage('Admin access required.')
-      return
-    }
-
-    try {
-      setAdminStampCreatorMessage('Creating admin stamp...')
-
-      const createdStamp = await createAdminStamp({
-        name: adminStampNameInput,
-        rarity: adminStampRarityInput,
-        imageUrl: adminStampImageUrlInput,
-        location: adminStampLocationInput,
-        xp: adminStampXpInput,
-      })
-
-      await refreshAdminCreatedStamps()
-      setAdminStampId(createdStamp.id)
-      setAdminStampNameInput('')
-      setAdminStampImageUrlInput('')
-      setAdminStampRarityInput('normal')
-      setAdminStampLocationInput('')
-      setAdminStampXpInput('500')
-      setAdminStampCreatorMessage(`${createdStamp.name} created. Claim URL is ready below.`)
-    } catch (error) {
-      setAdminStampCreatorMessage(error.message || 'Could not create admin stamp.')
-    }
-  }
-
   async function refreshUserData(currentUser = user) {
     if (!currentUser) return
 
@@ -571,17 +498,6 @@ export default function App() {
     }
   }
 
-  function showStampReveal(stampId, method = 'festival-discovery') {
-    const stampToReveal = stamps.find((stamp) => stamp.id === stampId)
-    if (!stampToReveal) return
-
-    setRevealedStamp({
-      ...stampToReveal,
-      revealMethod: method,
-      collectedAt: new Date().toLocaleString(),
-    })
-  }
-
   async function collectNearbyGpsDropsAtLocation(currentLocation, options = {}) {
     if (options.updateLocation !== false) {
       setLocation(currentLocation)
@@ -628,8 +544,6 @@ export default function App() {
         collectedIdsRef.current = updated
         return updated
       })
-
-      showStampReveal(newUnlockedIds[0], options.method || 'gps-pin-drop')
 
       if (user) {
         await Promise.all(
@@ -763,16 +677,7 @@ export default function App() {
   }
 
   async function collectActiveStamp(method = 'manual') {
-    if (!user) {
-      setPendingStampClaimId(activeStamp.id)
-      localStorage.setItem('edm-pending-stamp-claim', activeStamp.id)
-      setClaimMessage('Login first, then tap COLLECT STAMP again.')
-      return
-    }
-
-    const isQrNfcClaim = method.includes('qr') || method.includes('nfc') || pendingStampClaimId === activeStamp.id
-
-    const status = adminTestMode || isQrNfcClaim
+    const status = adminTestMode
       ? { required: false, unlocked: true }
       : getGpsStatus(activeStamp.id, location)
 
@@ -781,44 +686,11 @@ export default function App() {
       return
     }
 
-    const wasAlreadyCollected = collectedIdsRef.current.includes(activeStamp.id)
+    setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
 
-    try {
-      let claimResult = null
+    if (user) await saveStamp(user, activeStamp.id, method)
 
-      if (isQrNfcClaim) {
-        claimResult = await claimStampDrop(user, activeStamp.id, 'qr-nfc')
-      } else {
-        await saveStamp(user, activeStamp.id, method)
-      }
-
-      setCollectedIds((current) => {
-        const updated = Array.from(new Set([...current, activeStamp.id, 'world-party-parade']))
-        collectedIdsRef.current = updated
-        return updated
-      })
-
-      if (pendingStampClaimId === activeStamp.id) {
-        setPendingStampClaimId('')
-        localStorage.removeItem('edm-pending-stamp-claim')
-        const cleanUrl = window.location.origin + window.location.pathname
-        window.history.replaceState({}, '', cleanUrl)
-      }
-
-      if (isQrNfcClaim) {
-        await refreshLiveDrops()
-      }
-
-      if (!wasAlreadyCollected && !claimResult?.already_collected) {
-        showStampReveal(activeStamp.id, isQrNfcClaim ? 'qr-nfc claim' : method)
-        setClaimMessage(`${activeStamp.name} discovered and saved.`)
-      } else {
-        setClaimMessage(`${activeStamp.name} was already in your passport.`)
-      }
-    } catch (error) {
-      await refreshLiveDrops()
-      setClaimMessage(error.message || 'Could not claim this stamp drop.')
-    }
+    setClaimMessage(`${activeStamp.name} collected and saved.`)
   }
 
 
@@ -1439,19 +1311,8 @@ export default function App() {
                       const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
 
                       return (
-                        <button
-                          key={stamp.id}
-                          style={styles.stampButton}
-                          onClick={() => {
-                            if (!collected && !live && !isAdmin) {
-                              alert('This stamp is still hidden. Find it at EDC to unlock it.')
-                              return
-                            }
-
-                            chooseStamp(stamp)
-                          }}
-                        >
-                          <Stamp stamp={stamp} collected={collected || live} isAdmin={isAdmin} />
+                        <button key={stamp.id} style={styles.stampButton} onClick={() => chooseStamp(stamp)}>
+                          <Stamp stamp={stamp} collected={collected || live} />
                           <small>{stamp.name}</small>
                           <small>{collected ? 'COLLECTED' : live ? 'LIVE' : 'LOCKED'}</small>
                           <small>{memoryCount} memories</small>
@@ -1504,9 +1365,7 @@ export default function App() {
                       CHECK NEARBY GPS DROPS
                     </button>
 
-                    <button style={styles.mainButton} onClick={() => collectActiveStamp(pendingStampClaimId === activeStamp.id ? 'qr-nfc' : 'qr-nfc-gps')}>
-                      {pendingStampClaimId === activeStamp.id ? 'COLLECT QR / NFC STAMP' : 'COLLECT STAMP'}
-                    </button>
+                    <button style={styles.mainButton} onClick={() => collectActiveStamp('qr-nfc-gps')}>COLLECT STAMP</button>
 
                     {locationError && <p style={styles.errorText}>{locationError}</p>}
                     {claimMessage && <p style={styles.successText}>{claimMessage}</p>}
@@ -1835,19 +1694,6 @@ export default function App() {
                   setFestivalMapUrl={setFestivalMapUrl}
                   handleCreateFestival={handleCreateFestival}
                   festivalAdminMessage={festivalAdminMessage}
-                  adminCreatedStamps={adminCreatedStamps}
-                  adminStampNameInput={adminStampNameInput}
-                  setAdminStampNameInput={setAdminStampNameInput}
-                  adminStampImageUrlInput={adminStampImageUrlInput}
-                  setAdminStampImageUrlInput={setAdminStampImageUrlInput}
-                  adminStampRarityInput={adminStampRarityInput}
-                  setAdminStampRarityInput={setAdminStampRarityInput}
-                  adminStampLocationInput={adminStampLocationInput}
-                  setAdminStampLocationInput={setAdminStampLocationInput}
-                  adminStampXpInput={adminStampXpInput}
-                  setAdminStampXpInput={setAdminStampXpInput}
-                  adminStampCreatorMessage={adminStampCreatorMessage}
-                  handleCreateAdminStamp={handleCreateAdminStamp}
                 />
               )}
             </div>
@@ -1864,195 +1710,109 @@ export default function App() {
         )}
       </section>
 
-      {revealedStamp && (
-        <div style={styles.revealBackdrop} onClick={() => setRevealedStamp(null)}>
-          <div style={styles.revealCard} onClick={(event) => event.stopPropagation()}>
-            <p style={styles.revealEyebrow}>⚡ Stamp Discovered ⚡</p>
-            <h1 style={styles.revealTitle}>{revealedStamp.name}</h1>
-            <img src={revealedStamp.image} alt={revealedStamp.name} style={styles.revealImage} />
-            <p style={styles.revealRarity}>{revealedStamp.rarity || 'Festival Drop'}</p>
-            <p style={styles.revealLocation}>{revealedStamp.location}</p>
-            <div style={styles.revealXp}>+{revealedStamp.xp || 100} XP</div>
-            <p style={styles.revealMethod}>Collected by {revealedStamp.revealMethod || 'festival discovery'}</p>
-            <button style={styles.mainButton} onClick={() => setRevealedStamp(null)}>
-              ADD TO PASSPORT
-            </button>
-          </div>
-        </div>
-      )}
-
       {selectedStamp && <StampModal stamp={selectedStamp} onClose={() => setSelectedStamp(null)} />}
     </main>
   )
 }
 
-const neonPanel = 'linear-gradient(145deg, rgba(9,6,28,.96), rgba(23,8,52,.94) 42%, rgba(4,18,38,.94))'
-const neonCard = 'linear-gradient(145deg, rgba(255,255,255,.10), rgba(255,255,255,.045))'
-const neonBorder = '1px solid rgba(103,232,249,.36)'
-const neonShadow = '0 0 28px rgba(34,211,238,.18), 0 0 55px rgba(217,70,239,.13)'
-
 const styles = {
-  revealBackdrop: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 10000,
-    background: 'radial-gradient(circle at 22% 12%, rgba(255,79,216,.40), transparent 36%), radial-gradient(circle at 84% 82%, rgba(34,211,238,.32), transparent 42%), rgba(1,1,10,.92)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 18,
-    backdropFilter: 'blur(10px)',
-  },
-  revealCard: {
-    width: '100%',
-    maxWidth: 410,
-    padding: 22,
-    borderRadius: 32,
-    background: neonPanel,
-    border: '2px solid rgba(103,232,249,.62)',
-    boxShadow: '0 0 52px rgba(34,211,238,.30), 0 0 76px rgba(255,79,216,.22)',
-    color: 'white',
-    textAlign: 'center',
-  },
-  revealEyebrow: {
-    margin: '0 0 10px',
-    color: '#67e8f9',
-    fontSize: 12,
-    letterSpacing: '.22em',
-    textTransform: 'uppercase',
-    fontWeight: 900,
-    textShadow: '0 0 12px rgba(103,232,249,.75)',
-  },
-  revealTitle: { margin: '0 0 14px', fontSize: 31, fontWeight: 900, lineHeight: 1, textShadow: '0 0 20px rgba(255,79,216,.50)' },
-  revealImage: {
-    width: 'min(72vw, 285px)',
-    height: 'min(72vw, 285px)',
-    objectFit: 'cover',
-    borderRadius: 999,
-    border: '5px solid rgba(255,255,255,.78)',
-    boxShadow: '0 0 34px rgba(103,232,249,.48), 0 0 60px rgba(255,79,216,.22)',
-  },
-  revealRarity: { margin: '14px 0 4px', color: '#facc15', fontSize: 12, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 900 },
-  revealLocation: { margin: '0 0 12px', color: 'rgba(255,255,255,.78)', fontWeight: 800 },
-  revealXp: {
-    display: 'inline-block',
-    padding: '10px 16px',
-    borderRadius: 999,
-    background: 'linear-gradient(90deg, #ff4fd8, #a855f7, #22d3ee)',
-    color: '#020617',
-    fontWeight: 900,
-    fontSize: 18,
-    boxShadow: '0 0 22px rgba(34,211,238,.32)',
-  },
-  revealMethod: { margin: '12px 0 0', color: 'rgba(255,255,255,.62)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.08em' },
-
   screen: {
     minHeight: '100vh',
     padding: 16,
-    background: 'radial-gradient(circle at 16% 6%, rgba(255,79,216,.28), transparent 30%), radial-gradient(circle at 86% 16%, rgba(34,211,238,.22), transparent 32%), radial-gradient(circle at 50% 96%, rgba(168,85,247,.25), transparent 38%), linear-gradient(180deg, #02030b 0%, #070416 48%, #01040c 100%)',
-    color: 'white',
+    background: 'radial-gradient(circle at 12% 8%, rgba(255,45,214,.34), transparent 32%), radial-gradient(circle at 88% 12%, rgba(34,211,238,.30), transparent 34%), radial-gradient(circle at 50% 92%, rgba(124,58,237,.35), transparent 42%), linear-gradient(180deg, #030014 0%, #070018 42%, #020008 100%)',
+    color: '#f8fbff',
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
   },
   card: {
     width: '100%',
-    maxWidth: 455,
+    maxWidth: 440,
     margin: '0 auto',
     padding: 18,
-    borderRadius: 28,
-    background: neonPanel,
-    border: neonBorder,
-    boxShadow: neonShadow,
+    borderRadius: 30,
+    background: 'linear-gradient(180deg, rgba(8,5,28,.92), rgba(16,2,35,.88))',
+    border: '1px solid rgba(34,211,238,.55)',
     boxSizing: 'border-box',
+    boxShadow: '0 0 34px rgba(34,211,238,.18), 0 0 70px rgba(255,45,214,.14), inset 0 0 26px rgba(255,255,255,.04)',
+    backdropFilter: 'blur(10px)',
   },
-  logo: { width: 124, height: 124, borderRadius: 999, objectFit: 'cover', display: 'block', margin: '0 auto 16px', border: '2px solid rgba(103,232,249,.55)', boxShadow: '0 0 26px rgba(34,211,238,.28)' },
-  title: { textAlign: 'center', fontSize: 34, margin: '8px 0', fontWeight: 900, textShadow: '0 0 24px rgba(255,79,216,.38)' },
-  tag: { textAlign: 'center', color: '#67e8f9', fontSize: 11, letterSpacing: '.20em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 12px rgba(103,232,249,.75)' },
-  festivalHero: { marginTop: 18, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,79,216,.24), rgba(34,211,238,.15), rgba(168,85,247,.20))', border: '1px solid rgba(103,232,249,.34)', textAlign: 'center', boxShadow: 'inset 0 0 24px rgba(255,255,255,.06)' },
-  festivalHeroTitle: { margin: '0 0 8px', fontSize: 26, fontWeight: 900, textShadow: '0 0 18px rgba(34,211,238,.30)' },
-  sectionTitle: { margin: '22px 0 10px', color: '#67e8f9', fontSize: 13, letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 900 },
-  festivalList: { display: 'grid', gap: 10, marginTop: 10 },
-  festivalCard: { width: '100%', padding: 14, borderRadius: 18, border: '1px solid rgba(103,232,249,.30)', background: neonCard, color: 'white', display: 'grid', gap: 6, textAlign: 'left', fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.08)' },
-  festivalBadge: { justifySelf: 'start', marginTop: 4, padding: '6px 10px', borderRadius: 999, background: 'linear-gradient(90deg, #ff4fd8, #a855f7, #22d3ee)', color: '#020617', fontSize: 10, fontWeight: 900, letterSpacing: '.08em' },
-  passportButton: { width: '100%', marginTop: 18, padding: 0, border: 0, borderRadius: 26, background: 'transparent', boxShadow: '0 0 30px rgba(34,211,238,.14)' },
-  passportCover: { width: '100%', maxHeight: 440, objectFit: 'cover', borderRadius: 26, border: '1px solid rgba(103,232,249,.50)', boxShadow: '0 0 28px rgba(255,79,216,.18)' },
-  emptyPassport: { padding: 60, borderRadius: 24, background: neonCard, color: 'rgba(255,255,255,.78)', fontWeight: 900, border: neonBorder },
-  label: { display: 'block', marginTop: 18, color: '#67e8f9', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 900 },
-  input: { width: '100%', marginTop: 8, padding: 14, borderRadius: 16, border: '1px solid rgba(103,232,249,.28)', background: 'rgba(2,6,23,.78)', color: 'white', boxSizing: 'border-box', fontWeight: 800, outline: 'none' },
-  inputLight: { width: '100%', marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(103,232,249,.34)', background: 'rgba(2,6,23,.78)', color: '#e0f2fe', boxSizing: 'border-box', fontWeight: 900, outline: 'none' },
-  uploadButton: { width: '100%', marginTop: 12, padding: 18, borderRadius: 18, border: '1px solid rgba(103,232,249,.38)', background: 'linear-gradient(90deg, #ff4fd8, #7c3aed, #22d3ee)', color: '#020617', boxSizing: 'border-box', fontWeight: 900, display: 'block', textAlign: 'center', fontSize: 15, boxShadow: '0 0 20px rgba(34,211,238,.20)' },
-  mainButton: { width: '100%', marginTop: 16, padding: 15, borderRadius: 18, border: 0, fontWeight: 900, background: 'linear-gradient(90deg, #ff4fd8, #a855f7, #22d3ee)', color: '#020617', boxShadow: '0 0 22px rgba(34,211,238,.28), 0 0 16px rgba(255,79,216,.18)' },
-  secondaryButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(103,232,249,.42)', background: 'linear-gradient(135deg, rgba(34,211,238,.18), rgba(168,85,247,.16))', color: '#f8fafc', fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.12)' },
-  dangerButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: 0, background: 'linear-gradient(90deg, #fb7185, #f97316)', color: '#020617', fontWeight: 900, boxShadow: '0 0 16px rgba(251,113,133,.22)' },
-  loginBox: { marginTop: 16, padding: 14, borderRadius: 18, background: neonCard, border: '1px solid rgba(103,232,249,.20)' },
-
-  bookPage: {
-    minHeight: '70vh',
-    padding: 18,
-    borderRadius: 28,
-    background: 'radial-gradient(circle at 16% 6%, rgba(255,79,216,.20), transparent 34%), radial-gradient(circle at 90% 92%, rgba(34,211,238,.16), transparent 38%), linear-gradient(145deg, rgba(5,6,22,.97), rgba(17,10,45,.96) 50%, rgba(3,20,34,.96))',
-    color: '#f8fafc',
-    boxSizing: 'border-box',
-    touchAction: 'pan-y',
-    border: '1px solid rgba(103,232,249,.34)',
-    boxShadow: 'inset 0 0 44px rgba(255,255,255,.035), 0 0 38px rgba(34,211,238,.14)',
-  },
-  pageNumber: { color: '#67e8f9', fontSize: 11, letterSpacing: '.20em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 10px rgba(103,232,249,.65)' },
-  bookTitle: { fontSize: 30, margin: '8px 0', fontWeight: 900, color: '#ffffff', textShadow: '0 0 20px rgba(255,79,216,.30)' },
-  bookText: { color: 'rgba(226,232,240,.80)', fontWeight: 750 },
-  claimBox: { marginTop: 16, padding: 16, borderRadius: 20, background: neonCard, textAlign: 'center', border: neonBorder, boxShadow: '0 0 22px rgba(34,211,238,.10)' },
-  autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 20, background: 'linear-gradient(135deg, rgba(255,79,216,.18), rgba(34,211,238,.14))', border: '1px solid rgba(103,232,249,.28)', display: 'grid', gap: 8 },
-  labelDark: { marginTop: 14, color: '#67e8f9', fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', fontWeight: 900, display: 'block' },
-  checkboxRow: { marginTop: 12, padding: 12, borderRadius: 16, background: neonCard, border: '1px solid rgba(103,232,249,.22)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
-  stampGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 13, marginTop: 18 },
-  stampButton: { border: '1px solid rgba(103,232,249,.25)', background: 'linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.035))', color: '#f8fafc', borderRadius: 20, padding: 11, display: 'grid', justifyItems: 'center', gap: 8, fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.09)' },
+  logo: { width: 126, height: 126, borderRadius: 999, objectFit: 'cover', display: 'block', margin: '0 auto 16px', border: '2px solid rgba(34,211,238,.75)', boxShadow: '0 0 30px rgba(34,211,238,.45), 0 0 55px rgba(255,45,214,.22)' },
+  title: { textAlign: 'center', fontSize: 34, margin: '8px 0', fontWeight: 900, letterSpacing: '.02em', textShadow: '0 0 16px rgba(255,45,214,.65), 0 0 28px rgba(34,211,238,.35)' },
+  tag: { textAlign: 'center', color: '#22d3ee', fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 12px rgba(34,211,238,.9)' },
+  festivalHero: { marginTop: 18, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.22), rgba(124,58,237,.24), rgba(34,211,238,.18))', border: '1px solid rgba(255,45,214,.45)', textAlign: 'center', boxShadow: '0 0 26px rgba(255,45,214,.18)' },
+  festivalHeroTitle: { margin: '0 0 8px', fontSize: 26, fontWeight: 900, color: '#ffffff', textShadow: '0 0 14px rgba(34,211,238,.55)' },
+  sectionTitle: { margin: '22px 0 10px', color: '#22d3ee', fontSize: 13, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 10px rgba(34,211,238,.8)' },
+  festivalList: { display: 'grid', gap: 12, marginTop: 10 },
+  festivalCard: { width: '100%', padding: 15, borderRadius: 20, border: '1px solid rgba(34,211,238,.42)', background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.08), rgba(255,45,214,.06))', color: 'white', display: 'grid', gap: 6, textAlign: 'left', fontWeight: 900, boxShadow: 'inset 0 0 18px rgba(255,255,255,.03), 0 0 18px rgba(34,211,238,.10)' },
+  festivalBadge: { justifySelf: 'start', marginTop: 4, padding: '6px 10px', borderRadius: 999, background: 'linear-gradient(90deg, #ff2dd6, #8b5cf6, #22d3ee)', color: '#030014', fontSize: 10, fontWeight: 900, letterSpacing: '.08em', boxShadow: '0 0 18px rgba(255,45,214,.35)' },
+  passportButton: { width: '100%', marginTop: 18, padding: 0, border: 0, borderRadius: 28, background: 'transparent', filter: 'drop-shadow(0 0 22px rgba(34,211,238,.28))' },
+  passportCover: { width: '100%', maxHeight: 440, objectFit: 'cover', borderRadius: 26, border: '1px solid rgba(34,211,238,.65)', boxShadow: '0 0 34px rgba(34,211,238,.25), 0 0 55px rgba(255,45,214,.15)' },
+  emptyPassport: { padding: 60, borderRadius: 24, background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.7)', fontWeight: 900, border: '1px dashed rgba(34,211,238,.45)' },
+  label: { display: 'block', marginTop: 18, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900 },
+  input: { width: '100%', marginTop: 8, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.36)', background: 'rgba(3,0,20,.78)', color: 'white', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 0 18px rgba(34,211,238,.08)' },
+  inputLight: { width: '100%', marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.48)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 900, outline: 'none', boxShadow: 'inset 0 0 16px rgba(34,211,238,.10), 0 0 12px rgba(34,211,238,.10)' },
+  uploadButton: { width: '100%', marginTop: 12, padding: 18, borderRadius: 18, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(90deg, #ff2dd6, #7c3aed, #22d3ee)', color: '#050510', boxSizing: 'border-box', fontWeight: 900, display: 'block', textAlign: 'center', fontSize: 15, boxShadow: '0 0 22px rgba(34,211,238,.22)' },
+  mainButton: { width: '100%', marginTop: 16, padding: 15, borderRadius: 18, border: '1px solid rgba(255,255,255,.16)', fontWeight: 900, background: 'linear-gradient(90deg, #ff2dd6 0%, #8b5cf6 48%, #22d3ee 100%)', color: '#030014', boxShadow: '0 0 22px rgba(255,45,214,.28), 0 0 28px rgba(34,211,238,.18)', letterSpacing: '.04em' },
+  secondaryButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(135deg, rgba(34,211,238,.18), rgba(124,58,237,.18), rgba(255,45,214,.12))', color: '#f8fbff', fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.14)', letterSpacing: '.03em' },
+  dangerButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(251,113,133,.35)', background: 'linear-gradient(90deg, #fb7185, #f97316)', color: '#12020a', fontWeight: 900, boxShadow: '0 0 18px rgba(251,113,133,.2)' },
+  loginBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.28)' },
+  bookPage: { minHeight: '70vh', padding: 18, borderRadius: 26, background: 'radial-gradient(circle at top left, rgba(255,45,214,.20), transparent 38%), radial-gradient(circle at bottom right, rgba(34,211,238,.18), transparent 38%), linear-gradient(180deg, rgba(10,5,35,.96), rgba(5,0,20,.96))', color: '#f8fbff', boxSizing: 'border-box', touchAction: 'pan-y', border: '1px solid rgba(34,211,238,.55)', boxShadow: '0 0 38px rgba(34,211,238,.18), inset 0 0 30px rgba(255,255,255,.035)' },
+  pageNumber: { color: '#22d3ee', fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 10px rgba(34,211,238,.9)' },
+  bookTitle: { fontSize: 30, margin: '8px 0', fontWeight: 900, color: '#ffffff', textShadow: '0 0 16px rgba(255,45,214,.65), 0 0 22px rgba(34,211,238,.32)' },
+  bookText: { color: '#c7f9ff', fontWeight: 800, lineHeight: 1.45 },
+  claimBox: { marginTop: 16, padding: 16, borderRadius: 20, background: 'linear-gradient(135deg, rgba(34,211,238,.13), rgba(255,45,214,.12))', border: '1px solid rgba(34,211,238,.38)', textAlign: 'center', boxShadow: '0 0 20px rgba(34,211,238,.12)' },
+  autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.35)', display: 'grid', gap: 8 },
+  labelDark: { marginTop: 14, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, display: 'block', textShadow: '0 0 8px rgba(34,211,238,.75)' },
+  checkboxRow: { marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.22)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
+  stampGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 18 },
+  stampButton: { border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 8, fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.12), inset 0 0 18px rgba(255,255,255,.025)' },
   pageControls: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginTop: 12 },
-  pageCounter: { margin: 0, color: '#67e8f9', fontSize: 12, fontWeight: 900 },
-  successBox: { marginTop: 14, padding: 12, borderRadius: 16, background: 'rgba(34,197,94,.16)', border: '1px solid rgba(34,197,94,.36)', color: '#dcfce7' },
-  warningBox: { marginTop: 14, padding: 12, borderRadius: 16, background: 'rgba(251,146,60,.16)', border: '1px solid rgba(251,146,60,.36)', color: '#ffedd5' },
-  errorText: { marginTop: 12, padding: 10, borderRadius: 14, background: 'rgba(127,29,29,.50)', color: '#fecaca', fontWeight: 900, border: '1px solid rgba(248,113,113,.28)' },
-  successText: { marginTop: 12, padding: 10, borderRadius: 14, background: 'rgba(22,101,52,.34)', color: '#bbf7d0', fontWeight: 900, border: '1px solid rgba(74,222,128,.28)' },
-  linkList: { display: 'grid', gap: 11, marginTop: 16 },
-  linkCard: { padding: 13, borderRadius: 18, background: neonCard, display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 12, border: '1px solid rgba(103,232,249,.24)', color: '#f8fafc' },
-  adminCard: { padding: 13, borderRadius: 18, background: neonCard, display: 'grid', gap: 8, overflowWrap: 'anywhere', fontSize: 12, border: '1px solid rgba(103,232,249,.24)', boxShadow: '0 0 16px rgba(34,211,238,.08)', color: '#f8fafc' },
-  crewHero: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,79,216,.24), rgba(34,211,238,.16), rgba(168,85,247,.20))', textAlign: 'center', border: '1px solid rgba(103,232,249,.32)', boxShadow: '0 0 24px rgba(255,79,216,.10)' },
-  familyCard: { padding: 13, borderRadius: 18, background: neonCard, display: 'grid', gap: 4, textAlign: 'left', border: '1px solid rgba(103,232,249,.22)', color: '#f8fafc', fontWeight: 900 },
-  familyActive: { padding: 13, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,79,216,.24), rgba(34,211,238,.16))', display: 'grid', gap: 4, textAlign: 'left', border: '2px solid rgba(103,232,249,.55)', color: '#f8fafc', fontWeight: 900, boxShadow: '0 0 22px rgba(34,211,238,.18)' },
-  rankCard: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,79,216,.18), rgba(34,211,238,.14))', textAlign: 'center', border: neonBorder },
-  rankTitle: { margin: '8px 0', fontSize: 32, fontWeight: 900, color: '#ffffff', textShadow: '0 0 18px rgba(255,79,216,.30)' },
+  pageCounter: { margin: 0, color: '#22d3ee', fontSize: 12, fontWeight: 900, textShadow: '0 0 9px rgba(34,211,238,.8)' },
+  successBox: { marginTop: 14, padding: 12, borderRadius: 14, background: 'rgba(34,197,94,.16)', border: '1px solid rgba(34,197,94,.42)', color: '#dcfce7' },
+  warningBox: { marginTop: 14, padding: 12, borderRadius: 14, background: 'rgba(251,146,60,.15)', border: '1px solid rgba(251,146,60,.4)', color: '#ffedd5' },
+  errorText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(127,29,29,.50)', color: '#fecaca', fontWeight: 900, border: '1px solid rgba(248,113,113,.34)' },
+  successText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(22,101,52,.30)', color: '#bbf7d0', fontWeight: 900, border: '1px solid rgba(34,197,94,.34)' },
+  linkList: { display: 'grid', gap: 12, marginTop: 16 },
+  linkCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.07))', border: '1px solid rgba(34,211,238,.30)', color: '#f8fbff', display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 16px rgba(34,211,238,.10)' },
+  adminCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(34,211,238,.10), rgba(124,58,237,.10), rgba(255,45,214,.08))', border: '1px solid rgba(34,211,238,.34)', color: '#f8fbff', display: 'grid', gap: 8, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 18px rgba(34,211,238,.12)' },
+  crewHero: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.24), rgba(124,58,237,.20), rgba(34,211,238,.20))', textAlign: 'center', border: '1px solid rgba(34,211,238,.42)', boxShadow: '0 0 24px rgba(255,45,214,.16)' },
+  familyCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.06))', display: 'grid', gap: 4, textAlign: 'left', border: '1px solid rgba(34,211,238,.30)', color: '#f8fbff', fontWeight: 900 },
+  familyActive: { padding: 13, borderRadius: 16, background: 'linear-gradient(90deg, rgba(255,45,214,.32), rgba(34,211,238,.26))', display: 'grid', gap: 4, textAlign: 'left', border: '2px solid rgba(34,211,238,.58)', color: '#f8fbff', fontWeight: 900, boxShadow: '0 0 20px rgba(34,211,238,.18)' },
+  rankCard: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.30)', textAlign: 'center' },
+  rankTitle: { margin: '8px 0', fontSize: 32, fontWeight: 900, color: '#ffffff', textShadow: '0 0 14px rgba(255,45,214,.55)' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 16 },
   statsMiniGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 16 },
-  statBox: { padding: 12, borderRadius: 18, background: neonCard, display: 'grid', gap: 4, textAlign: 'center', fontWeight: 900, border: '1px solid rgba(103,232,249,.22)', color: '#f8fafc' },
-  achievementUnlocked: { padding: 12, borderRadius: 16, background: 'linear-gradient(135deg, rgba(250,204,21,.22), rgba(255,79,216,.12))', display: 'grid', gap: 4, border: '1px solid rgba(250,204,21,.34)' },
-  achievementLocked: { padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.06)', opacity: 0.54, display: 'grid', gap: 4, border: '1px solid rgba(255,255,255,.10)' },
-  flexCard: { marginTop: 16, padding: 18, borderRadius: 26, background: 'linear-gradient(135deg, rgba(255,79,216,.35), rgba(34,211,238,.24), rgba(168,85,247,.28))', color: 'white', textAlign: 'center', boxShadow: '0 0 45px rgba(255,79,216,.20)', border: '1px solid rgba(103,232,249,.30)' },
-  memoryBox: { width: '100%', minHeight: 180, marginTop: 16, padding: 14, borderRadius: 18, border: '1px solid rgba(103,232,249,.30)', background: 'rgba(2,6,23,.78)', color: '#f8fafc', boxSizing: 'border-box', fontWeight: 800 },
-  storyHero: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,79,216,.22), rgba(34,211,238,.16), rgba(168,85,247,.18))', textAlign: 'center', border: neonBorder },
-  timelineCard: { padding: 14, borderRadius: 18, background: neonCard, display: 'grid', gap: 8, border: '1px solid rgba(103,232,249,.22)' },
-  adminMapHeader: { marginTop: 18, padding: 12, borderRadius: 18, background: neonCard, display: 'grid', gap: 6, fontWeight: 900, border: neonBorder },
+  statBox: { padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.26)', color: '#f8fbff', display: 'grid', gap: 4, textAlign: 'center', fontWeight: 900 },
+  achievementUnlocked: { padding: 12, borderRadius: 14, background: 'linear-gradient(135deg, rgba(253,224,71,.20), rgba(255,45,214,.12))', border: '1px solid rgba(253,224,71,.42)', display: 'grid', gap: 4 },
+  achievementLocked: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', opacity: 0.45, display: 'grid', gap: 4 },
+  flexCard: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.38), rgba(124,58,237,.28), rgba(34,211,238,.28))', color: 'white', textAlign: 'center', boxShadow: '0 0 45px rgba(255,45,214,.22), 0 0 50px rgba(34,211,238,.14)' },
+  memoryBox: { width: '100%', minHeight: 180, marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.35)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 800, outline: 'none' },
+  storyHero: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,45,214,.22), rgba(34,211,238,.20))', border: '1px solid rgba(34,211,238,.34)', textAlign: 'center' },
+  timelineCard: { padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 8 },
+  adminMapHeader: { marginTop: 18, padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 6, fontWeight: 900 },
   adminMap: {
     position: 'relative',
     height: 360,
     marginTop: 12,
     borderRadius: 22,
     overflow: 'hidden',
-    border: '2px solid rgba(103,232,249,.34)',
-    backgroundImage: 'linear-gradient(rgba(103,232,249,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,.10) 1px, transparent 1px), radial-gradient(circle at 40% 35%, rgba(255,79,216,.22), transparent 26%), radial-gradient(circle at 60% 70%, rgba(34,211,238,.24), transparent 30%), linear-gradient(135deg, #050510, #160b35)',
+    border: '2px solid rgba(34,211,238,.42)',
+    backgroundImage: 'linear-gradient(rgba(34,211,238,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,.12) 1px, transparent 1px), radial-gradient(circle at 40% 35%, rgba(255,45,214,.24), transparent 26%), radial-gradient(circle at 60% 70%, rgba(34,211,238,.25), transparent 30%), linear-gradient(135deg, #050510, #14022e)',
     backgroundSize: '32px 32px, 32px 32px, 100% 100%, 100% 100%, 100% 100%',
-    boxShadow: 'inset 0 0 35px rgba(34,211,238,.12), 0 0 24px rgba(255,79,216,.12)',
+    boxShadow: 'inset 0 0 40px rgba(34,211,238,.12), 0 0 24px rgba(34,211,238,.12)',
     touchAction: 'manipulation',
   },
-  adminMapLabel: { position: 'absolute', left: 12, top: 12, padding: '6px 10px', borderRadius: 999, background: 'rgba(2,6,23,.78)', color: '#67e8f9', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', border: '1px solid rgba(103,232,249,.30)' },
-  adminMapPin: { position: 'absolute', transform: 'translate(-50%, -100%)', border: 0, background: 'transparent', fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 0 8px rgba(255,79,216,.85))', cursor: 'pointer' },
+  adminMapLabel: { position: 'absolute', left: 12, top: 12, padding: '6px 10px', borderRadius: 999, background: 'rgba(3,0,20,.78)', color: '#22d3ee', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', border: '1px solid rgba(34,211,238,.35)' },
+  adminMapPin: { position: 'absolute', transform: 'translate(-50%, -100%)', border: 0, background: 'transparent', fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 0 8px rgba(255,45,214,.95))', cursor: 'pointer' },
   adminMapSelectedPin: { position: 'absolute', transform: 'translate(-50%, -50%)', fontSize: 24, filter: 'drop-shadow(0 0 10px rgba(34,211,238,.95))', pointerEvents: 'none' },
   exportGrid: { display: 'grid', gap: 14, marginTop: 16 },
-  exportCard: { padding: 14, borderRadius: 20, background: neonCard, display: 'grid', gap: 10, textAlign: 'center', border: '1px solid rgba(103,232,249,.24)', color: '#f8fafc', boxShadow: '0 0 16px rgba(34,211,238,.08)' },
-  exportMiniPassport: { padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(34,211,238,.12), rgba(255,79,216,.10))', display: 'grid', gap: 6, justifyItems: 'center', border: '1px solid rgba(103,232,249,.20)' },
-  exportBadgePreview: { minHeight: 170, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,79,216,.22), rgba(34,211,238,.16), rgba(168,85,247,.22))', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center', border: neonBorder },
-  lockScreenPreview: { minHeight: 260, padding: 12, borderRadius: 26, background: 'radial-gradient(circle at top, rgba(255,79,216,.30), transparent 45%), radial-gradient(circle at bottom, rgba(34,211,238,.22), transparent 45%), #050510', color: 'white', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center', border: neonBorder },
-  exportCover: { width: '100%', maxWidth: 150, borderRadius: 14, border: '1px solid rgba(103,232,249,.34)', boxShadow: '0 0 20px rgba(34,211,238,.12)' },
-  exportCoverSmall: { width: 90, borderRadius: 12, border: '1px solid rgba(103,232,249,.30)' },
-  qrPlaceholder: { width: 82, height: 82, borderRadius: 12, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)' },
-  qrImage: { width: 92, height: 92, borderRadius: 14, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.24)', boxSizing: 'border-box' },
-  memoryImage: { width: '100%', borderRadius: 16, marginTop: 8, border: '1px solid rgba(103,232,249,.18)' },
+  exportCard: { padding: 14, borderRadius: 20, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.05))', display: 'grid', gap: 10, textAlign: 'center', border: '1px solid rgba(34,211,238,.32)', color: '#f8fbff', boxShadow: '0 0 20px rgba(34,211,238,.12)' },
+  exportMiniPassport: { padding: 12, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,45,214,.14), rgba(34,211,238,.12))', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 6, justifyItems: 'center' },
+  exportBadgePreview: { minHeight: 170, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.20), rgba(34,211,238,.16), rgba(124,58,237,.18))', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center' },
+  lockScreenPreview: { minHeight: 260, padding: 12, borderRadius: 24, background: 'radial-gradient(circle at top, rgba(255,45,214,.30), transparent 45%), radial-gradient(circle at bottom, rgba(34,211,238,.24), transparent 45%), #050510', color: 'white', display: 'grid', gap: 8, justifyItems: 'center', alignContent: 'center', border: '1px solid rgba(34,211,238,.35)' },
+  exportCover: { width: '100%', maxWidth: 150, borderRadius: 12, border: '1px solid rgba(34,211,238,.45)', boxShadow: '0 0 18px rgba(34,211,238,.18)' },
+  exportCoverSmall: { width: 90, borderRadius: 10, border: '1px solid rgba(34,211,238,.45)' },
+  qrPlaceholder: { width: 82, height: 82, borderRadius: 10, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)' },
+  qrImage: { width: 92, height: 92, borderRadius: 12, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)', boxSizing: 'border-box' },
+  memoryImage: { width: '100%', borderRadius: 14, marginTop: 8, border: '1px solid rgba(34,211,238,.28)' },
 }
