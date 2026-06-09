@@ -1014,7 +1014,7 @@ export default function App() {
   }
 
 
-  async function handleCreateGpsDrop() {
+  async function handleCreateGpsDrop(mapPin = {}) {
     if (!isAdmin) {
       setGpsAdminMessage('Admin access required.')
       return
@@ -1040,6 +1040,10 @@ export default function App() {
         longitude: gpsLongitude,
         radiusFeet: gpsRadiusFeet || 300,
         title: gpsTitle,
+        mapImageUrl: mapPin.mapImageUrl,
+        mapXPercent: mapPin.mapXPercent,
+        mapYPercent: mapPin.mapYPercent,
+        mapNote: mapPin.mapNote,
       })
 
       await refreshGpsDrops(adminDropFestivalId)

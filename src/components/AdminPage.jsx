@@ -115,6 +115,8 @@ export default function AdminPage({
   const [mapExpanded, setMapExpanded] = useState(false)
   const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState('')
+  const [selectedMapPin, setSelectedMapPin] = useState(null)
+  const [festivalMapNote, setFestivalMapNote] = useState('')
 
   function getStampName(stampId) {
     return stamps.find((stamp) => stamp.id === stampId)?.name || stampId
@@ -140,6 +142,11 @@ export default function AdminPage({
     setGpsLatitude(String(drop.latitude))
     setGpsLongitude(String(drop.longitude))
     setGpsRadiusFeet(String(drop.radius_feet || 300))
+    setFestivalMapNote(drop.map_note || '')
+
+    if (drop.map_x_percent !== null && drop.map_x_percent !== undefined && drop.map_y_percent !== null && drop.map_y_percent !== undefined) {
+      setSelectedMapPin({ xPercent: Number(drop.map_x_percent), yPercent: Number(drop.map_y_percent) })
+    }
 
     const map = leafletMapRef.current
 
@@ -311,6 +318,31 @@ export default function AdminPage({
   const stampClaimQrUrl = stampClaimUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(stampClaimUrl)}`
     : ''
+
+  const activeFestivalMapUrl = adminFestival?.map_url || adminFestival?.mapUrl || festivalMapUrl || ''
+  const selectedMapDropStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
+
+  function handleFestivalMapClick(event) {
+    const image = event.currentTarget
+    const rect = image.getBoundingClientRect()
+    const xPercent = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100))
+    const yPercent = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100))
+
+    setSelectedMapPin({ xPercent, yPercent })
+
+    if (!gpsTitle) {
+      setGpsTitle(`${getStampName(adminStampId)} Festival Map Drop`)
+    }
+  }
+
+  async function createGpsDropWithMapOverlay() {
+    await handleCreateGpsDrop({
+      mapImageUrl: activeFestivalMapUrl,
+      mapXPercent: selectedMapPin?.xPercent,
+      mapYPercent: selectedMapPin?.yPercent,
+      mapNote: festivalMapNote,
+    })
+  }
 
   async function copyAdminClaimUrl() {
     if (!stampClaimUrl) return
@@ -520,6 +552,89 @@ export default function AdminPage({
         {adminFestival?.mapUrl && <small>Map: {adminFestival.mapUrl}</small>}
       </div>
 
+      <h2 style={styles.bookTitle}>Festival Map Overlay Pin Board</h2>
+
+      <div style={styles.adminCard}>
+        <strong>Stage / Festival Image Overlay</strong>
+        <small>Use the festival map image to visually place the stamp pin. Then use the live GPS map below to fill the real latitude and longitude before saving.</small>
+        <small>This gives you a human-friendly festival map pin plus the real GPS data needed for auto-unlock.</small>
+      </div>
+
+      {activeFestivalMapUrl ? (
+        <div style={{ ...styles.adminCard, gap: 12 }}>
+          <div style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: 22, border: '2px solid rgba(34,211,238,.45)', boxShadow: '0 0 28px rgba(255,45,214,.18)', background: '#050510' }}>
+            <img
+              src={activeFestivalMapUrl}
+              alt={`${adminFestival?.name || 'Festival'} map overlay`}
+              onClick={handleFestivalMapClick}
+              style={{ width: '100%', display: 'block', cursor: 'crosshair', userSelect: 'none' }}
+            />
+
+            {gpsDrops
+              .filter((drop) => drop.map_x_percent !== null && drop.map_x_percent !== undefined && drop.map_y_percent !== null && drop.map_y_percent !== undefined)
+              .map((drop) => (
+                <button
+                  key={`map-overlay-${drop.id}`}
+                  type="button"
+                  title={drop.title || getStampName(drop.stamp_id)}
+                  onClick={() => loadDropIntoForm(drop)}
+                  style={{
+                    position: 'absolute',
+                    left: `${Number(drop.map_x_percent)}%`,
+                    top: `${Number(drop.map_y_percent)}%`,
+                    transform: 'translate(-50%, -100%)',
+                    border: 0,
+                    background: 'transparent',
+                    fontSize: 28,
+                    cursor: 'pointer',
+                    filter: 'drop-shadow(0 0 10px rgba(255,45,214,.95))',
+                  }}
+                >
+                  📍
+                </button>
+              ))}
+
+            {selectedMapPin && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${selectedMapPin.xPercent}%`,
+                  top: `${selectedMapPin.yPercent}%`,
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: 34,
+                  pointerEvents: 'none',
+                  filter: 'drop-shadow(0 0 12px rgba(34,211,238,.95))',
+                }}
+              >
+                ✨
+              </div>
+            )}
+          </div>
+
+          <div style={styles.linkCard}>
+            <strong>{selectedMapDropStamp?.name || 'Selected stamp'}</strong>
+            <small>
+              {selectedMapPin
+                ? `Map pin: ${selectedMapPin.xPercent.toFixed(1)}% X / ${selectedMapPin.yPercent.toFixed(1)}% Y`
+                : 'Tap the festival map image to place the visual pin.'}
+            </small>
+            <small>GPS coordinates still come from the live map or manual latitude/longitude fields.</small>
+          </div>
+
+          <input
+            style={styles.inputLight}
+            placeholder="Map note, example: left of Kinetic Field entrance"
+            value={festivalMapNote}
+            onChange={(event) => setFestivalMapNote(event.target.value)}
+          />
+        </div>
+      ) : (
+        <div style={styles.warningBox}>
+          <strong>No festival map image yet.</strong>
+          <p>Add a festival map image URL above, save/update the festival, then this overlay becomes the visual pin board.</p>
+        </div>
+      )}
+
       <h2 style={styles.bookTitle}>GPS Pin Drop Creator</h2>
 
       <div style={styles.adminMapHeader}>
@@ -563,7 +678,7 @@ export default function AdminPage({
       <input style={styles.inputLight} placeholder="Longitude" value={gpsLongitude} onChange={(event) => setGpsLongitude(event.target.value)} />
       <input style={styles.inputLight} type="number" placeholder="Radius in feet, example 300" value={gpsRadiusFeet} onChange={(event) => setGpsRadiusFeet(event.target.value)} />
 
-      <button style={styles.mainButton} onClick={handleCreateGpsDrop}>
+      <button style={styles.mainButton} onClick={createGpsDropWithMapOverlay}>
         CREATE GPS DROP FOR SELECTED STAMP
       </button>
 
@@ -580,6 +695,10 @@ export default function AdminPage({
               <small>Lat: {Number(drop.latitude).toFixed(6)}</small>
               <small>Lng: {Number(drop.longitude).toFixed(6)}</small>
               <small>Radius: {drop.radius_feet || 300} feet</small>
+              {drop.map_x_percent !== null && drop.map_x_percent !== undefined && (
+                <small>Map Pin: {Number(drop.map_x_percent).toFixed(1)}% / {Number(drop.map_y_percent).toFixed(1)}%</small>
+              )}
+              {drop.map_note && <small>Note: {drop.map_note}</small>}
             </button>
           ))
         ) : (

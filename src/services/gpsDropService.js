@@ -25,6 +25,10 @@ export async function createGpsDrop({
   longitude,
   radiusFeet,
   title,
+  mapImageUrl,
+  mapXPercent,
+  mapYPercent,
+  mapNote,
 }) {
   const { data, error } = await supabase
     .from('gps_drops')
@@ -36,6 +40,10 @@ export async function createGpsDrop({
       radius_feet: Number(radiusFeet || 300),
       is_active: true,
       title: title || null,
+      map_image_url: mapImageUrl || null,
+      map_x_percent: mapXPercent === undefined || mapXPercent === null || mapXPercent === '' ? null : Number(mapXPercent),
+      map_y_percent: mapYPercent === undefined || mapYPercent === null || mapYPercent === '' ? null : Number(mapYPercent),
+      map_note: mapNote || null,
     })
     .select()
     .single()
