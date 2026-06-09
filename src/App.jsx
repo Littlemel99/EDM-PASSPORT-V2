@@ -88,6 +88,7 @@ export default function App() {
   const [bookOpen, setBookOpen] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [selectedStamp, setSelectedStamp] = useState(null)
+  const [unlockCelebration, setUnlockCelebration] = useState(null)
 
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
@@ -157,6 +158,29 @@ export default function App() {
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
   const upcomingFestivals = managedFestivals.filter((festival) => festival.status === 'upcoming')
   const attendedFestivals = managedFestivals.filter((festival) => festival.status === 'attended')
+
+  function openUnlockCelebration(stamp, method = 'festival-claim') {
+    if (!stamp) return
+
+    const dropWindow = activeDropWindows[stamp.id] || {}
+    const rarity = dropWindow.isLegendary
+      ? 'LEGENDARY'
+      : dropWindow.isSecret
+        ? 'SECRET'
+        : (stamp.rarity || 'FESTIVAL').toUpperCase()
+
+    const xp = stamp.xp || (dropWindow.isLegendary ? 1000 : dropWindow.isSecret ? 750 : 500)
+
+    setUnlockCelebration({
+      stamp,
+      method,
+      rarity,
+      xp,
+      isSecret: Boolean(dropWindow.isSecret),
+      isLegendary: Boolean(dropWindow.isLegendary),
+      claimedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+    })
+  }
 
   useEffect(() => {
     localStorage.setItem('edm-country', country)
@@ -550,6 +574,11 @@ export default function App() {
           newUnlockedIds.map((stampId) => saveStamp(user, stampId, options.method || 'gps-pin-drop'))
         )
       }
+
+      const firstUnlockedStamp = stamps.find((stamp) => stamp.id === newUnlockedIds[0])
+      if (firstUnlockedStamp) {
+        openUnlockCelebration(firstUnlockedStamp, options.method || 'gps-pin-drop')
+      }
     }
 
     const message = newUnlockedIds.length
@@ -686,11 +715,21 @@ export default function App() {
       return
     }
 
-    setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
+    const wasAlreadyCollected = collectedIdsRef.current.includes(activeStamp.id)
+
+    setCollectedIds((current) => {
+      const updated = Array.from(new Set([...current, activeStamp.id, 'world-party-parade']))
+      collectedIdsRef.current = updated
+      return updated
+    })
 
     if (user) await saveStamp(user, activeStamp.id, method)
 
     setClaimMessage(`${activeStamp.name} collected and saved.`)
+
+    if (!wasAlreadyCollected) {
+      openUnlockCelebration(activeStamp, method)
+    }
   }
 
 
@@ -1710,6 +1749,67 @@ export default function App() {
         )}
       </section>
 
+      {unlockCelebration && (
+        <div style={styles.unlockOverlay}>
+          <div
+            style={
+              unlockCelebration.isLegendary
+                ? { ...styles.unlockModal, ...styles.unlockModalLegendary }
+                : unlockCelebration.isSecret
+                  ? { ...styles.unlockModal, ...styles.unlockModalSecret }
+                  : styles.unlockModal
+            }
+          >
+            <div style={styles.unlockPulse}>⚡</div>
+            <p style={styles.unlockEyebrow}>STAMP DISCOVERED</p>
+            <h1 style={styles.unlockTitle}>{unlockCelebration.stamp.name}</h1>
+
+            <div style={styles.unlockImageWrap}>
+              <img
+                src={unlockCelebration.stamp.image}
+                alt={unlockCelebration.stamp.name}
+                style={styles.unlockImage}
+              />
+            </div>
+
+            <div style={styles.unlockBadgeRow}>
+              <span
+                style={
+                  unlockCelebration.isLegendary
+                    ? { ...styles.unlockBadge, ...styles.unlockLegendaryBadge }
+                    : unlockCelebration.isSecret
+                      ? { ...styles.unlockBadge, ...styles.unlockSecretBadge }
+                      : styles.unlockBadge
+                }
+              >
+                {unlockCelebration.rarity}
+              </span>
+              <span style={styles.unlockXp}>+{unlockCelebration.xp} XP</span>
+            </div>
+
+            <p style={styles.unlockCopy}>
+              Added to your EDM Passport at {unlockCelebration.claimedAt}. Keep collecting to complete your festival story.
+            </p>
+
+            <button
+              style={styles.mainButton}
+              onClick={() => {
+                setActiveId(unlockCelebration.stamp.id)
+                setUnlockCelebration(null)
+                setBookOpen(true)
+                setPageIndex(1)
+              }}
+            >
+              VIEW IN PASSPORT
+            </button>
+
+            <button style={styles.secondaryButton} onClick={() => setUnlockCelebration(null)}>
+              KEEP EXPLORING
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectedStamp && <StampModal stamp={selectedStamp} onClose={() => setSelectedStamp(null)} />}
     </main>
   )
@@ -1815,4 +1915,120 @@ const styles = {
   qrPlaceholder: { width: 82, height: 82, borderRadius: 10, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)' },
   qrImage: { width: 92, height: 92, borderRadius: 12, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)', boxSizing: 'border-box' },
   memoryImage: { width: '100%', borderRadius: 14, marginTop: 8, border: '1px solid rgba(34,211,238,.28)' },
+,
+  unlockOverlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 1000,
+    padding: 18,
+    display: 'grid',
+    placeItems: 'center',
+    background: 'radial-gradient(circle at 50% 20%, rgba(255,45,214,.34), transparent 30%), radial-gradient(circle at 50% 80%, rgba(34,211,238,.30), transparent 34%), rgba(3,0,20,.86)',
+    backdropFilter: 'blur(12px)',
+  },
+  unlockModal: {
+    width: '100%',
+    maxWidth: 390,
+    padding: 22,
+    borderRadius: 32,
+    textAlign: 'center',
+    color: '#f8fbff',
+    background: 'linear-gradient(180deg, rgba(10,5,35,.96), rgba(22,3,46,.94))',
+    border: '1px solid rgba(34,211,238,.62)',
+    boxShadow: '0 0 34px rgba(34,211,238,.32), 0 0 70px rgba(255,45,214,.24), inset 0 0 28px rgba(255,255,255,.05)',
+    animation: 'stampPop .55s ease both',
+  },
+  unlockModalLegendary: {
+    border: '1px solid rgba(255,214,10,.86)',
+    boxShadow: '0 0 38px rgba(255,214,10,.42), 0 0 86px rgba(255,45,214,.28), inset 0 0 34px rgba(255,214,10,.08)',
+  },
+  unlockModalSecret: {
+    border: '1px solid rgba(255,45,214,.75)',
+    boxShadow: '0 0 38px rgba(255,45,214,.42), 0 0 86px rgba(34,211,238,.24), inset 0 0 34px rgba(255,45,214,.08)',
+  },
+  unlockPulse: {
+    width: 58,
+    height: 58,
+    margin: '0 auto 10px',
+    borderRadius: 999,
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: 34,
+    background: 'linear-gradient(135deg, #ff2dd6, #8b5cf6, #22d3ee)',
+    color: '#030014',
+    boxShadow: '0 0 28px rgba(34,211,238,.55), 0 0 50px rgba(255,45,214,.35)',
+  },
+  unlockEyebrow: {
+    margin: 0,
+    color: '#22d3ee',
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: '.22em',
+    textTransform: 'uppercase',
+    textShadow: '0 0 12px rgba(34,211,238,.8)',
+  },
+  unlockTitle: {
+    margin: '8px 0 14px',
+    fontSize: 28,
+    lineHeight: 1.05,
+    fontWeight: 900,
+    textShadow: '0 0 18px rgba(255,45,214,.72), 0 0 26px rgba(34,211,238,.42)',
+  },
+  unlockImageWrap: {
+    width: 190,
+    height: 190,
+    margin: '0 auto 14px',
+    borderRadius: 999,
+    padding: 8,
+    background: 'conic-gradient(from 180deg, #ff2dd6, #22d3ee, #8b5cf6, #ffd60a, #ff2dd6)',
+    boxShadow: '0 0 32px rgba(255,45,214,.38), 0 0 56px rgba(34,211,238,.28)',
+  },
+  unlockImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    borderRadius: 999,
+    border: '4px solid rgba(3,0,20,.95)',
+    background: '#030014',
+  },
+  unlockBadgeRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+    margin: '10px 0',
+  },
+  unlockBadge: {
+    padding: '8px 12px',
+    borderRadius: 999,
+    background: 'linear-gradient(90deg, #22d3ee, #8b5cf6)',
+    color: '#030014',
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: '.12em',
+    boxShadow: '0 0 18px rgba(34,211,238,.34)',
+  },
+  unlockLegendaryBadge: {
+    background: 'linear-gradient(90deg, #ffd60a, #ff9f1c)',
+    boxShadow: '0 0 22px rgba(255,214,10,.55)',
+  },
+  unlockSecretBadge: {
+    background: 'linear-gradient(90deg, #ff2dd6, #22d3ee)',
+    boxShadow: '0 0 22px rgba(255,45,214,.55)',
+  },
+  unlockXp: {
+    padding: '8px 12px',
+    borderRadius: 999,
+    background: 'rgba(255,255,255,.10)',
+    border: '1px solid rgba(34,211,238,.34)',
+    color: '#f8fbff',
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: '.10em',
+  },
+  unlockCopy: {
+    color: 'rgba(248,251,255,.82)',
+    fontSize: 14,
+    lineHeight: 1.45,
+  }
 }
