@@ -128,6 +128,8 @@ export default function AdminPage({
   const [wizardStep, setWizardStep] = useState(1)
   const [wizardSelectedStampIds, setWizardSelectedStampIds] = useState([])
   const [wizardMessage, setWizardMessage] = useState('')
+  const [distributionMode, setDistributionMode] = useState('gps')
+  const [currentLocationMessage, setCurrentLocationMessage] = useState('')
 
   const wizardSelectedStamps = stamps.filter((stamp) => wizardSelectedStampIds.includes(stamp.id))
   const wizardPinCount = gpsDrops.filter((drop) => !adminFestivalId || drop.festival_id === adminFestivalId).length
@@ -392,6 +394,46 @@ export default function AdminPage({
     window.prompt('Copy this stamp claim link:', stampClaimUrl)
   }
 
+  function useCurrentLocationForGpsDrop() {
+    setCurrentLocationMessage('Requesting current location...')
+
+    if (!navigator.geolocation) {
+      setCurrentLocationMessage('This device does not support GPS location.')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude.toFixed(6)
+        const longitude = position.coords.longitude.toFixed(6)
+        const accuracyFeet = Math.round((position.coords.accuracy || 0) * 3.28084)
+
+        setGpsLatitude(latitude)
+        setGpsLongitude(longitude)
+
+        if (!gpsRadiusFeet || Number(gpsRadiusFeet) < accuracyFeet) {
+          setGpsRadiusFeet(String(Math.max(300, accuracyFeet)))
+        }
+
+        setCurrentLocationMessage(`Current location added. Accuracy: about ${accuracyFeet} feet.`)
+      },
+      (error) => {
+        setCurrentLocationMessage(error.message || 'Could not get current location.')
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 10000,
+      }
+    )
+  }
+
+  const selectedDistributionStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
+  const distributionClaimUrl = selectedDistributionStamp ? getClaimUrl(selectedDistributionStamp.id, activeDropWindows?.[selectedDistributionStamp.id]?.token) : ''
+  const distributionQrUrl = distributionClaimUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(distributionClaimUrl)}`
+    : ''
+
   const mapShellStyle = mapExpanded
     ? {
         position: 'fixed',
@@ -531,6 +573,145 @@ export default function AdminPage({
           </button>
         </div>
       )}
+
+      <h2 style={styles.bookTitle}>Stamp Distribution Center</h2>
+
+      <div style={styles.adminCard}>
+        <strong>Select the reward first, then choose how people unlock it.</strong>
+        <small>This is the new operating center for GPS drops, QR stickers, NFC tags, timed drops, and admin giveaways.</small>
+      </div>
+
+      <label style={styles.labelDark}>Distribution Stamp</label>
+      <select style={styles.inputLight} value={adminStampId} onChange={(event) => setAdminStampId(event.target.value)}>
+        {stamps.map((stamp) => (
+          <option key={`distribution-${stamp.id}`} value={stamp.id}>{stamp.name}</option>
+        ))}
+      </select>
+
+      {selectedDistributionStamp && (
+        <div style={{ ...styles.adminCard, gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            {selectedDistributionStamp.image && (
+              <img
+                src={selectedDistributionStamp.image}
+                alt={selectedDistributionStamp.name}
+                style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 22, border: '1px solid rgba(34,211,238,.35)' }}
+              />
+            )}
+            <div>
+              <strong>{selectedDistributionStamp.name}</strong>
+              <small>{selectedDistributionStamp.location || 'No location assigned'} • {selectedDistributionStamp.rarity || 'normal'}</small>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8 }}>
+            {[
+              ['gps', 'GPS DROP'],
+              ['qr', 'QR STICKER'],
+              ['nfc', 'NFC TAG'],
+              ['timed', 'TIMED DROP'],
+              ['giveaway', 'ADMIN GIVEAWAY'],
+            ].map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                style={distributionMode === mode ? styles.mainButton : styles.secondaryButton}
+                onClick={() => setDistributionMode(mode)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {distributionMode === 'gps' && (
+            <div style={styles.adminCard}>
+              <strong>GPS Drop</strong>
+              <small>Stand where the stamp should unlock, tap Use Current Location, then save the GPS drop.</small>
+
+              <button type="button" style={styles.mainButton} onClick={useCurrentLocationForGpsDrop}>
+                📍 USE CURRENT LOCATION
+              </button>
+
+              {currentLocationMessage && <small>{currentLocationMessage}</small>}
+
+              <input style={styles.inputLight} placeholder="Latitude" value={gpsLatitude} onChange={(event) => setGpsLatitude(event.target.value)} />
+              <input style={styles.inputLight} placeholder="Longitude" value={gpsLongitude} onChange={(event) => setGpsLongitude(event.target.value)} />
+              <input style={styles.inputLight} placeholder="Radius feet, example 300" value={gpsRadiusFeet} onChange={(event) => setGpsRadiusFeet(event.target.value)} />
+              <input style={styles.inputLight} placeholder="Drop title" value={gpsTitle} onChange={(event) => setGpsTitle(event.target.value)} />
+
+              <button type="button" style={styles.mainButton} onClick={createGpsDropWithMapOverlay}>
+                SAVE GPS DROP FOR THIS STAMP
+              </button>
+
+              {gpsAdminMessage && <p style={styles.successText}>{gpsAdminMessage}</p>}
+            </div>
+          )}
+
+          {distributionMode === 'qr' && (
+            <div style={styles.adminCard}>
+              <strong>QR Sticker</strong>
+              <small>Use this for printed stickers, posters, poker chips, flyers, or stage handouts.</small>
+              {distributionQrUrl && (
+                <div style={{ background: 'white', color: '#111', padding: 16, borderRadius: 18, display: 'grid', gap: 8, justifyItems: 'center' }}>
+                  <strong>QR CLAIM CODE</strong>
+                  <img src={distributionQrUrl} alt="QR claim code" style={{ width: 220, maxWidth: '100%', borderRadius: 12 }} />
+                </div>
+              )}
+              <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
+              <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
+                COPY QR CLAIM LINK
+              </button>
+            </div>
+          )}
+
+          {distributionMode === 'nfc' && (
+            <div style={styles.adminCard}>
+              <strong>NFC Tag</strong>
+              <small>Program this exact URL onto an NFC tag. Tapping the tag opens the claim flow.</small>
+              <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
+              <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
+                COPY NFC URL
+              </button>
+            </div>
+          )}
+
+          {distributionMode === 'timed' && (
+            <div style={styles.adminCard}>
+              <strong>Timed Drop</strong>
+              <small>Use this for opening ceremonies, sunrise sets, parade windows, and limited drops.</small>
+              <label style={styles.labelDark}>Start Time</label>
+              <input style={styles.inputLight} type="datetime-local" value={dropStart} onChange={(event) => setDropStart(event.target.value)} />
+              <label style={styles.labelDark}>End Time</label>
+              <input style={styles.inputLight} type="datetime-local" value={dropEnd} onChange={(event) => setDropEnd(event.target.value)} />
+              <label style={styles.checkboxRow}>
+                <input type="checkbox" checked={dropSecret} onChange={(event) => setDropSecret(event.target.checked)} />
+                Secret Drop
+              </label>
+              <label style={styles.checkboxRow}>
+                <input type="checkbox" checked={dropLegendary} onChange={(event) => setDropLegendary(event.target.checked)} />
+                Legendary Drop
+              </label>
+              <input style={styles.inputLight} type="number" placeholder="Max claims, optional" value={dropMaxClaims} onChange={(event) => setDropMaxClaims(event.target.value)} />
+              <button type="button" style={styles.mainButton} onClick={handleAdvancedDropSave}>
+                SAVE TIMED DROP
+              </button>
+              {adminMessage && <p style={styles.successText}>{adminMessage}</p>}
+            </div>
+          )}
+
+          {distributionMode === 'giveaway' && (
+            <div style={styles.adminCard}>
+              <strong>Admin Giveaway</strong>
+              <small>Use this at parades, meetups, booths, or one-on-one handouts. Share the claim link by QR, NFC, AirDrop, or message.</small>
+              <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
+              <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
+                COPY GIVEAWAY CLAIM LINK
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
 
       <h2 style={styles.bookTitle}>Festival Wizard</h2>
 
@@ -888,6 +1069,12 @@ export default function AdminPage({
       <button style={styles.secondaryButton} onClick={refreshGpsDrops}>
         REFRESH LIVE GPS MAP
       </button>
+
+      <button type="button" style={styles.mainButton} onClick={useCurrentLocationForGpsDrop}>
+        📍 USE CURRENT LOCATION FOR GPS DROP
+      </button>
+
+      {currentLocationMessage && <p style={styles.successText}>{currentLocationMessage}</p>}
 
       <input style={styles.inputLight} placeholder="GPS drop title" value={gpsTitle} onChange={(event) => setGpsTitle(event.target.value)} />
       <input style={styles.inputLight} placeholder="Latitude" value={gpsLatitude} onChange={(event) => setGpsLatitude(event.target.value)} />
