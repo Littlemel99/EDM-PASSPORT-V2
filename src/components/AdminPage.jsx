@@ -100,6 +100,10 @@ export default function AdminPage({
   setAdminStampNameInput,
   adminStampImageUrlInput,
   setAdminStampImageUrlInput,
+  adminStampImageFile,
+  setAdminStampImageFile,
+  adminStampUploadPreview,
+  setAdminStampUploadPreview,
   adminStampRarityInput,
   setAdminStampRarityInput,
   adminStampLocationInput,
@@ -107,6 +111,7 @@ export default function AdminPage({
   adminStampXpInput,
   setAdminStampXpInput,
   adminStampCreatorMessage,
+  adminStampUploading,
   handleCreateAdminStamp,
 }) {
   const mapRef = useRef(null)
@@ -919,9 +924,9 @@ export default function AdminPage({
       <h3>Admin Stamp Creator</h3>
 
       <div style={styles.adminCard}>
-        <strong>Create New Stamp from Image URL</strong>
+        <strong>Create New Stamp</strong>
         <small>
-          Build 13A creates new admin stamps using an existing image URL. Build 13B will add direct image upload.
+          Build 20A adds direct image upload. Upload a PNG/JPG/WebP or paste a fallback image URL.
         </small>
 
         <input
@@ -931,9 +936,35 @@ export default function AdminPage({
           onChange={(event) => setAdminStampNameInput(event.target.value)}
         />
 
+        <label style={styles.adminCard}>
+          <strong>Upload Stamp Image</strong>
+          <small>Recommended: square PNG/JPG/WebP. This saves to Supabase Storage.</small>
+          <input
+            style={styles.inputLight}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(event) => {
+              const file = event.target.files?.[0] || null
+              setAdminStampImageFile(file)
+              setAdminStampUploadPreview(file ? URL.createObjectURL(file) : '')
+            }}
+          />
+        </label>
+
+        {adminStampUploadPreview && (
+          <div style={{ ...styles.adminCard, alignItems: 'center', textAlign: 'center' }}>
+            <small>Upload Preview</small>
+            <img
+              src={adminStampUploadPreview}
+              alt="Stamp upload preview"
+              style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 24, border: '1px solid rgba(34,211,238,.35)', boxShadow: '0 0 22px rgba(34,211,238,.22)' }}
+            />
+          </div>
+        )}
+
         <input
           style={styles.inputLight}
-          placeholder="Stamp image URL"
+          placeholder="Optional fallback image URL"
           value={adminStampImageUrlInput}
           onChange={(event) => setAdminStampImageUrlInput(event.target.value)}
         />
@@ -962,8 +993,8 @@ export default function AdminPage({
           <option value="legendary">Legendary</option>
         </select>
 
-        <button style={styles.mainButton} onClick={handleCreateAdminStamp}>
-          CREATE ADMIN STAMP
+        <button style={styles.mainButton} onClick={handleCreateAdminStamp} disabled={adminStampUploading}>
+          {adminStampUploading ? 'UPLOADING...' : 'CREATE ADMIN STAMP'}
         </button>
 
         {adminStampCreatorMessage && <p style={styles.successText}>{adminStampCreatorMessage}</p>}

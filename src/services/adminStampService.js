@@ -48,3 +48,42 @@ export async function createAdminStamp({ name, rarity, imageUrl, location, xp })
   if (error) throw error
   return normalizeAdminStamp(data)
 }
+
+
+export async function uploadAdminStampImage(user, file) {
+  if (!user) throw new Error('Admin login required to upload stamp images.')
+  if (!file) throw new Error('Choose a stamp image first.')
+
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Use PNG, JPG, JPEG, or WEBP images only.')
+  }
+
+  const maxBytes = 5 * 1024 * 1024
+  if (file.size > maxBytes) {
+    throw new Error('Stamp image must be smaller than 5 MB.')
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'png'
+  const safeName = file.name
+    .replace(/\.[^/.]+$/, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 48) || 'stamp'
+
+  const filePath = `admin-stamps/${user.id}/${Date.now()}-${safeName}.${extension}`
+
+  const { error } = await supabase.storage
+    .from('stamp-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    })
+
+  if (error) throw error
+
+  const { data } = supabase.storage.from('stamp-images').getPublicUrl(filePath)
+  return data.publicUrl
+}

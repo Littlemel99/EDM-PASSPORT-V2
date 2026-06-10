@@ -51,6 +51,11 @@ import {
   createFestivalRecord,
 } from './services/festivalService'
 import {
+  loadAdminStamps,
+  createAdminStamp,
+  uploadAdminStampImage,
+} from './services/adminStampService'
+import {
   loadUserFestivalAttendance,
   saveFestivalAttendance,
   loadFestivalDemandSummary,
@@ -59,8 +64,8 @@ import {
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
-function getActiveStamp(id) {
-  return stamps.find((stamp) => stamp.id === id) || stamps[0]
+function getActiveStampFromList(stampList, id) {
+  return stampList.find((stamp) => stamp.id === id) || stampList[0]
 }
 
 export default function App() {
@@ -126,6 +131,17 @@ export default function App() {
   const [memoryMessage, setMemoryMessage] = useState('')
   const [memorySaving, setMemorySaving] = useState(false)
 
+  const [adminCreatedStamps, setAdminCreatedStamps] = useState([])
+  const [adminStampNameInput, setAdminStampNameInput] = useState('')
+  const [adminStampImageUrlInput, setAdminStampImageUrlInput] = useState('')
+  const [adminStampImageFile, setAdminStampImageFile] = useState(null)
+  const [adminStampUploadPreview, setAdminStampUploadPreview] = useState('')
+  const [adminStampRarityInput, setAdminStampRarityInput] = useState('normal')
+  const [adminStampLocationInput, setAdminStampLocationInput] = useState('')
+  const [adminStampXpInput, setAdminStampXpInput] = useState('500')
+  const [adminStampCreatorMessage, setAdminStampCreatorMessage] = useState('')
+  const [adminStampUploading, setAdminStampUploading] = useState(false)
+
   const [adminStampId, setAdminStampId] = useState('world-party-parade')
   const [dropStart, setDropStart] = useState('')
   const [dropEnd, setDropEnd] = useState('')
@@ -149,10 +165,14 @@ export default function App() {
 
   const isAdmin = user?.email === ADMIN_EMAIL
   const maxPage = isAdmin ? 11 : 10
-  const activeStamp = useMemo(() => getActiveStamp(activeId), [activeId])
+  const allStamps = useMemo(() => {
+    const adminIds = new Set(adminCreatedStamps.map((stamp) => stamp.id))
+    return [...stamps.filter((stamp) => !adminIds.has(stamp.id)), ...adminCreatedStamps]
+  }, [adminCreatedStamps])
+  const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
-  const collectedStamps = stamps.filter((stamp) => collectedIds.includes(stamp.id))
-  const stats = getStats(collectedStamps, stamps.length)
+  const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
+  const stats = getStats(collectedStamps, allStamps.length)
   const achievements = getAchievements(collectedStamps)
   const activeFamily = families.find((family) => family.id === activeFamilyId) || families[0] || null
   const activeFamilyUrl = activeFamily?.code ? `${APP_URL}?joincrew=${encodeURIComponent(activeFamily.code)}` : ''
@@ -221,7 +241,7 @@ export default function App() {
       loadPublicPassportProfile(passportProfileId)
     }
 
-    if (claimId && stamps.some((stamp) => stamp.id === claimId)) {
+    if (claimId) {
       setActiveId(claimId)
       setBookOpen(true)
       setPageIndex(2)
@@ -415,11 +435,77 @@ export default function App() {
     }
   }
 
+  async function refreshAdminStamps() {
+    try {
+      setAdminCreatedStamps(await loadAdminStamps())
+    } catch (error) {
+      console.error('Admin stamp refresh error:', error)
+    }
+  }
+
+  async function handleCreateAdminStamp() {
+    if (!user || !isAdmin) {
+      setAdminStampCreatorMessage('Admin login required to create stamps.')
+      return
+    }
+
+    if (!adminStampNameInput.trim()) {
+      setAdminStampCreatorMessage('Stamp name is required.')
+      return
+    }
+
+    try {
+      setAdminStampUploading(true)
+      setAdminStampCreatorMessage('Creating stamp...')
+
+      let imageUrl = adminStampImageUrlInput.trim()
+
+      if (adminStampImageFile) {
+        setAdminStampCreatorMessage('Uploading stamp image...')
+        imageUrl = await uploadAdminStampImage(user, adminStampImageFile)
+      }
+
+      if (!imageUrl) {
+        setAdminStampCreatorMessage('Upload an image or paste an image URL.')
+        return
+      }
+
+      const createdStamp = await createAdminStamp({
+        name: adminStampNameInput,
+        rarity: adminStampRarityInput,
+        imageUrl,
+        location: adminStampLocationInput,
+        xp: adminStampXpInput,
+      })
+
+      await refreshAdminStamps()
+      setAdminStampId(createdStamp.id)
+      setAdminStampNameInput('')
+      setAdminStampImageUrlInput('')
+      setAdminStampImageFile(null)
+      setAdminStampUploadPreview('')
+      setAdminStampLocationInput('')
+      setAdminStampXpInput('500')
+      setAdminStampRarityInput('normal')
+      setAdminStampCreatorMessage(`Stamp created: ${createdStamp.name}`)
+    } catch (error) {
+      setAdminStampCreatorMessage(error.message || 'Could not create stamp.')
+    } finally {
+      setAdminStampUploading(false)
+    }
+  }
+
   async function refreshUserData(currentUser = user) {
     if (!currentUser) return
 
     setCollectedIds(await loadCollectedIds(currentUser))
     setMemories(await loadMemories(currentUser))
+
+    try {
+      setAdminCreatedStamps(await loadAdminStamps())
+    } catch (error) {
+      console.error('Admin stamp load error:', error)
+    }
 
     const savedProfile = await loadProfile(currentUser)
     if (savedProfile) {
@@ -1738,7 +1824,7 @@ export default function App() {
               {pageIndex === 11 && isAdmin && (
                 <AdminPage
                   styles={styles}
-                  stamps={stamps}
+                  stamps={allStamps}
                   adminTestMode={adminTestMode}
                   setAdminTestMode={setAdminTestMode}
                   adminStampId={adminStampId}
@@ -1796,6 +1882,24 @@ export default function App() {
                   festivalAdminMessage={festivalAdminMessage}
                   festivalDemandSummary={festivalDemandSummary}
                   refreshFestivalDemandSummary={refreshFestivalDemandSummary}
+                  adminCreatedStamps={adminCreatedStamps}
+                  adminStampNameInput={adminStampNameInput}
+                  setAdminStampNameInput={setAdminStampNameInput}
+                  adminStampImageUrlInput={adminStampImageUrlInput}
+                  setAdminStampImageUrlInput={setAdminStampImageUrlInput}
+                  adminStampImageFile={adminStampImageFile}
+                  setAdminStampImageFile={setAdminStampImageFile}
+                  adminStampUploadPreview={adminStampUploadPreview}
+                  setAdminStampUploadPreview={setAdminStampUploadPreview}
+                  adminStampRarityInput={adminStampRarityInput}
+                  setAdminStampRarityInput={setAdminStampRarityInput}
+                  adminStampLocationInput={adminStampLocationInput}
+                  setAdminStampLocationInput={setAdminStampLocationInput}
+                  adminStampXpInput={adminStampXpInput}
+                  setAdminStampXpInput={setAdminStampXpInput}
+                  adminStampCreatorMessage={adminStampCreatorMessage}
+                  adminStampUploading={adminStampUploading}
+                  handleCreateAdminStamp={handleCreateAdminStamp}
                 />
               )}
             </div>
