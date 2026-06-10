@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Stamp from './Stamp'
 
 const LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
 const LEAFLET_JS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
@@ -119,6 +120,30 @@ export default function AdminPage({
   const [mapError, setMapError] = useState('')
   const [selectedMapPin, setSelectedMapPin] = useState(null)
   const [festivalMapNote, setFestivalMapNote] = useState('')
+  const [wizardStep, setWizardStep] = useState(1)
+  const [wizardSelectedStampIds, setWizardSelectedStampIds] = useState([])
+  const [wizardMessage, setWizardMessage] = useState('')
+
+  const wizardSelectedStamps = stamps.filter((stamp) => wizardSelectedStampIds.includes(stamp.id))
+  const wizardPinCount = gpsDrops.filter((drop) => !adminFestivalId || drop.festival_id === adminFestivalId).length
+
+  function toggleWizardStamp(stampId) {
+    setWizardSelectedStampIds((current) =>
+      current.includes(stampId)
+        ? current.filter((id) => id !== stampId)
+        : [...current, stampId]
+    )
+  }
+
+  function goToWizardStep(nextStep) {
+    setWizardMessage('')
+    setWizardStep(Math.min(5, Math.max(1, nextStep)))
+  }
+
+  function publishWizardFestival() {
+    handleCreateFestival?.()
+    setWizardMessage('Festival setup saved. Next: use the Festival Map Overlay Pin Board below to place live drops and QR/NFC claim points.')
+  }
 
   function getStampName(stampId) {
     return stamps.find((stamp) => stamp.id === stampId)?.name || stampId
@@ -499,6 +524,157 @@ export default function AdminPage({
           <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
             COPY CLAIM LINK
           </button>
+        </div>
+      )}
+
+      <h2 style={styles.bookTitle}>Festival Wizard</h2>
+
+      <div style={styles.adminCard}>
+        <strong>Build 19B Fast Setup Flow</strong>
+        <small>Use this guided workflow to create a festival, add map information, choose stamps, place pins, and prepare for QR/NFC publishing.</small>
+        <small>Business goal: make every new festival repeatable instead of manually hunting through admin tools.</small>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 14 }}>
+        {[1, 2, 3, 4, 5].map((step) => (
+          <button
+            key={step}
+            type="button"
+            style={{
+              ...styles.secondaryButton,
+              padding: '10px 6px',
+              opacity: wizardStep === step ? 1 : 0.72,
+              boxShadow: wizardStep === step ? '0 0 18px rgba(34,211,238,.35)' : styles.secondaryButton?.boxShadow,
+            }}
+            onClick={() => goToWizardStep(step)}
+          >
+            {step}
+          </button>
+        ))}
+      </div>
+
+      {wizardStep === 1 && (
+        <div style={styles.adminCard}>
+          <strong>Step 1 — Festival Basics</strong>
+          <small>Name the festival and set its business status.</small>
+
+          <input style={styles.inputLight} placeholder="Festival name, example: EDC Las Vegas 2027" value={festivalName || ''} onChange={(event) => setFestivalName?.(event.target.value)} />
+          <input style={styles.inputLight} placeholder="Location, example: Las Vegas Motor Speedway" value={festivalLocation || ''} onChange={(event) => setFestivalLocation?.(event.target.value)} />
+
+          <select style={styles.inputLight} value={festivalStatus || 'upcoming'} onChange={(event) => setFestivalStatus?.(event.target.value)}>
+            <option value="upcoming">Upcoming</option>
+            <option value="attended">Attended</option>
+          </select>
+
+          <label style={styles.labelDark}>Start Date</label>
+          <input style={styles.inputLight} type="date" value={festivalStartDate || ''} onChange={(event) => setFestivalStartDate?.(event.target.value)} />
+
+          <label style={styles.labelDark}>End Date</label>
+          <input style={styles.inputLight} type="date" value={festivalEndDate || ''} onChange={(event) => setFestivalEndDate?.(event.target.value)} />
+
+          <button type="button" style={styles.mainButton} onClick={() => goToWizardStep(2)}>
+            NEXT: MAP
+          </button>
+        </div>
+      )}
+
+      {wizardStep === 2 && (
+        <div style={styles.adminCard}>
+          <strong>Step 2 — Festival Map</strong>
+          <small>Add the official or approved map URL. Build 20 will replace this with direct upload.</small>
+
+          <input style={styles.inputLight} placeholder="Festival banner image URL" value={festivalBannerUrl || ''} onChange={(event) => setFestivalBannerUrl?.(event.target.value)} />
+          <input style={styles.inputLight} placeholder="Festival map image URL / official map URL" value={festivalMapUrl || ''} onChange={(event) => setFestivalMapUrl?.(event.target.value)} />
+
+          {festivalMapUrl && (
+            <div style={styles.linkCard}>
+              <strong>Map Preview</strong>
+              <img src={festivalMapUrl} alt="Festival map preview" style={{ width: '100%', borderRadius: 16, marginTop: 10, border: '1px solid rgba(34,211,238,.32)' }} />
+            </div>
+          )}
+
+          <button type="button" style={styles.secondaryButton} onClick={() => goToWizardStep(1)}>
+            BACK
+          </button>
+          <button type="button" style={styles.mainButton} onClick={() => goToWizardStep(3)}>
+            NEXT: STAMPS
+          </button>
+        </div>
+      )}
+
+      {wizardStep === 3 && (
+        <div style={styles.adminCard}>
+          <strong>Step 3 — Choose Stamps</strong>
+          <small>Select existing stamps for this festival. AI stamp generation comes later; this keeps setup fast and reliable.</small>
+
+          <div style={styles.stampGrid}>
+            {stamps.map((stamp) => {
+              const selected = wizardSelectedStampIds.includes(stamp.id)
+
+              return (
+                <button
+                  key={`wizard-stamp-${stamp.id}`}
+                  type="button"
+                  style={{
+                    ...styles.stampButton,
+                    border: selected ? '2px solid rgba(34,211,238,.95)' : styles.stampButton?.border,
+                    boxShadow: selected ? '0 0 20px rgba(34,211,238,.28)' : styles.stampButton?.boxShadow,
+                  }}
+                  onClick={() => toggleWizardStamp(stamp.id)}
+                >
+                  <Stamp stamp={stamp} collected />
+                  <small>{stamp.name}</small>
+                  <small>{selected ? 'SELECTED' : 'TAP TO SELECT'}</small>
+                </button>
+              )
+            })}
+          </div>
+
+          <small>{wizardSelectedStamps.length} stamps selected.</small>
+
+          <button type="button" style={styles.secondaryButton} onClick={() => goToWizardStep(2)}>
+            BACK
+          </button>
+          <button type="button" style={styles.mainButton} onClick={() => goToWizardStep(4)}>
+            NEXT: PLACE PINS
+          </button>
+        </div>
+      )}
+
+      {wizardStep === 4 && (
+        <div style={styles.adminCard}>
+          <strong>Step 4 — Place Pins</strong>
+          <small>Use the Festival Map Overlay Pin Board below to tap the map and save pins to real GPS drops.</small>
+          <small>Current selected festival pins: {wizardPinCount}</small>
+          <small>Selected stamp set: {wizardSelectedStamps.length}</small>
+
+          <button type="button" style={styles.secondaryButton} onClick={() => goToWizardStep(3)}>
+            BACK
+          </button>
+          <button type="button" style={styles.mainButton} onClick={() => goToWizardStep(5)}>
+            NEXT: REVIEW
+          </button>
+        </div>
+      )}
+
+      {wizardStep === 5 && (
+        <div style={styles.adminCard}>
+          <strong>Step 5 — Review + Publish</strong>
+          <small>Festival: {festivalName || 'Not named yet'}</small>
+          <small>Location: {festivalLocation || 'No location yet'}</small>
+          <small>Dates: {festivalStartDate || 'No start date'} — {festivalEndDate || 'No end date'}</small>
+          <small>Map: {festivalMapUrl ? 'Map URL added' : 'No map yet'}</small>
+          <small>Selected stamps: {wizardSelectedStamps.length}</small>
+          <small>Pins for selected festival: {wizardPinCount}</small>
+
+          <button type="button" style={styles.secondaryButton} onClick={() => goToWizardStep(4)}>
+            BACK
+          </button>
+          <button type="button" style={styles.mainButton} onClick={publishWizardFestival}>
+            SAVE / PUBLISH FESTIVAL
+          </button>
+
+          {wizardMessage && <p style={styles.successText}>{wizardMessage}</p>}
         </div>
       )}
 
