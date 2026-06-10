@@ -50,6 +50,11 @@ import {
   loadFestivalRecords,
   createFestivalRecord,
 } from './services/festivalService'
+import {
+  loadUserFestivalAttendance,
+  saveFestivalAttendance,
+  loadFestivalDemandSummary,
+} from './services/festivalAttendanceService'
 
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
@@ -84,6 +89,9 @@ export default function App() {
   const [festivalBannerUrl, setFestivalBannerUrl] = useState('')
   const [festivalMapUrl, setFestivalMapUrl] = useState('')
   const [festivalAdminMessage, setFestivalAdminMessage] = useState('')
+  const [festivalAttendance, setFestivalAttendance] = useState([])
+  const [festivalDemandSummary, setFestivalDemandSummary] = useState([])
+  const [festivalAttendanceMessage, setFestivalAttendanceMessage] = useState('')
   const [activeId, setActiveId] = useState('world-party-parade')
   const [bookOpen, setBookOpen] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
@@ -157,6 +165,16 @@ export default function App() {
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
   const upcomingFestivals = managedFestivals.filter((festival) => festival.status === 'upcoming')
   const attendedFestivals = managedFestivals.filter((festival) => festival.status === 'attended')
+  const myGoingFestivals = festivalAttendance.filter((item) => item.status === 'going')
+  const myInterestedFestivals = festivalAttendance.filter((item) => item.status === 'interested')
+
+  function getFestivalAttendanceStatus(festivalId) {
+    return festivalAttendance.find((item) => item.festival_id === festivalId)?.status || ''
+  }
+
+  function getFestivalDemand(festivalId) {
+    return festivalDemandSummary.find((item) => item.festival_id === festivalId) || { going_count: 0, interested_count: 0 }
+  }
 
   useEffect(() => {
     localStorage.setItem('edm-country', country)
@@ -191,6 +209,7 @@ export default function App() {
     refreshPublicFamilies()
     refreshGpsDrops()
     refreshFestivalRecords()
+    refreshFestivalDemandSummary()
 
     const params = new URLSearchParams(window.location.search)
     const claimId = params.get('claim')
@@ -449,6 +468,45 @@ export default function App() {
     setGpsDrops(await loadGpsDrops(festivalId || 'edc-las-vegas-2026'))
   }
 
+  useEffect(() => {
+    if (!user?.id) {
+      setFestivalAttendance([])
+      return
+    }
+
+    refreshUserFestivalAttendance()
+    refreshFestivalDemandSummary()
+  }, [user?.id])
+
+  async function refreshUserFestivalAttendance() {
+    if (!user?.id) return
+
+    const records = await loadUserFestivalAttendance(user.id)
+    setFestivalAttendance(records)
+  }
+
+  async function refreshFestivalDemandSummary() {
+    const records = await loadFestivalDemandSummary()
+    setFestivalDemandSummary(records)
+  }
+
+  async function handleFestivalAttendance(festivalId, status) {
+    if (!user?.id) {
+      setFestivalAttendanceMessage('Login required to mark festivals.')
+      return
+    }
+
+    try {
+      setFestivalAttendanceMessage('Saving festival choice...')
+      await saveFestivalAttendance({ festivalId, userId: user.id, userEmail: user.email, status })
+      await refreshUserFestivalAttendance()
+      await refreshFestivalDemandSummary()
+      setFestivalAttendanceMessage(status === 'going' ? 'Festival marked: I am going.' : 'Festival marked: interested.')
+    } catch (error) {
+      setFestivalAttendanceMessage(error.message || 'Festival choice could not be saved.')
+    }
+  }
+
   async function refreshFestivalRecords() {
     const records = await loadFestivalRecords()
     const nextFestivals = records.length ? records : fallbackFestivals
@@ -484,6 +542,7 @@ export default function App() {
       })
 
       await refreshFestivalRecords()
+      await refreshFestivalDemandSummary()
 
       setFestivalName('')
       setFestivalLocation('')
@@ -1280,13 +1339,50 @@ export default function App() {
 
                   <h3 style={styles.sectionTitle}>Upcoming Festivals</h3>
                   <div style={styles.festivalList}>
-                    {upcomingFestivals.map((festival) => (
-                      <button key={festival.id} style={styles.festivalCard} onClick={() => selectFestival(festival.id)}>
-                        <strong>{festival.name}</strong>
-                        <small>{festival.location}</small>
-                        <span style={styles.festivalBadge}>OPEN FESTIVAL</span>
-                      </button>
-                    ))}
+                    {upcomingFestivals.map((festival) => {
+                      const attendanceStatus = getFestivalAttendanceStatus(festival.id)
+                      const demand = getFestivalDemand(festival.id)
+
+                      return (
+                        <div key={festival.id} style={styles.festivalCard}>
+                          <strong>{festival.name}</strong>
+                          <small>{festival.location}</small>
+                          {(festival.start_date || festival.startDate) && (
+                            <small>{festival.start_date || festival.startDate} {festival.end_date || festival.endDate ? `→ ${festival.end_date || festival.endDate}` : ''}</small>
+                          )}
+                          <small>{demand.going_count || 0} going • {demand.interested_count || 0} interested</small>
+
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                            <button
+                              type="button"
+                              style={attendanceStatus === 'going' ? styles.mainButton : styles.secondaryButton}
+                              onClick={() => handleFestivalAttendance(festival.id, 'going')}
+                            >
+                              I'M GOING
+                            </button>
+                            <button
+                              type="button"
+                              style={attendanceStatus === 'interested' ? styles.mainButton : styles.secondaryButton}
+                              onClick={() => handleFestivalAttendance(festival.id, 'interested')}
+                            >
+                              INTERESTED
+                            </button>
+                            <button type="button" style={styles.secondaryButton} onClick={() => selectFestival(festival.id)}>
+                              OPEN FESTIVAL
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {festivalAttendanceMessage && <p style={styles.successText}>{festivalAttendanceMessage}</p>}
+
+                  <h3 style={styles.sectionTitle}>My Festival Plans</h3>
+                  <div style={styles.linkCard}>
+                    <strong>Going: {myGoingFestivals.length}</strong>
+                    <small>Interested: {myInterestedFestivals.length}</small>
+                    <small>This helps EDM Passport decide where to build future stamp drops.</small>
                   </div>
 
                   <h3 style={styles.sectionTitle}>Attended Festivals</h3>
@@ -1698,6 +1794,8 @@ export default function App() {
                   setFestivalMapUrl={setFestivalMapUrl}
                   handleCreateFestival={handleCreateFestival}
                   festivalAdminMessage={festivalAdminMessage}
+                  festivalDemandSummary={festivalDemandSummary}
+                  refreshFestivalDemandSummary={refreshFestivalDemandSummary}
                 />
               )}
             </div>

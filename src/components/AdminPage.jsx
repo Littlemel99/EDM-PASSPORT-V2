@@ -92,6 +92,8 @@ export default function AdminPage({
   setFestivalMapUrl,
   handleCreateFestival,
   festivalAdminMessage,
+  festivalDemandSummary = [],
+  refreshFestivalDemandSummary,
   adminCreatedStamps = [],
   adminStampNameInput,
   setAdminStampNameInput,
@@ -529,6 +531,39 @@ export default function AdminPage({
       </button>
 
       {festivalAdminMessage && <p style={styles.successText}>{festivalAdminMessage}</p>}
+
+      <h2 style={styles.bookTitle}>Festival Demand Dashboard</h2>
+      <div style={styles.adminCard}>
+        <strong>Business Signal</strong>
+        <small>Use this to decide where EDM Passport should spend time creating maps, pins, stamps, and drops.</small>
+        <button type="button" style={styles.secondaryButton} onClick={refreshFestivalDemandSummary}>
+          REFRESH DEMAND
+        </button>
+      </div>
+
+      <div style={styles.linkList}>
+        {[...festivalDemandSummary]
+          .sort((a, b) => ((b.going_count || 0) + (b.interested_count || 0)) - ((a.going_count || 0) + (a.interested_count || 0)))
+          .map((item, index) => {
+            const festival = managedFestivals.find((record) => record.id === item.festival_id) || {}
+            const going = item.going_count || 0
+            const interested = item.interested_count || 0
+            const totalDemand = going + interested
+            const recommendation = going >= 25 ? 'HIGH PRIORITY: build drops' : totalDemand >= 10 ? 'WATCHLIST: validate demand' : 'LOW PRIORITY: wait'
+
+            return (
+              <div key={item.festival_id || index} style={styles.adminCard}>
+                <strong>{index + 1}. {festival.name || item.festival_id}</strong>
+                <small>{festival.location || 'Festival location not set'}</small>
+                <small>{going} going • {interested} interested • {totalDemand} total signal</small>
+                <small>{recommendation}</small>
+              </div>
+            )
+          })}
+        {!festivalDemandSummary.length && (
+          <div style={styles.linkCard}>No festival demand data yet. Users need to mark Going or Interested first.</div>
+        )}
+      </div>
 
       <h2 style={styles.bookTitle}>Festival-Specific GPS Map</h2>
 
