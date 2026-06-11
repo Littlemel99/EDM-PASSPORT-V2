@@ -740,6 +740,57 @@ export default function AdminPage({
       )}
 
 
+
+      <h2 style={styles.bookTitle}>Festival Operations Dashboard</h2>
+
+      <div style={styles.linkList}>
+        <div style={styles.adminCard}>
+          <strong>Festival Readiness</strong>
+          <small>Managed Festivals: {managedFestivals.length}</small>
+          <small>GPS Drops: {gpsDrops.length}</small>
+          <small>Admin Stamps: {adminCreatedStamps.length}</small>
+          <small>
+            Readiness Score: {Math.min(100, (managedFestivals.length * 20) + (gpsDrops.length * 5) + (adminCreatedStamps.length * 3))}%
+          </small>
+        </div>
+
+        <div style={styles.adminCard}>
+          <strong>Demand Snapshot</strong>
+          <small>Total Festivals Tracked: {festivalDemandSummary.length}</small>
+          <small>
+            Total Going: {festivalDemandSummary.reduce((sum, item) => sum + (item.going_count || 0), 0)}
+          </small>
+          <small>
+            Total Interested: {festivalDemandSummary.reduce((sum, item) => sum + (item.interested_count || 0), 0)}
+          </small>
+        </div>
+      </div>
+
+      <h3>Festival Demand Rankings</h3>
+
+      <div style={styles.linkList}>
+        {[...festivalDemandSummary]
+          .sort((a, b) => (b.total_count || 0) - (a.total_count || 0))
+          .map((festival) => (
+            <div key={`ops-${festival.festival_id}`} style={styles.adminCard}>
+              <strong>{festival.festival_id}</strong>
+              <small>Going: {festival.going_count || 0}</small>
+              <small>Interested: {festival.interested_count || 0}</small>
+              <small>Total Demand: {festival.total_count || 0}</small>
+
+              <small>
+                Recommended Action:{' '}
+                {(festival.total_count || 0) >= 25
+                  ? 'Deploy GPS drops and exclusive stamps'
+                  : (festival.total_count || 0) >= 10
+                  ? 'Create festival-specific stamps'
+                  : 'Monitor demand'}
+              </small>
+            </div>
+          ))}
+      </div>
+
+
       <h2 style={styles.bookTitle}>Festival Wizard</h2>
 
       <div style={styles.adminCard}>
