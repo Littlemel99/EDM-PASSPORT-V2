@@ -1315,3 +1315,14 @@ export default function AdminPage({
     </>
   )
 }
+
+
+/* BUILD 23 placeholder:
+Festival Heatmap & Claim Analytics
+- Total Claims
+- GPS Claims
+- QR Claims
+- NFC Claims
+- Top Stamps
+- Most Active Festivals
+*/
