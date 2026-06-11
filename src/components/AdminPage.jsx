@@ -428,6 +428,33 @@ export default function AdminPage({
     )
   }
 
+  function saveDistributionGpsDrop() {
+    const selectedDistributionStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
+
+    if (!selectedDistributionStamp?.id) {
+      setCurrentLocationMessage('Select a stamp first.')
+      return
+    }
+
+    if (!adminFestivalId) {
+      setCurrentLocationMessage('Select a festival first.')
+      return
+    }
+
+    if (!gpsLatitude || !gpsLongitude) {
+      setCurrentLocationMessage('Use Current Location or enter latitude and longitude first.')
+      return
+    }
+
+    if (!gpsRadiusFeet || Number(gpsRadiusFeet) <= 0) {
+      setCurrentLocationMessage('Enter a valid radius in feet.')
+      return
+    }
+
+    setCurrentLocationMessage('Saving GPS pin drop...')
+    createGpsDropWithMapOverlay()
+  }
+
   const selectedDistributionStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
   const distributionClaimUrl = selectedDistributionStamp ? getClaimUrl(selectedDistributionStamp.id, activeDropWindows?.[selectedDistributionStamp.id]?.token) : ''
   const distributionQrUrl = distributionClaimUrl
@@ -578,7 +605,7 @@ export default function AdminPage({
 
       <div style={styles.adminCard}>
         <strong>Select the reward first, then choose how people unlock it.</strong>
-        <small>This is the new operating center for GPS drops, QR stickers, NFC tags, timed drops, and admin giveaways.</small>
+        <small>This is the main workflow for GPS drops, QR stickers, NFC tags, timed drops, and admin giveaways.</small>
       </div>
 
       <label style={styles.labelDark}>Distribution Stamp</label>
@@ -626,7 +653,7 @@ export default function AdminPage({
           {distributionMode === 'gps' && (
             <div style={styles.adminCard}>
               <strong>GPS Drop</strong>
-              <small>Stand where the stamp should unlock, tap Use Current Location, then save the GPS drop.</small>
+              <small>Stand where the stamp should unlock, tap Use Current Location, then save the GPS pin drop.</small>
 
               <button type="button" style={styles.mainButton} onClick={useCurrentLocationForGpsDrop}>
                 📍 USE CURRENT LOCATION
@@ -639,8 +666,8 @@ export default function AdminPage({
               <input style={styles.inputLight} placeholder="Radius feet, example 300" value={gpsRadiusFeet} onChange={(event) => setGpsRadiusFeet(event.target.value)} />
               <input style={styles.inputLight} placeholder="Drop title" value={gpsTitle} onChange={(event) => setGpsTitle(event.target.value)} />
 
-              <button type="button" style={styles.mainButton} onClick={createGpsDropWithMapOverlay}>
-                SAVE GPS DROP FOR THIS STAMP
+              <button type="button" style={styles.mainButton} onClick={saveDistributionGpsDrop}>
+                SAVE GPS PIN DROP
               </button>
 
               {gpsAdminMessage && <p style={styles.successText}>{gpsAdminMessage}</p>}
@@ -1032,62 +1059,17 @@ export default function AdminPage({
         </div>
       )}
 
-      <h2 style={styles.bookTitle}>GPS Pin Drop Creator</h2>
+      <h2 style={styles.bookTitle}>Saved GPS Pin Drops</h2>
 
-      <div style={styles.adminMapHeader}>
-        <strong>Live Admin GPS Map</strong>
-        <small>Use satellite mode to zoom into the selected festival. Tap the map to fill latitude and longitude for this festival only.</small>
+      <div style={styles.adminCard}>
+        <strong>GPS creation moved to Stamp Distribution Center.</strong>
+        <small>Select a stamp above, choose GPS Drop, use current location, then save the GPS pin drop.</small>
+        <button style={styles.secondaryButton} onClick={refreshGpsDrops}>
+          REFRESH GPS DROPS
+        </button>
       </div>
 
-      <div style={mapShellStyle}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" style={mapMode === 'street' ? styles.mainButton : styles.secondaryButton} onClick={() => setMapMode('street')}>
-              STREET
-            </button>
-            <button type="button" style={mapMode === 'satellite' ? styles.mainButton : styles.secondaryButton} onClick={() => setMapMode('satellite')}>
-              SATELLITE
-            </button>
-          </div>
-
-          <button type="button" style={styles.secondaryButton} onClick={() => setMapExpanded((value) => !value)}>
-            {mapExpanded ? 'CLOSE FULL MAP' : 'FULL MAP'}
-          </button>
-        </div>
-
-        <div ref={mapRef} style={mapStyle} />
-
-        {!mapReady && !mapError && (
-          <p style={styles.successText}>Loading map...</p>
-        )}
-
-        {mapError && (
-          <p style={styles.errorText}>{mapError}</p>
-        )}
-      </div>
-
-      <button style={styles.secondaryButton} onClick={refreshGpsDrops}>
-        REFRESH LIVE GPS MAP
-      </button>
-
-      <button type="button" style={styles.mainButton} onClick={useCurrentLocationForGpsDrop}>
-        📍 USE CURRENT LOCATION FOR GPS DROP
-      </button>
-
-      {currentLocationMessage && <p style={styles.successText}>{currentLocationMessage}</p>}
-
-      <input style={styles.inputLight} placeholder="GPS drop title" value={gpsTitle} onChange={(event) => setGpsTitle(event.target.value)} />
-      <input style={styles.inputLight} placeholder="Latitude" value={gpsLatitude} onChange={(event) => setGpsLatitude(event.target.value)} />
-      <input style={styles.inputLight} placeholder="Longitude" value={gpsLongitude} onChange={(event) => setGpsLongitude(event.target.value)} />
-      <input style={styles.inputLight} type="number" placeholder="Radius in feet, example 300" value={gpsRadiusFeet} onChange={(event) => setGpsRadiusFeet(event.target.value)} />
-
-      <button style={styles.mainButton} onClick={createGpsDropWithMapOverlay}>
-        CREATE GPS DROP FOR SELECTED STAMP
-      </button>
-
-      {gpsAdminMessage && <p style={styles.successText}>{gpsAdminMessage}</p>}
-
-      <h3>Current GPS Drops For Selected Festival</h3>
+      <h3>Current GPS Pin Drops For Selected Festival</h3>
 
       <div style={styles.linkList}>
         {gpsDrops.length ? (
