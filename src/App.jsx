@@ -993,161 +993,115 @@ export default function App() {
     window.prompt('Copy this share text:', text)
   }
 
-  function getMemoryCardHtml(memory = getLatestMemoryForActiveStamp()) {
-    if (!memory) return ''
-
-    const safeNote = (memory.note || 'Unlocked this festival moment with EDM Passport.')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-
-    const safeShareText = getMemoryShareText(memory).replaceAll("'", "\\'")
-
-    return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>EDM Passport Memory Card</title>
-<style>
-  html, body {
-    margin: 0;
-    min-height: 100%;
-    background: #050510;
-    color: white;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-  body {
-    display: grid;
-    place-items: center;
-    padding: 18px;
-    box-sizing: border-box;
-  }
-  .card {
-    width: min(100%, 760px);
-    box-sizing: border-box;
-    padding: 28px;
-    border-radius: 34px;
-    background:
-      radial-gradient(circle at top left, rgba(255,45,214,.45), transparent 35%),
-      radial-gradient(circle at top right, rgba(34,211,238,.38), transparent 34%),
-      radial-gradient(circle at bottom, rgba(124,58,237,.45), transparent 45%),
-      linear-gradient(180deg, #050510, #100222 58%, #030014);
-    border: 3px solid rgba(34,211,238,.75);
-    display: grid;
-    gap: 18px;
-    box-shadow: 0 0 48px rgba(34,211,238,.22);
-  }
-  .tag {
-    color: #22d3ee;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    font-weight: 900;
-    font-size: 13px;
-  }
-  h1 {
-    font-size: clamp(34px, 8vw, 62px);
-    margin: 0;
-    line-height: .95;
-    text-shadow: 0 0 28px rgba(255,45,214,.8);
-  }
-  .festival {
-    font-size: 18px;
-    color: #e0faff;
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-  img {
-    width: 100%;
-    max-height: 520px;
-    object-fit: cover;
-    border-radius: 24px;
-    border: 2px solid rgba(255,255,255,.45);
-  }
-  .stamp {
-    max-width: 260px;
-    justify-self: center;
-    aspect-ratio: 1 / 1;
-  }
-  .note {
-    font-size: 24px;
-    line-height: 1.2;
-    padding: 20px;
-    border-radius: 22px;
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.18);
-  }
-  .footer {
-    font-size: 16px;
-    color: #c7f9ff;
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-  }
-  button {
-    border: 0;
-    border-radius: 999px;
-    padding: 12px 16px;
-    font-weight: 900;
-    cursor: pointer;
-  }
-</style>
-</head>
-<body>
-  <main>
-    <section class="card">
-      <div class="tag">EDM PASSPORT MEMORY</div>
-      <h1>${activeStamp.name}</h1>
-      <div class="festival">${activeFestival?.name || 'Festival Journey'} • ${new Date(memory.created_at || Date.now()).toLocaleDateString()}</div>
-      <div class="grid">
-        ${activeStamp.image ? `<img class="stamp" src="${activeStamp.image}" alt="${activeStamp.name}" />` : ''}
-        ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` : ''}
-      </div>
-      <div class="note">${safeNote}</div>
-      <div class="footer">
-        <strong>${displayName}</strong>
-        <span>Created with EDM Passport</span>
-      </div>
-    </section>
-    <div class="actions">
-      <button onclick="window.print()">Print / Save as PDF</button>
-      <button onclick="navigator.clipboard.writeText('${safeShareText}')">Copy Share Text</button>
-    </div>
-  </main>
-</body>
-</html>`
-  }
-
   function downloadMemoryCard(memory = getLatestMemoryForActiveStamp()) {
     if (!memory) {
       setMemoryCardMessage('Save a memory first, then download a memory card.')
       return
     }
 
-    try {
-      const blob = new Blob([getMemoryCardHtml(memory)], { type: 'text/html;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `edm-passport-${activeStamp.id}-memory-card.html`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
-      setMemoryCardMessage('Memory card downloaded. Open it to print, save as PDF, or screenshot for social.')
-    } catch (error) {
-      setMemoryCardMessage(error.message || 'Memory card download failed.')
-    }
+    const cardHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>EDM Passport Memory Card</title>
+<style>
+  body {
+    margin: 0;
+    background: #050510;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .card {
+    width: 1080px;
+    min-height: 1350px;
+    box-sizing: border-box;
+    padding: 56px;
+    background:
+      radial-gradient(circle at top left, rgba(255,45,214,.45), transparent 35%),
+      radial-gradient(circle at top right, rgba(34,211,238,.38), transparent 34%),
+      radial-gradient(circle at bottom, rgba(124,58,237,.45), transparent 45%),
+      linear-gradient(180deg, #050510, #100222 58%, #030014);
+    border: 10px solid rgba(34,211,238,.65);
+    display: grid;
+    gap: 28px;
+    align-content: start;
+  }
+  .tag {
+    color: #22d3ee;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 28px;
+  }
+  h1 {
+    font-size: 74px;
+    margin: 0;
+    line-height: .95;
+    text-shadow: 0 0 28px rgba(255,45,214,.8);
+  }
+  .festival {
+    font-size: 34px;
+    color: #e0faff;
+  }
+  .stamp {
+    width: 300px;
+    height: 300px;
+    border-radius: 42px;
+    object-fit: cover;
+    border: 6px solid rgba(255,255,255,.72);
+    box-shadow: 0 0 44px rgba(34,211,238,.5);
+  }
+  .memory {
+    width: 100%;
+    max-height: 520px;
+    border-radius: 42px;
+    object-fit: cover;
+    border: 4px solid rgba(255,45,214,.55);
+  }
+  .note {
+    font-size: 42px;
+    line-height: 1.18;
+    padding: 32px;
+    border-radius: 34px;
+    background: rgba(255,255,255,.08);
+    border: 2px solid rgba(255,255,255,.18);
+  }
+  .footer {
+    margin-top: 18px;
+    font-size: 30px;
+    color: #c7f9ff;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="tag">EDM PASSPORT MEMORY</div>
+    <h1>${activeStamp.name}</h1>
+    <div class="festival">${activeFestival?.name || 'Festival Journey'} • ${new Date(memory.created_at || Date.now()).toLocaleDateString()}</div>
+    ${activeStamp.image ? `<img class="stamp" src="${activeStamp.image}" />` : ''}
+    ${memory.image_url ? `<img class="memory" src="${memory.image_url}" />` : ''}
+    <div class="note">${memory.note || 'Unlocked this festival moment with EDM Passport.'}</div>
+    <div class="footer">
+      <strong>${displayName}</strong>
+      <span>Created with EDM Passport</span>
+    </div>
+  </div>
+</body>
+</html>`
+
+    const blob = new Blob([cardHtml], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `edm-passport-${activeStamp.id}-memory-card.html`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setMemoryCardMessage('Memory card downloaded as an HTML card. Open it, screenshot it, or share the card image.')
   }
 
   async function toggleLiveDrop(stampId, isActive) {
