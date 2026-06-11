@@ -130,6 +130,8 @@ export default function App() {
   const [memories, setMemories] = useState([])
   const [memoryMessage, setMemoryMessage] = useState('')
   const [memorySaving, setMemorySaving] = useState(false)
+  const [memoryCardMessage, setMemoryCardMessage] = useState('')
+  const memoryCardRef = useRef(null)
 
   const [adminCreatedStamps, setAdminCreatedStamps] = useState([])
   const [adminStampNameInput, setAdminStampNameInput] = useState('')
@@ -960,6 +962,148 @@ export default function App() {
     }
   }
 
+  function getStampMemoriesForActiveStamp() {
+    return memories.filter((memory) => memory.stamp_id === activeStamp.id)
+  }
+
+  function getLatestMemoryForActiveStamp() {
+    const stampMemories = getStampMemoriesForActiveStamp()
+    return stampMemories[stampMemories.length - 1] || null
+  }
+
+  function getMemoryShareText(memory = getLatestMemoryForActiveStamp()) {
+    const festivalName = activeFestival?.name || 'EDM Passport'
+    const note = memory?.note ? ` — "${memory.note}"` : ''
+    return `I unlocked ${activeStamp.name} at ${festivalName}${note}. Created with EDM Passport. ${APP_URL}`
+  }
+
+  async function copyMemoryShareText(memory = getLatestMemoryForActiveStamp()) {
+    const text = getMemoryShareText(memory)
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+        setMemoryCardMessage('Share text copied. Paste it into Instagram, Facebook, X, or TikTok.')
+        return
+      }
+    } catch (error) {
+      console.warn('Memory share copy failed', error)
+    }
+
+    window.prompt('Copy this share text:', text)
+  }
+
+  function downloadMemoryCard(memory = getLatestMemoryForActiveStamp()) {
+    if (!memory) {
+      setMemoryCardMessage('Save a memory first, then download a memory card.')
+      return
+    }
+
+    const cardHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>EDM Passport Memory Card</title>
+<style>
+  body {
+    margin: 0;
+    background: #050510;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .card {
+    width: 1080px;
+    min-height: 1350px;
+    box-sizing: border-box;
+    padding: 56px;
+    background:
+      radial-gradient(circle at top left, rgba(255,45,214,.45), transparent 35%),
+      radial-gradient(circle at top right, rgba(34,211,238,.38), transparent 34%),
+      radial-gradient(circle at bottom, rgba(124,58,237,.45), transparent 45%),
+      linear-gradient(180deg, #050510, #100222 58%, #030014);
+    border: 10px solid rgba(34,211,238,.65);
+    display: grid;
+    gap: 28px;
+    align-content: start;
+  }
+  .tag {
+    color: #22d3ee;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 28px;
+  }
+  h1 {
+    font-size: 74px;
+    margin: 0;
+    line-height: .95;
+    text-shadow: 0 0 28px rgba(255,45,214,.8);
+  }
+  .festival {
+    font-size: 34px;
+    color: #e0faff;
+  }
+  .stamp {
+    width: 300px;
+    height: 300px;
+    border-radius: 42px;
+    object-fit: cover;
+    border: 6px solid rgba(255,255,255,.72);
+    box-shadow: 0 0 44px rgba(34,211,238,.5);
+  }
+  .memory {
+    width: 100%;
+    max-height: 520px;
+    border-radius: 42px;
+    object-fit: cover;
+    border: 4px solid rgba(255,45,214,.55);
+  }
+  .note {
+    font-size: 42px;
+    line-height: 1.18;
+    padding: 32px;
+    border-radius: 34px;
+    background: rgba(255,255,255,.08);
+    border: 2px solid rgba(255,255,255,.18);
+  }
+  .footer {
+    margin-top: 18px;
+    font-size: 30px;
+    color: #c7f9ff;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="tag">EDM PASSPORT MEMORY</div>
+    <h1>${activeStamp.name}</h1>
+    <div class="festival">${activeFestival?.name || 'Festival Journey'} • ${new Date(memory.created_at || Date.now()).toLocaleDateString()}</div>
+    ${activeStamp.image ? `<img class="stamp" src="${activeStamp.image}" />` : ''}
+    ${memory.image_url ? `<img class="memory" src="${memory.image_url}" />` : ''}
+    <div class="note">${memory.note || 'Unlocked this festival moment with EDM Passport.'}</div>
+    <div class="footer">
+      <strong>${displayName}</strong>
+      <span>Created with EDM Passport</span>
+    </div>
+  </div>
+</body>
+</html>`
+
+    const blob = new Blob([cardHtml], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `edm-passport-${activeStamp.id}-memory-card.html`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setMemoryCardMessage('Memory card downloaded as an HTML card. Open it, screenshot it, or share the card image.')
+  }
+
   async function toggleLiveDrop(stampId, isActive) {
     await setLiveDrop(stampId, isActive)
     await refreshLiveDrops()
@@ -1682,18 +1826,51 @@ export default function App() {
 
                   {memoryMessage && <p style={styles.successText}>{memoryMessage}</p>}
 
+                  {getLatestMemoryForActiveStamp() && (
+                    <div style={styles.memoryShareCard} ref={memoryCardRef}>
+                      <p style={styles.tag}>Festival Memory Card</p>
+                      <h3>{activeStamp.name}</h3>
+                      <small>{activeFestival?.name || 'EDM Passport'} • {new Date(getLatestMemoryForActiveStamp().created_at || Date.now()).toLocaleDateString()}</small>
+
+                      <div style={styles.memoryCardGrid}>
+                        {activeStamp.image && (
+                          <img src={activeStamp.image} alt={activeStamp.name} style={styles.memoryCardStamp} />
+                        )}
+                        {getLatestMemoryForActiveStamp().image_url && (
+                          <img src={getLatestMemoryForActiveStamp().image_url} alt="Memory" style={styles.memoryCardPhoto} />
+                        )}
+                      </div>
+
+                      <p>{getLatestMemoryForActiveStamp().note || 'Unlocked this festival moment with EDM Passport.'}</p>
+                      <small>Created with EDM Passport</small>
+
+                      <div style={styles.shareButtonRow}>
+                        <button style={styles.mainButton} onClick={() => downloadMemoryCard(getLatestMemoryForActiveStamp())}>
+                          DOWNLOAD MEMORY CARD
+                        </button>
+                        <button style={styles.secondaryButton} onClick={() => copyMemoryShareText(getLatestMemoryForActiveStamp())}>
+                          COPY SHARE TEXT
+                        </button>
+                      </div>
+
+                      {memoryCardMessage && <p style={styles.successText}>{memoryCardMessage}</p>}
+                    </div>
+                  )}
+
                   <div style={styles.linkList}>
-                    {memories
-                      .filter((memory) => memory.stamp_id === activeStamp.id)
-                      .map((memory) => (
-                        <div key={memory.id} style={styles.linkCard}>
-                          <strong>{memory.stamp_id || 'Festival Memory'}</strong>
-                          <p>{memory.note}</p>
-                          {memory.image_url && (
-                            <img src={memory.image_url} alt="Memory" style={styles.memoryImage} />
-                          )}
-                        </div>
-                      ))}
+                    {getStampMemoriesForActiveStamp().map((memory) => (
+                      <div key={memory.id} style={styles.linkCard}>
+                        <strong>{activeStamp.name}</strong>
+                        <small>{new Date(memory.created_at || Date.now()).toLocaleString()}</small>
+                        <p>{memory.note}</p>
+                        {memory.image_url && (
+                          <img src={memory.image_url} alt="Memory" style={styles.memoryImage} />
+                        )}
+                        <button style={styles.secondaryButton} onClick={() => copyMemoryShareText(memory)}>
+                          COPY SHARE TEXT
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
