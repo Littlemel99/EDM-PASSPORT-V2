@@ -791,6 +791,45 @@ export default function AdminPage({
       </div>
 
 
+      <h2 style={styles.bookTitle}>Festival Heatmap & Claim Analytics</h2>
+
+      <div style={styles.linkList}>
+        <div style={styles.adminCard}>
+          <strong>Claim Statistics</strong>
+          <small>Total Festivals: {festivalDemandSummary.length}</small>
+          <small>Total GPS Drops: {gpsDrops.length}</small>
+          <small>Total Admin Stamps: {adminCreatedStamps.length}</small>
+          <small>Total Demand Signals: {festivalDemandSummary.reduce((sum, item) => sum + (item.total_count || 0), 0)}</small>
+        </div>
+
+        <div style={styles.adminCard}>
+          <strong>Most Popular Stamps</strong>
+          <small>#1: Kinetic Field</small>
+          <small>#2: Circuit Grounds</small>
+          <small>#3: Cosmic Meadow</small>
+          <small>Replace with live claim data in Build 24.</small>
+        </div>
+      </div>
+
+      <h3>Festival Heatmap Priorities</h3>
+
+      <div style={styles.linkList}>
+        {[...festivalDemandSummary]
+          .sort((a, b) => (b.total_count || 0) - (a.total_count || 0))
+          .slice(0, 5)
+          .map((festival) => (
+            <div key={`heat-${festival.festival_id}`} style={styles.adminCard}>
+              <strong>{festival.festival_id}</strong>
+              <small>Demand Score: {festival.total_count || 0}</small>
+              <small>
+                Priority: {(festival.total_count || 0) >= 25 ? 'HIGH' : (festival.total_count || 0) >= 10 ? 'MEDIUM' : 'LOW'}
+              </small>
+            </div>
+          ))}
+      </div>
+
+
+
       <h2 style={styles.bookTitle}>Festival Wizard</h2>
 
       <div style={styles.adminCard}>
