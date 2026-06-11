@@ -1317,42 +1317,12 @@ export default function AdminPage({
 }
 
 
-
-      <h2 style={styles.bookTitle}>Festival Heatmap & Claim Analytics</h2>
-
-      <div style={styles.linkList}>
-        <div style={styles.adminCard}>
-          <strong>Total Claims</strong>
-          <small>{collectedIds?.length || 0} claims recorded in current admin session</small>
-        </div>
-
-        <div style={styles.adminCard}>
-          <strong>Distribution Performance</strong>
-          <small>GPS Drops: {gpsDrops.length}</small>
-          <small>QR/NFC Enabled Stamps: {adminCreatedStamps.length}</small>
-          <small>Managed Festivals: {managedFestivals.length}</small>
-        </div>
-
-        <div style={styles.adminCard}>
-          <strong>Most Popular Stamps</strong>
-          {stamps.slice(0,5).map((stamp) => (
-            <small key={`popular-${stamp.id}`}>{stamp.name}</small>
-          ))}
-        </div>
-      </div>
-
-      <h3>Festival Heatmap Priorities</h3>
-      <div style={styles.linkList}>
-        {[...festivalDemandSummary]
-          .sort((a,b)=>(b.total_count||0)-(a.total_count||0))
-          .slice(0,5)
-          .map((festival,index)=>(
-            <div key={`heat-${festival.festival_id}`} style={styles.adminCard}>
-              <strong>Zone #{index+1}</strong>
-              <small>{festival.festival_id}</small>
-              <small>Demand Score: {festival.total_count || 0}</small>
-              <small>{(festival.total_count||0) >= 25 ? 'High Priority GPS Placement' : 'Monitor and Grow'}</small>
-            </div>
-          ))}
-      </div>
-
+/* BUILD 23 placeholder:
+Festival Heatmap & Claim Analytics
+- Total Claims
+- GPS Claims
+- QR Claims
+- NFC Claims
+- Top Stamps
+- Most Active Festivals
+*/
