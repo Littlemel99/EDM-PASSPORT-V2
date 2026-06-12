@@ -166,7 +166,7 @@ export default function App() {
   const autoCollectLastCheckRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
-  const maxPage = isAdmin ? 11 : 10
+  const maxPage = isAdmin ? 12 : 11
   const allStamps = useMemo(() => {
     const adminIds = new Set(adminCreatedStamps.map((stamp) => stamp.id))
     return [...stamps.filter((stamp) => !adminIds.has(stamp.id)), ...adminCreatedStamps]
@@ -1104,6 +1104,88 @@ export default function App() {
     setMemoryCardMessage('Memory card downloaded as an HTML card. Open it, screenshot it, or share the card image.')
   }
 
+  function getMemoryCardShareText(memory) {
+    const stamp = allStamps.find((item) => item.id === memory?.stamp_id) || activeStamp
+    const festivalName = activeFestival?.name || 'EDM Passport'
+    const note = memory?.note ? ` — "${memory.note}"` : ''
+    return `I saved a festival memory for ${stamp?.name || 'my stamp'} at ${festivalName}${note}. Created with EDM Passport. ${APP_URL}`
+  }
+
+  async function copyMemoryCardShareText(memory) {
+    const text = getMemoryCardShareText(memory)
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+        setMemoryMessage('Memory card share text copied.')
+        return
+      }
+    } catch (error) {
+      console.warn('Memory card copy failed', error)
+    }
+
+    window.prompt('Copy this share text:', text)
+  }
+
+  function downloadMemoryCardPage(memory) {
+    if (!memory) {
+      setMemoryMessage('Choose a memory first.')
+      return
+    }
+
+    const stamp = allStamps.find((item) => item.id === memory.stamp_id) || activeStamp
+    const safeNote = (memory.note || 'Festival memory saved with EDM Passport.')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EDM Passport Memory Card</title>
+<style>
+body{margin:0;min-height:100vh;background:#050510;color:white;font-family:Arial,Helvetica,sans-serif;display:grid;place-items:center;padding:18px;box-sizing:border-box}
+.card{width:min(100%,720px);padding:24px;border-radius:32px;background:radial-gradient(circle at top left,rgba(255,45,214,.38),transparent 35%),radial-gradient(circle at bottom right,rgba(34,211,238,.32),transparent 42%),linear-gradient(180deg,#050510,#120424);border:3px solid rgba(34,211,238,.65);box-shadow:0 0 44px rgba(34,211,238,.22);display:grid;gap:16px}
+.tag{color:#22d3ee;letter-spacing:.2em;text-transform:uppercase;font-size:12px;font-weight:900}
+h1{font-size:clamp(30px,8vw,58px);line-height:.96;margin:0;text-shadow:0 0 24px rgba(255,45,214,.85)}
+.meta{color:#c7f9ff;font-size:16px}
+img{width:100%;max-height:480px;object-fit:cover;border-radius:24px;border:2px solid rgba(255,255,255,.42)}
+.stamp{width:min(210px,70%);aspect-ratio:1/1;justify-self:center}
+.note{font-size:22px;line-height:1.22;padding:18px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16)}
+.footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#c7f9ff}
+button{margin-top:14px;border:0;border-radius:999px;padding:12px 16px;font-weight:900}
+</style>
+</head>
+<body>
+<main>
+<section class="card">
+<div class="tag">EDM Passport Memory</div>
+<h1>${stamp?.name || 'Festival Memory'}</h1>
+<div class="meta">${activeFestival?.name || 'Festival Journey'} • ${new Date(memory.created_at || Date.now()).toLocaleDateString()}</div>
+${stamp?.image ? `<img class="stamp" src="${stamp.image}" alt="${stamp.name}" />` : ''}
+${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` : ''}
+<div class="note">${safeNote}</div>
+<div class="footer"><strong>${displayName}</strong><span>Created with EDM Passport</span></div>
+</section>
+<button onclick="window.print()">Print / Save as PDF</button>
+</main>
+</body>
+</html>`
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `edm-passport-memory-card-${memory.id || Date.now()}.html`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setMemoryMessage('Memory card downloaded.')
+  }
+
   async function toggleLiveDrop(stampId, isActive) {
     await setLiveDrop(stampId, isActive)
     await refreshLiveDrops()
@@ -1921,6 +2003,59 @@ export default function App() {
               {pageIndex === 10 && (
                 <>
                   <p style={styles.pageNumber}>Passport Page 11</p>
+                  <h2 style={styles.bookTitle}>Festival Memory Cards</h2>
+                  <p style={styles.bookText}>
+                    View your saved festival memories as share cards. Save memories on Sticker Story first, then download or copy share text here.
+                  </p>
+
+                  <div style={styles.linkList}>
+                    {memories.length ? (
+                      memories.map((memory) => {
+                        const memoryStamp = allStamps.find((stamp) => stamp.id === memory.stamp_id) || activeStamp
+
+                        return (
+                          <div key={`memory-card-${memory.id}`} style={styles.memoryShareCardSmall}>
+                            <p style={styles.tag}>EDM Passport Memory</p>
+                            <strong>{memoryStamp?.name || 'Festival Memory'}</strong>
+                            <small>{activeFestival?.name || 'EDM Passport'} • {new Date(memory.created_at || Date.now()).toLocaleDateString()}</small>
+
+                            <div style={styles.memoryCardPreviewGrid}>
+                              {memoryStamp?.image && (
+                                <img src={memoryStamp.image} alt={memoryStamp.name} style={styles.memoryCardPreviewStamp} />
+                              )}
+                              {memory.image_url && (
+                                <img src={memory.image_url} alt="Memory" style={styles.memoryCardPreviewPhoto} />
+                              )}
+                            </div>
+
+                            {memory.note && <p>{memory.note}</p>}
+
+                            <div style={styles.shareButtonRow}>
+                              <button style={styles.mainButton} onClick={() => downloadMemoryCardPage(memory)}>
+                                DOWNLOAD MEMORY CARD
+                              </button>
+                              <button style={styles.secondaryButton} onClick={() => copyMemoryCardShareText(memory)}>
+                                COPY SHARE TEXT
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div style={styles.linkCard}>
+                        <strong>No memories saved yet.</strong>
+                        <small>Go to Sticker Story, add a note or photo, then save your first memory.</small>
+                      </div>
+                    )}
+                  </div>
+
+                  {memoryMessage && <p style={styles.successText}>{memoryMessage}</p>}
+                </>
+              )}
+
+              {pageIndex === 11 && (
+                <>
+                  <p style={styles.pageNumber}>Passport Page 12</p>
                   <h2 style={styles.bookTitle}>Passport Export Center</h2>
                   <p style={styles.bookText}>
                     Download, print, or save your EDM Passport identity. These exports use your rave name and country passport cover.
@@ -1998,7 +2133,7 @@ export default function App() {
                 </>
               )}
 
-              {pageIndex === 11 && isAdmin && (
+              {pageIndex === 12 && isAdmin && (
                 <AdminPage
                   styles={styles}
                   stamps={allStamps}
