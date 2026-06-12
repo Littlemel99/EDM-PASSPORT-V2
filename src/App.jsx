@@ -1716,18 +1716,21 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <h2 style={styles.bookTitle}>{activeFestival?.name || 'EDC Las Vegas 2026'}</h2>
                   <p style={styles.bookText}>{activeFestival?.location || 'Under the Electric Sky'}</p>
 
-                  <div style={styles.stampGrid}>
+                  <div style={styles.collectionGrid}>
                     {stamps.map((stamp) => {
                       const collected = collectedIds.includes(stamp.id)
                       const live = activeDrops.includes(stamp.id)
                       const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
 
                       return (
-                        <button key={stamp.id} style={styles.stampButton} onClick={() => chooseStamp(stamp)}>
-                          <Stamp stamp={stamp} collected={collected || live} />
-                          <small>{stamp.name}</small>
-                          <small>{collected ? 'COLLECTED' : live ? 'LIVE' : 'LOCKED'}</small>
+                        <button key={stamp.id} style={styles.previewCard} onClick={() => chooseStamp(stamp)}>
+                          <div style={styles.previewThumbWrap}>
+                            <Stamp stamp={stamp} collected={collected || live} />
+                          </div>
+                          <strong>{stamp.name}</strong>
+                          <small>{collected ? 'COLLECTED' : live ? 'LIVE NOW' : 'LOCKED'}</small>
                           <small>{memoryCount} memories</small>
+                          <span style={styles.previewAction}>VIEW</span>
                         </button>
                       )
                     })}
@@ -1741,10 +1744,14 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <h2 style={styles.bookTitle}>GPS / QR / NFC Claim</h2>
 
                   <div style={styles.claimBox}>
-                    <p style={styles.labelDark}>Selected Stamp</p>
-                    <h3>{activeStamp.name}</h3>
-                    <p>{activeStamp.location}</p>
-                    <Stamp stamp={activeStamp} collected />
+                    <p style={styles.labelDark}>Selected Reward</p>
+                    <div style={styles.selectedRewardPreview}>
+                      <Stamp stamp={activeStamp} collected />
+                      <div>
+                        <h3>{activeStamp.name}</h3>
+                        <p>{activeStamp.location}</p>
+                      </div>
+                    </div>
 
                     <div style={gpsStatus.unlocked || adminTestMode ? styles.successBox : styles.warningBox}>
                       <strong>{gpsStatus.unlocked || adminTestMode ? 'GPS READY' : 'GPS NEEDED'}</strong>
@@ -2014,17 +2021,17 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                         const memoryStamp = allStamps.find((stamp) => stamp.id === memory.stamp_id) || activeStamp
 
                         return (
-                          <div key={`memory-card-${memory.id}`} style={styles.memoryShareCardSmall}>
+                          <div key={`memory-card-${memory.id}`} style={styles.previewCard}>
                             <p style={styles.tag}>EDM Passport Memory</p>
                             <strong>{memoryStamp?.name || 'Festival Memory'}</strong>
                             <small>{activeFestival?.name || 'EDM Passport'} • {new Date(memory.created_at || Date.now()).toLocaleDateString()}</small>
 
-                            <div style={styles.memoryCardPreviewGrid}>
+                            <div style={styles.compactMemoryGrid}>
                               {memoryStamp?.image && (
-                                <img src={memoryStamp.image} alt={memoryStamp.name} style={styles.memoryCardPreviewStamp} />
+                                <img src={memoryStamp.image} alt={memoryStamp.name} style={styles.compactMemoryStamp} />
                               )}
                               {memory.image_url && (
-                                <img src={memory.image_url} alt="Memory" style={styles.memoryCardPreviewPhoto} />
+                                <img src={memory.image_url} alt="Memory" style={styles.compactMemoryPhoto} />
                               )}
                             </div>
 
@@ -2282,6 +2289,14 @@ const styles = {
   autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.35)', display: 'grid', gap: 8 },
   labelDark: { marginTop: 14, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, display: 'block', textShadow: '0 0 8px rgba(34,211,238,.75)' },
   checkboxRow: { marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.22)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
+  collectionGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 18 },
+  previewCard: { border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 6, fontWeight: 900, boxShadow: '0 0 16px rgba(34,211,238,.10), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
+  previewThumbWrap: { transform: 'scale(.82)', height: 70, display: 'grid', placeItems: 'center' },
+  previewAction: { marginTop: 2, padding: '5px 10px', borderRadius: 999, background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
+  selectedRewardPreview: { display: 'grid', gridTemplateColumns: '84px 1fr', gap: 12, alignItems: 'center', textAlign: 'left', margin: '10px 0', maxWidth: '100%' },
+  compactMemoryGrid: { display: 'grid', gridTemplateColumns: '72px 1fr', gap: 8, alignItems: 'center', width: '100%' },
+  compactMemoryStamp: { width: 72, height: 72, objectFit: 'cover', borderRadius: 16, border: '2px solid rgba(255,255,255,.35)' },
+  compactMemoryPhoto: { width: '100%', maxHeight: 96, objectFit: 'cover', borderRadius: 16, border: '2px solid rgba(34,211,238,.35)' },
   stampGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 18 },
   stampButton: { border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 8, fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.12), inset 0 0 18px rgba(255,255,255,.025)' },
   pageControls: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginTop: 12 },
