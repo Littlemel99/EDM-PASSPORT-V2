@@ -130,6 +130,7 @@ export default function App() {
   const [memories, setMemories] = useState([])
   const [memoryMessage, setMemoryMessage] = useState('')
   const [memorySaving, setMemorySaving] = useState(false)
+  const [memoryPreviewId, setMemoryPreviewId] = useState('')
   const [openSections, setOpenSections] = useState({
     liveClaims: false,
     offClaims: false,
@@ -1964,36 +1965,13 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
                   {memoryMessage && <p style={styles.successText}>{memoryMessage}</p>}
 
-                  {getLatestMemoryForActiveStamp() && (
-                    <div style={styles.memoryShareCard} ref={memoryCardRef}>
-                      <p style={styles.tag}>Festival Memory Card</p>
-                      <h3>{activeStamp.name}</h3>
-                      <small>{activeFestival?.name || 'EDM Passport'} • {new Date(getLatestMemoryForActiveStamp().created_at || Date.now()).toLocaleDateString()}</small>
-
-                      <div style={styles.memoryCardGrid}>
-                        {activeStamp.image && (
-                          <img src={activeStamp.image} alt={activeStamp.name} style={styles.memoryCardStamp} />
-                        )}
-                        {getLatestMemoryForActiveStamp().image_url && (
-                          <img src={getLatestMemoryForActiveStamp().image_url} alt="Memory" style={styles.memoryCardPhoto} />
-                        )}
-                      </div>
-
-                      <p>{getLatestMemoryForActiveStamp().note || 'Unlocked this festival moment with EDM Passport.'}</p>
-                      <small>Created with EDM Passport</small>
-
-                      <div style={styles.shareButtonRow}>
-                        <button style={styles.mainButton} onClick={() => downloadMemoryCard(getLatestMemoryForActiveStamp())}>
-                          DOWNLOAD MEMORY CARD
-                        </button>
-                        <button style={styles.secondaryButton} onClick={() => copyMemoryShareText(getLatestMemoryForActiveStamp())}>
-                          COPY SHARE TEXT
-                        </button>
-                      </div>
-
-                      {memoryCardMessage && <p style={styles.successText}>{memoryCardMessage}</p>}
-                    </div>
-                  )}
+                  <div style={styles.linkCard}>
+                    <strong>Memory cards moved.</strong>
+                    <small>Save memories here. View, preview, download, and share cards on the Festival Memory Cards page.</small>
+                    <button style={styles.secondaryButton} onClick={jumpToMemories}>
+                      OPEN MEMORY CARDS
+                    </button>
+                  </div>
 
                   <div style={styles.linkList}>
                     {getStampMemoriesForActiveStamp().map((memory) => (
@@ -2053,6 +2031,9 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   memories={memories}
                   families={families}
                   activeStamp={activeStamp}
+                  onOpenStamps={() => setPageIndex(1)}
+                  onOpenMemories={() => setPageIndex(10)}
+                  onOpenTimeline={() => setPageIndex(8)}
                 />
               )}
 
@@ -2087,8 +2068,8 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                             {memory.note && <p>{memory.note}</p>}
 
                             <div style={styles.shareButtonRow}>
-                              <button style={styles.mainButton} onClick={() => downloadMemoryCardPage(memory)}>
-                                DOWNLOAD MEMORY CARD
+                              <button style={styles.mainButton} onClick={() => setMemoryPreviewId(memory.id)}>
+                                PREVIEW CARD
                               </button>
                               <button style={styles.secondaryButton} onClick={() => copyMemoryCardShareText(memory)}>
                                 COPY SHARE TEXT
@@ -2106,6 +2087,45 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   </div>
 
                   {memoryMessage && <p style={styles.successText}>{memoryMessage}</p>}
+
+                  {memoryPreviewId && (() => {
+                    const previewMemory = memories.find((memory) => memory.id === memoryPreviewId)
+                    const previewStamp = allStamps.find((stamp) => stamp.id === previewMemory?.stamp_id) || activeStamp
+
+                    if (!previewMemory) return null
+
+                    return (
+                      <div style={styles.previewOverlay}>
+                        <div style={styles.previewModalCard}>
+                          <p style={styles.tag}>Memory Card Preview</p>
+                          <strong>{previewStamp?.name || 'Festival Memory'}</strong>
+                          <small>{activeFestival?.name || 'EDM Passport'} • {new Date(previewMemory.created_at || Date.now()).toLocaleDateString()}</small>
+
+                          {previewStamp?.image && (
+                            <img src={previewStamp.image} alt={previewStamp.name} style={styles.memoryPreviewStamp} />
+                          )}
+
+                          {previewMemory.image_url && (
+                            <img src={previewMemory.image_url} alt="Memory preview" style={styles.memoryPreviewPhoto} />
+                          )}
+
+                          {previewMemory.note && <p>{previewMemory.note}</p>}
+
+                          <button style={styles.mainButton} onClick={() => downloadMemoryCardPage(previewMemory)}>
+                            DOWNLOAD
+                          </button>
+                          <button style={styles.secondaryButton} onClick={() => copyMemoryCardShareText(previewMemory)}>
+                            COPY SHARE TEXT
+                          </button>
+                          <button style={styles.dangerButton} onClick={() => setMemoryPreviewId('')}>
+                            CLOSE PREVIEW
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+
                 </>
               )}
 
@@ -2371,7 +2391,7 @@ const styles = {
   achievementUnlocked: { padding: 12, borderRadius: 14, background: 'linear-gradient(135deg, rgba(253,224,71,.20), rgba(255,45,214,.12))', border: '1px solid rgba(253,224,71,.42)', display: 'grid', gap: 4 },
   achievementLocked: { padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', opacity: 0.45, display: 'grid', gap: 4 },
   flexCard: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.38), rgba(124,58,237,.28), rgba(34,211,238,.28))', color: 'white', textAlign: 'center', boxShadow: '0 0 45px rgba(255,45,214,.22), 0 0 50px rgba(34,211,238,.14)' },
-  memoryBox: { width: '100%', minHeight: 180, marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.35)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 800, outline: 'none' },
+  memoryBox: { width: '100%', minHeight: 92, maxHeight: 120, marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.35)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 800, outline: 'none' },
   storyHero: { marginTop: 16, padding: 18, borderRadius: 22, background: 'linear-gradient(135deg, rgba(255,45,214,.22), rgba(34,211,238,.20))', border: '1px solid rgba(34,211,238,.34)', textAlign: 'center' },
   timelineCard: { padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 8 },
   adminMapHeader: { marginTop: 18, padding: 12, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 6, fontWeight: 900 },
@@ -2399,5 +2419,9 @@ const styles = {
   exportCoverSmall: { width: 90, borderRadius: 10, border: '1px solid rgba(34,211,238,.45)' },
   qrPlaceholder: { width: 82, height: 82, borderRadius: 10, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)' },
   qrImage: { width: 92, height: 92, borderRadius: 12, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)', boxSizing: 'border-box' },
+  previewOverlay: { position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,.78)', padding: 16, overflowY: 'auto', boxSizing: 'border-box', display: 'grid', alignItems: 'start' },
+  previewModalCard: { width: '100%', maxWidth: 420, margin: '24px auto', padding: 16, borderRadius: 24, background: 'linear-gradient(180deg, rgba(10,5,35,.98), rgba(5,0,20,.98))', border: '1px solid rgba(34,211,238,.55)', display: 'grid', gap: 10, textAlign: 'center', boxShadow: '0 0 32px rgba(34,211,238,.22)' },
+  memoryPreviewStamp: { width: 130, height: 130, objectFit: 'cover', borderRadius: 22, justifySelf: 'center', border: '2px solid rgba(255,255,255,.42)' },
+  memoryPreviewPhoto: { width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 20, border: '2px solid rgba(34,211,238,.35)' },
   memoryImage: { width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 14, marginTop: 8, border: '1px solid rgba(34,211,238,.28)' },
 }

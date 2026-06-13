@@ -4,6 +4,9 @@ export default function RecapPage({
   memories,
   families,
   activeStamp,
+  onOpenStamps,
+  onOpenMemories,
+  onOpenTimeline,
 }) {
   return (
     <>
@@ -11,22 +14,42 @@ export default function RecapPage({
 
       <h2 style={styles.bookTitle}>EDC Recap</h2>
 
-      <div style={styles.storyHero}>
-        <h1 style={styles.rankTitle}>EDC Las Vegas 2026</h1>
+      <div style={styles.linkList}>
+        <button type="button" style={styles.linkCard} onClick={onOpenStamps}>
+          <strong>Stamps Collected</strong>
+          <small>{collectedIds.length} collected</small>
+          <small>Tap to open your stamp collection.</small>
+        </button>
 
-        <p>Stamps Collected: {collectedIds.length}</p>
-        <p>Memories Saved: {memories.length}</p>
-        <p>Families Joined: {families.length}</p>
-        <p>Favorite Stage: {activeStamp?.name || 'World Party Parade'}</p>
-        <p>Timeline Entries: {memories.length}</p>
+        <button type="button" style={styles.linkCard} onClick={onOpenMemories}>
+          <strong>Memories Saved</strong>
+          <small>{memories.length} memories</small>
+          <small>Tap to open Festival Memory Cards.</small>
+        </button>
+
+        <button type="button" style={styles.linkCard} onClick={onOpenTimeline}>
+          <strong>Festival Timeline</strong>
+          <small>{memories.length} timeline entries</small>
+          <small>Tap to open your festival timeline.</small>
+        </button>
+
+        <div style={styles.linkCard}>
+          <strong>Families Joined</strong>
+          <small>{families.length} family groups</small>
+        </div>
+
+        <div style={styles.linkCard}>
+          <strong>Favorite Stage</strong>
+          <small>{activeStamp?.name || 'World Party Parade'}</small>
+        </div>
       </div>
 
       <div style={styles.linkList}>
         {memories.slice(0, 10).map((memory) => (
-          <div key={memory.id} style={styles.timelineCard}>
+          <button key={memory.id} type="button" style={styles.timelineCard} onClick={onOpenMemories}>
             <strong>{memory.stamp_id}</strong>
             <p>{memory.note}</p>
-          </div>
+          </button>
         ))}
       </div>
     </>
