@@ -130,6 +130,13 @@ export default function App() {
   const [memories, setMemories] = useState([])
   const [memoryMessage, setMemoryMessage] = useState('')
   const [memorySaving, setMemorySaving] = useState(false)
+  const [openSections, setOpenSections] = useState({
+    liveClaims: false,
+    offClaims: false,
+    myFamilies: false,
+    familyMembers: false,
+    festivalTimeline: false,
+  })
   const [memoryCardMessage, setMemoryCardMessage] = useState('')
   const memoryCardRef = useRef(null)
 
@@ -927,6 +934,21 @@ export default function App() {
     } catch (error) {
       setFamilyMessage(error.message || 'Could not leave family.')
     }
+  }
+
+  function toggleSection(sectionName) {
+    setOpenSections((current) => ({
+      ...current,
+      [sectionName]: !current[sectionName],
+    }))
+  }
+
+  function jumpToStampCollection() {
+    setPageIndex(1)
+  }
+
+  function jumpToMemories() {
+    setPageIndex(10)
   }
 
   async function handleSaveMemory() {
@@ -1809,24 +1831,45 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <p style={styles.pageNumber}>Passport Page 4</p>
                   <h2 style={styles.bookTitle}>Live Claim Links</h2>
 
-                  <div style={styles.linkList}>
-                    {stamps.map((stamp) => {
-                      const window = activeDropWindows[stamp.id]
+                  <button style={styles.dropdownHeader} onClick={() => toggleSection('liveClaims')}>
+                    LIVE CLAIMS ({stamps.filter((stamp) => activeDrops.includes(stamp.id)).length})
+                  </button>
 
-                      return (
-                        <div key={stamp.id} style={styles.linkCard}>
-                          <strong>{stamp.name}</strong>
-                          <small>{getClaimUrl(stamp.id, window?.token)}</small>
-                          <small>{activeDrops.includes(stamp.id) ? 'LIVE' : 'OFF'}</small>
-                          {window?.isSecret && <small>SECRET DROP</small>}
-                          {window?.isLegendary && <small>LEGENDARY DROP</small>}
-                          {window?.maxClaims && (
-                            <small>Limit: {window.claimCount || 0}/{window.maxClaims}</small>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                  {openSections.liveClaims && (
+                    <div style={styles.linkList}>
+                      {stamps
+                        .filter((stamp) => activeDrops.includes(stamp.id))
+                        .map((stamp) => {
+                          const window = activeDropWindows[stamp.id]
+                          return (
+                            <div key={stamp.id} style={styles.linkCard}>
+                              <strong>{stamp.name}</strong>
+                              <small>{getClaimUrl(stamp.id, window?.token)}</small>
+                              {window?.isSecret && <small>SECRET DROP</small>}
+                              {window?.isLegendary && <small>LEGENDARY DROP</small>}
+                            </div>
+                          )
+                        })}
+                    </div>
+                  )}
+
+                  <button style={styles.dropdownHeader} onClick={() => toggleSection('offClaims')}>
+                    OFF CLAIMS ({stamps.filter((stamp) => !activeDrops.includes(stamp.id)).length})
+                  </button>
+
+                  {openSections.offClaims && (
+                    <div style={styles.linkList}>
+                      {stamps
+                        .filter((stamp) => !activeDrops.includes(stamp.id))
+                        .map((stamp) => (
+                          <div key={stamp.id} style={styles.linkCard}>
+                            <strong>{stamp.name}</strong>
+                            <small>{getClaimUrl(stamp.id)}</small>
+                            <small>OFF</small>
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1884,12 +1927,18 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <p style={styles.pageNumber}>Passport Page 7</p>
                   <h2 style={styles.bookTitle}>Sticker Story</h2>
 
-                  <div style={styles.storyHero}>
-                    <p style={styles.labelDark}>Selected Sticker</p>
-                    <h1 style={styles.rankTitle}>{activeStamp.name}</h1>
-                    <p>{activeStamp.location}</p>
-                    <Stamp stamp={activeStamp} collected />
-                    <p>{memories.filter((memory) => memory.stamp_id === activeStamp.id).length} memories saved</p>
+                  <div style={styles.compactStoryHero}>
+                    <div style={styles.selectedRewardPreview}>
+                      <div style={styles.previewThumbWrap}>
+                        <Stamp stamp={activeStamp} collected />
+                      </div>
+                      <div>
+                        <p style={styles.labelDark}>Selected Sticker</p>
+                        <h3>{activeStamp.name}</h3>
+                        <small>{activeStamp.location}</small>
+                        <small>{memories.filter((memory) => memory.stamp_id === activeStamp.id).length} memories saved</small>
+                      </div>
+                    </div>
                   </div>
 
                   <textarea
@@ -2306,6 +2355,9 @@ const styles = {
   errorText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(127,29,29,.50)', color: '#fecaca', fontWeight: 900, border: '1px solid rgba(248,113,113,.34)' },
   successText: { marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(22,101,52,.30)', color: '#bbf7d0', fontWeight: 900, border: '1px solid rgba(34,197,94,.34)' },
   linkList: { display: 'grid', gap: 12, marginTop: 16 },
+  dropdownHeader: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(34,211,238,.38)', background: 'linear-gradient(135deg, rgba(34,211,238,.14), rgba(255,45,214,.12))', color: '#f8fbff', fontWeight: 900, letterSpacing: '.08em', textAlign: 'left' },
+  compactStoryHero: { marginTop: 12, padding: 12, borderRadius: 20, background: 'linear-gradient(135deg, rgba(255,45,214,.16), rgba(34,211,238,.12))', border: '1px solid rgba(34,211,238,.34)', boxShadow: '0 0 16px rgba(34,211,238,.10)' },
+  statJumpButton: { width: '100%', border: 0, borderRadius: 16, padding: 10, background: 'linear-gradient(135deg, rgba(34,211,238,.18), rgba(255,45,214,.16))', color: '#f8fbff', display: 'grid', gap: 4, fontWeight: 900 },
   linkCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.07))', border: '1px solid rgba(34,211,238,.30)', color: '#f8fbff', display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 16px rgba(34,211,238,.10)' },
   adminCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(34,211,238,.10), rgba(124,58,237,.10), rgba(255,45,214,.08))', border: '1px solid rgba(34,211,238,.34)', color: '#f8fbff', display: 'grid', gap: 8, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 18px rgba(34,211,238,.12)' },
   crewHero: { marginTop: 16, padding: 18, borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,45,214,.24), rgba(124,58,237,.20), rgba(34,211,238,.20))', textAlign: 'center', border: '1px solid rgba(34,211,238,.42)', boxShadow: '0 0 24px rgba(255,45,214,.16)' },
@@ -2347,5 +2399,5 @@ const styles = {
   exportCoverSmall: { width: 90, borderRadius: 10, border: '1px solid rgba(34,211,238,.45)' },
   qrPlaceholder: { width: 82, height: 82, borderRadius: 10, background: 'repeating-linear-gradient(45deg, #111 0 6px, #fff 6px 12px)', color: '#111', display: 'grid', placeItems: 'center', fontWeight: 900, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)' },
   qrImage: { width: 92, height: 92, borderRadius: 12, background: 'white', padding: 6, border: '3px solid white', boxShadow: '0 0 18px rgba(34,211,238,.22)', boxSizing: 'border-box' },
-  memoryImage: { width: '100%', borderRadius: 14, marginTop: 8, border: '1px solid rgba(34,211,238,.28)' },
+  memoryImage: { width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 14, marginTop: 8, border: '1px solid rgba(34,211,238,.28)' },
 }
