@@ -601,6 +601,22 @@ export default function AdminPage({
         </div>
       )}
 
+      <h2 style={styles.bookTitle}>GPS Drop Operations</h2>
+
+      <div style={styles.adminCard}>
+        <strong>GPS Drop Stats</strong>
+        <small>Active GPS drops: {gpsDrops.length}</small>
+        <small>Selected festival: {adminFestival?.name || adminFestivalId}</small>
+        <small>Use secret and legendary flags in Timed Drop settings to create hidden discovery moments.</small>
+      </div>
+
+      <div style={styles.statsMiniGrid}>
+        <div style={styles.statBox}><strong>{gpsDrops.length}</strong><span>GPS Drops</span></div>
+        <div style={styles.statBox}><strong>{activeDrops.length}</strong><span>Live Claims</span></div>
+        <div style={styles.statBox}><strong>{stamps.length}</strong><span>Reward Stamps</span></div>
+        <div style={styles.statBox}><strong>{Object.values(activeDropWindows || {}).filter((drop) => drop?.isSecret || drop?.is_secret).length}</strong><span>Secret</span></div>
+      </div>
+
       <h2 style={styles.bookTitle}>Stamp Distribution Center</h2>
 
       <div style={styles.adminCard}>

@@ -132,6 +132,7 @@ export default function App() {
   const [memorySaving, setMemorySaving] = useState(false)
   const [memoryPreviewId, setMemoryPreviewId] = useState('')
   const [collectionFilter, setCollectionFilter] = useState('all')
+  const [gpsDropFilter, setGpsDropFilter] = useState('all')
   const [openSections, setOpenSections] = useState({
     liveClaims: false,
     offClaims: false,
@@ -175,7 +176,7 @@ export default function App() {
   const autoCollectLastCheckRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
-  const maxPage = isAdmin ? 12 : 11
+  const maxPage = isAdmin ? 13 : 12
   const allStamps = useMemo(() => {
     const adminIds = new Set(adminCreatedStamps.map((stamp) => stamp.id))
     return [...stamps.filter((stamp) => !adminIds.has(stamp.id)), ...adminCreatedStamps]
@@ -192,6 +193,32 @@ export default function App() {
     if (collectionFilter === 'collected') return collected
     if (collectionFilter === 'locked') return !collected
     if (collectionFilter === 'live') return live
+    return true
+  })
+  const gpsDropCards = gpsDrops.map((drop) => {
+    const stamp = allStamps.find((item) => item.id === drop.stamp_id) || getActiveStampFromList(allStamps, drop.stamp_id)
+    const found = collectedIds.includes(drop.stamp_id)
+    const window = activeDropWindows[drop.stamp_id] || {}
+    const secret = Boolean(window.isSecret || window.is_secret || drop.is_secret || drop.isSecret)
+    const legendary = Boolean(window.isLegendary || window.is_legendary || drop.is_legendary || drop.isLegendary)
+
+    return {
+      ...drop,
+      stamp,
+      found,
+      secret,
+      legendary,
+    }
+  })
+  const foundGpsDrops = gpsDropCards.filter((drop) => drop.found)
+  const secretGpsDrops = gpsDropCards.filter((drop) => drop.secret)
+  const legendaryGpsDrops = gpsDropCards.filter((drop) => drop.legendary)
+  const gpsCompletionPercent = gpsDropCards.length ? Math.round((foundGpsDrops.length / gpsDropCards.length) * 100) : 0
+  const filteredGpsDropCards = gpsDropCards.filter((drop) => {
+    if (gpsDropFilter === 'found') return drop.found
+    if (gpsDropFilter === 'notFound') return !drop.found
+    if (gpsDropFilter === 'secret') return drop.secret
+    if (gpsDropFilter === 'legendary') return drop.legendary
     return true
   })
   const stats = getStats(collectedStamps, allStamps.length)
@@ -2199,6 +2226,86 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               {pageIndex === 11 && (
                 <>
                   <p style={styles.pageNumber}>Passport Page 12</p>
+                  <h2 style={styles.bookTitle}>GPS Drops + Secret Drops</h2>
+                  <p style={styles.bookText}>
+                    Track found drops, hidden secret drops, and legendary festival discoveries.
+                  </p>
+
+                  <div style={styles.progressCard}>
+                    <strong>GPS Drop Progress</strong>
+                    <small>{foundGpsDrops.length} / {gpsDropCards.length} found</small>
+                    <div style={styles.progressTrack}>
+                      <div style={{ ...styles.progressFill, width: `${gpsCompletionPercent}%` }} />
+                    </div>
+                    <small>{gpsCompletionPercent}% complete</small>
+                  </div>
+
+                  <div style={styles.statsMiniGrid}>
+                    <div style={styles.statBox}><strong>{foundGpsDrops.length}</strong><span>Found</span></div>
+                    <div style={styles.statBox}><strong>{Math.max(gpsDropCards.length - foundGpsDrops.length, 0)}</strong><span>Not Found</span></div>
+                    <div style={styles.statBox}><strong>{secretGpsDrops.length}</strong><span>Secret</span></div>
+                    <div style={styles.statBox}><strong>{legendaryGpsDrops.length}</strong><span>Legendary</span></div>
+                  </div>
+
+                  <div style={styles.filterRow}>
+                    {[
+                      ['all', 'ALL'],
+                      ['found', 'FOUND'],
+                      ['notFound', 'NOT FOUND'],
+                      ['secret', 'SECRET'],
+                      ['legendary', 'LEGENDARY'],
+                    ].map(([filter, label]) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        style={gpsDropFilter === filter ? styles.filterButtonActive : styles.filterButton}
+                        onClick={() => setGpsDropFilter(filter)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={styles.linkList}>
+                    {filteredGpsDropCards.length ? (
+                      filteredGpsDropCards.map((drop) => {
+                        const showReal = drop.found || !drop.secret
+                        const title = showReal ? drop.stamp?.name || drop.title || drop.stamp_id : '??? Secret Drop'
+                        const hint = drop.map_note || drop.mapNote || drop.title || drop.stamp?.location || 'Explore the festival to discover this drop.'
+
+                        return (
+                          <button
+                            key={drop.id || `${drop.stamp_id}-${drop.latitude}`}
+                            type="button"
+                            style={drop.legendary ? styles.legendaryDropCard : drop.secret ? styles.secretDropCard : styles.linkCard}
+                            onClick={() => {
+                              if (drop.stamp?.id) {
+                                setActiveId(drop.stamp.id)
+                                setPageIndex(2)
+                              }
+                            }}
+                          >
+                            <strong>{title}</strong>
+                            <small>{drop.found ? 'FOUND' : drop.secret ? 'HIDDEN UNTIL DISCOVERED' : 'NOT FOUND'}</small>
+                            {drop.secret && <small>SECRET DROP</small>}
+                            {drop.legendary && <small>LEGENDARY DROP</small>}
+                            <small>Hint: {hint}</small>
+                          </button>
+                        )
+                      })
+                    ) : (
+                      <div style={styles.linkCard}>
+                        <strong>No GPS drops yet.</strong>
+                        <small>Admin can create GPS drops from the Stamp Distribution Center.</small>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {pageIndex === 12 && (
+                <>
+                  <p style={styles.pageNumber}>Passport Page 13</p>
                   <h2 style={styles.bookTitle}>Passport Export Center</h2>
                   <p style={styles.bookText}>
                     Download, print, or save your EDM Passport identity. These exports use your rave name and country passport cover.
@@ -2276,7 +2383,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 </>
               )}
 
-              {pageIndex === 12 && isAdmin && (
+              {pageIndex === 13 && isAdmin && (
                 <AdminPage
                   styles={styles}
                   stamps={allStamps}
@@ -2425,6 +2532,8 @@ const styles = {
   autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.35)', display: 'grid', gap: 8 },
   labelDark: { marginTop: 14, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, display: 'block', textShadow: '0 0 8px rgba(34,211,238,.75)' },
   checkboxRow: { marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.22)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
+  secretDropCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(20,10,40,.92), rgba(80,20,120,.38))', border: '1px solid rgba(168,85,247,.55)', color: '#f8fbff', display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 18px rgba(168,85,247,.20)', textAlign: 'left' },
+  legendaryDropCard: { padding: 13, borderRadius: 16, background: 'linear-gradient(135deg, rgba(253,224,71,.22), rgba(255,45,214,.16), rgba(34,211,238,.12))', border: '1px solid rgba(253,224,71,.62)', color: '#fff7cc', display: 'grid', gap: 6, overflowWrap: 'anywhere', fontSize: 11, boxShadow: '0 0 24px rgba(253,224,71,.25)', textAlign: 'left' },
   progressCard: { marginTop: 12, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(34,211,238,.14), rgba(255,45,214,.10))', border: '1px solid rgba(34,211,238,.34)', display: 'grid', gap: 8 },
   progressTrack: { width: '100%', height: 10, borderRadius: 999, background: 'rgba(255,255,255,.10)', overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)' },
   progressFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #22d3ee, #ff2dd6)' },
