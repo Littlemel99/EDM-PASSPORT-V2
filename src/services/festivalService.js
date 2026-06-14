@@ -1,31 +1,20 @@
 import { supabase } from '../lib/supabase'
 
+function createId() {
+  return `festival-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+}
+
 export async function loadFestivalRecords() {
-  const { data, error } = await supabase
-    .from('festivals')
-    .select('*')
-    .order('start_date', { ascending: true })
-
-  if (error) {
-    console.error('Load festival records error:', error)
-    return []
-  }
-
+  const { data, error } = await supabase.from('festivals').select('*').order('start_date', { ascending: true })
+  if (error) return []
   return data || []
 }
 
-export async function createFestivalRecord({
-  name,
-  location,
-  status,
-  startDate,
-  endDate,
-  bannerUrl,
-  mapUrl,
-}) {
+export async function createFestivalRecord({ name, location, status, startDate, endDate, bannerUrl, mapUrl }) {
   const { data, error } = await supabase
     .from('festivals')
     .insert({
+      id: createId(),
       name,
       location,
       status: status || 'upcoming',
@@ -36,8 +25,6 @@ export async function createFestivalRecord({
     })
     .select()
     .single()
-
   if (error) throw error
-
   return data
 }

@@ -1,4 +1,3 @@
-
 export const passportImages = {
   'United States': '/passports/USA Passport.png',
   Canada: '/passports/Canada Passport.png',
@@ -6,15 +5,11 @@ export const passportImages = {
   'United Kingdom': '/passports/United Kingdom Passport.png',
   Germany: '/passports/Germany Passport.png',
   Netherlands: '/passports/Netherlands Passport.png',
-  Belgium: '/passports/Belgium Passport.png',
+  Belgium: '/passports/Belgian Passport.png',
   France: '/passports/France Passport.png',
   Japan: '/passports/Japan Passport.png',
-  Brazil: '/passports/Brazil Passport.png',
+  Brazil: '/passports/Brazil passport.png',
   Australia: '/passports/Australia Passport.png',
 }
-
 export const countries = Object.keys(passportImages)
-
-export function getPassportImage(country) {
-  return passportImages[country] || '/edm-passport-logo.png'
-}
+export function getPassportImage(country){ return passportImages[country] || '/edm-passport-logo.png' }
