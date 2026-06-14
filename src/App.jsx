@@ -131,6 +131,7 @@ export default function App() {
   const [memoryMessage, setMemoryMessage] = useState('')
   const [memorySaving, setMemorySaving] = useState(false)
   const [memoryPreviewId, setMemoryPreviewId] = useState('')
+  const [collectionFilter, setCollectionFilter] = useState('all')
   const [openSections, setOpenSections] = useState({
     liveClaims: false,
     offClaims: false,
@@ -182,6 +183,17 @@ export default function App() {
   const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
   const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
+  const collectionTotal = allStamps.length || 1
+  const collectionPercent = Math.round((collectedStamps.length / collectionTotal) * 100)
+  const filteredCollectionStamps = allStamps.filter((stamp) => {
+    const collected = collectedIds.includes(stamp.id)
+    const live = activeDrops.includes(stamp.id)
+
+    if (collectionFilter === 'collected') return collected
+    if (collectionFilter === 'locked') return !collected
+    if (collectionFilter === 'live') return live
+    return true
+  })
   const stats = getStats(collectedStamps, allStamps.length)
   const achievements = getAchievements(collectedStamps)
   const activeFamily = families.find((family) => family.id === activeFamilyId) || families[0] || null
@@ -1739,8 +1751,35 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <h2 style={styles.bookTitle}>{activeFestival?.name || 'EDC Las Vegas 2026'}</h2>
                   <p style={styles.bookText}>{activeFestival?.location || 'Under the Electric Sky'}</p>
 
+                  <div style={styles.progressCard}>
+                    <strong>Collection Progress</strong>
+                    <small>{collectedStamps.length} / {collectionTotal} stamps collected</small>
+                    <div style={styles.progressTrack}>
+                      <div style={{ ...styles.progressFill, width: `${collectionPercent}%` }} />
+                    </div>
+                    <small>{collectionPercent}% complete</small>
+                  </div>
+
+                  <div style={styles.filterRow}>
+                    {[
+                      ['all', 'ALL'],
+                      ['collected', 'COLLECTED'],
+                      ['locked', 'LOCKED'],
+                      ['live', 'LIVE'],
+                    ].map(([filter, label]) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        style={collectionFilter === filter ? styles.filterButtonActive : styles.filterButton}
+                        onClick={() => setCollectionFilter(filter)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
                   <div style={styles.collectionGrid}>
-                    {stamps.map((stamp) => {
+                    {filteredCollectionStamps.map((stamp) => {
                       const collected = collectedIds.includes(stamp.id)
                       const live = activeDrops.includes(stamp.id)
                       const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
@@ -1750,10 +1789,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                           <div style={styles.previewThumbWrap}>
                             <Stamp stamp={stamp} collected={collected || live} />
                           </div>
-                          <strong>{stamp.name}</strong>
+                          <strong>{collected ? stamp.name : live ? stamp.name : '??? Mystery Stamp'}</strong>
                           <small>{collected ? 'COLLECTED' : live ? 'LIVE NOW' : 'LOCKED'}</small>
-                          <small>{memoryCount} memories</small>
-                          <span style={styles.previewAction}>VIEW</span>
+                          <small>{collected ? `${memoryCount} memories` : live ? 'Available now' : `Hint: ${stamp.location || 'Find this at the festival'}`}</small>
+                          <span style={styles.previewAction}>{collected || live ? 'VIEW' : 'DETAILS'}</span>
                         </button>
                       )
                     })}
@@ -1996,27 +2035,55 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <p style={styles.pageNumber}>Passport Page 8</p>
                   <h2 style={styles.bookTitle}>Family Quests</h2>
 
-                  <div style={styles.linkList}>
-                    <div style={bookOpen ? styles.achievementUnlocked : styles.achievementLocked}>
-                      <strong>✅ Open Passport</strong>
-                      <small>Passport opened.</small>
-                    </div>
+                  <button style={styles.dropdownHeader} onClick={() => toggleSection('myFamilies')}>
+                    FAMILY QUESTS
+                  </button>
 
-                    <div style={collectedIds.length >= 3 ? styles.achievementUnlocked : styles.achievementLocked}>
-                      <strong>Collect 3 Stamps</strong>
-                      <small>{collectedIds.length}/3 collected</small>
-                    </div>
+                  {openSections.myFamilies && (
+                    <div style={styles.linkList}>
+                      <div style={bookOpen ? styles.achievementUnlocked : styles.achievementLocked}>
+                        <strong>✅ Open Passport</strong>
+                        <small>Passport opened.</small>
+                      </div>
 
-                    <div style={families.length ? styles.achievementUnlocked : styles.achievementLocked}>
-                      <strong>Join A Family</strong>
-                      <small>Build your rave family.</small>
-                    </div>
+                      <div style={collectedIds.length >= 3 ? styles.achievementUnlocked : styles.achievementLocked}>
+                        <strong>Collect 3 Stamps</strong>
+                        <small>{collectedIds.length}/3 collected</small>
+                      </div>
 
-                    <div style={collectedIds.includes('basspod') ? styles.achievementUnlocked : styles.achievementLocked}>
-                      <strong>Find Basspod</strong>
-                      <small>Unlock the Basspod stamp.</small>
+                      <div style={families.length ? styles.achievementUnlocked : styles.achievementLocked}>
+                        <strong>Join A Family</strong>
+                        <small>Build your rave family.</small>
+                      </div>
+
+                      <div style={collectedIds.includes('basspod') ? styles.achievementUnlocked : styles.achievementLocked}>
+                        <strong>Find Basspod</strong>
+                        <small>Unlock the Basspod stamp.</small>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  <button style={styles.dropdownHeader} onClick={() => toggleSection('familyMembers')}>
+                    FAMILY MEMBERS / GROUPS ({families.length})
+                  </button>
+
+                  {openSections.familyMembers && (
+                    <div style={styles.linkList}>
+                      {families.length ? (
+                        families.map((family) => (
+                          <div key={family.id || family.code || family.name} style={styles.linkCard}>
+                            <strong>{family.name || 'Rave Family'}</strong>
+                            <small>{family.invite_code || family.code || 'Family group'}</small>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={styles.linkCard}>
+                          <strong>No family joined yet.</strong>
+                          <small>Create or join a family to unlock group quests.</small>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -2358,8 +2425,14 @@ const styles = {
   autoCollectBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,45,214,.18), rgba(34,211,238,.16))', border: '1px solid rgba(34,211,238,.35)', display: 'grid', gap: 8 },
   labelDark: { marginTop: 14, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900, display: 'block', textShadow: '0 0 8px rgba(34,211,238,.75)' },
   checkboxRow: { marginTop: 12, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.22)', display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 },
+  progressCard: { marginTop: 12, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(34,211,238,.14), rgba(255,45,214,.10))', border: '1px solid rgba(34,211,238,.34)', display: 'grid', gap: 8 },
+  progressTrack: { width: '100%', height: 10, borderRadius: 999, background: 'rgba(255,255,255,.10)', overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)' },
+  progressFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #22d3ee, #ff2dd6)' },
+  filterRow: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6, marginTop: 12 },
+  filterButton: { border: '1px solid rgba(34,211,238,.28)', borderRadius: 999, padding: '8px 6px', background: 'rgba(255,255,255,.06)', color: '#f8fbff', fontSize: 10, fontWeight: 900 },
+  filterButtonActive: { border: '1px solid rgba(34,211,238,.7)', borderRadius: 999, padding: '8px 6px', background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
   collectionGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 18 },
-  previewCard: { border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 6, fontWeight: 900, boxShadow: '0 0 16px rgba(34,211,238,.10), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
+  previewCard: { minHeight: 0, border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 5, fontWeight: 900, boxShadow: '0 0 16px rgba(34,211,238,.10), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
   previewThumbWrap: { transform: 'scale(.82)', height: 70, display: 'grid', placeItems: 'center' },
   previewAction: { marginTop: 2, padding: '5px 10px', borderRadius: 999, background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
   selectedRewardPreview: { display: 'grid', gridTemplateColumns: '84px 1fr', gap: 12, alignItems: 'center', textAlign: 'left', margin: '10px 0', maxWidth: '100%' },
