@@ -258,6 +258,7 @@ export default function AdminPage({
       })
 
     return (
+    /* Build 25F Phone Layout Lock */
     /* Build 25E Admin Layout Hard Fix */) => {
       cancelled = true
     }
@@ -356,6 +357,41 @@ export default function AdminPage({
 
   const activeFestivalMapUrl = adminFestival?.map_url || adminFestival?.mapUrl || festivalMapUrl || ''
   const selectedMapDropStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
+  const phoneLockCardStyle = {
+    ...styles.adminCard,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
+    boxSizing: 'border-box',
+  }
+
+  const phoneLockListStyle = {
+    ...styles.linkList,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+  }
+
+  const phoneLockGridStyle = {
+    ...styles.stampGrid,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    boxSizing: 'border-box',
+  }
+
+  const phoneLockInputStyle = {
+    ...styles.inputLight,
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
+  }
+
   const adminHardFixCardStyle = {
     ...styles.adminCard,
     maxWidth: '100%',
@@ -498,7 +534,7 @@ export default function AdminPage({
 
   const mapShellStyle = mapExpanded
     ? {
-        position: 'fixed',
+        position: 'fixed', maxWidth: 'calc(100vw - 24px)', overflow: 'hidden',
         inset: 12,
         zIndex: 9999,
         background: '#050510',
@@ -533,17 +569,17 @@ export default function AdminPage({
       </button>
 
       <label style={styles.labelDark}>Stamp</label>
-      <select style={styles.inputLight} value={adminStampId} onChange={(event) => setAdminStampId(event.target.value)}>
+      <select style={phoneLockInputStyle} value={adminStampId} onChange={(event) => setAdminStampId(event.target.value)}>
         {stamps.map((stamp) => (
           <option key={stamp.id} value={stamp.id}>{stamp.name}</option>
         ))}
       </select>
 
       <label style={styles.labelDark}>Start Time</label>
-      <input style={styles.inputLight} type="datetime-local" value={dropStart} onChange={(event) => setDropStart(event.target.value)} />
+      <input style={phoneLockInputStyle} type="datetime-local" value={dropStart} onChange={(event) => setDropStart(event.target.value)} />
 
       <label style={styles.labelDark}>End Time</label>
-      <input style={styles.inputLight} type="datetime-local" value={dropEnd} onChange={(event) => setDropEnd(event.target.value)} />
+      <input style={phoneLockInputStyle} type="datetime-local" value={dropEnd} onChange={(event) => setDropEnd(event.target.value)} />
 
       <label style={styles.checkboxRow}>
         <input type="checkbox" checked={dropSecret} onChange={(event) => setDropSecret(event.target.checked)} />
@@ -555,7 +591,7 @@ export default function AdminPage({
         Legendary Drop
       </label>
 
-      <input style={styles.inputLight} type="number" placeholder="Max claims, optional" value={dropMaxClaims} onChange={(event) => setDropMaxClaims(event.target.value)} />
+      <input style={phoneLockInputStyle} type="number" placeholder="Max claims, optional" value={dropMaxClaims} onChange={(event) => setDropMaxClaims(event.target.value)} />
 
       <button style={styles.mainButton} onClick={handleAdvancedDropSave}>
         SAVE + ACTIVATE EVENT WINDOW
@@ -618,7 +654,7 @@ export default function AdminPage({
               <img
                 src={stampClaimQrUrl}
                 alt={`${selectedClaimStamp.name} claim QR`}
-                style={{ width: 240, maxWidth: '100%', borderRadius: 12 }}
+                style={{ width: 240, maxWidth: '100%', maxWidth: '100%', borderRadius: 12 }}
               />
               <small>Scan this to unlock the selected stamp.</small>
             </div>
@@ -644,7 +680,7 @@ export default function AdminPage({
       </div>
 
       <label style={styles.labelDark}>Distribution Stamp</label>
-      <select style={styles.inputLight} value={adminStampId} onChange={(event) => setAdminStampId(event.target.value)}>
+      <select style={phoneLockInputStyle} value={adminStampId} onChange={(event) => setAdminStampId(event.target.value)}>
         {stamps.map((stamp) => (
           <option key={`distribution-${stamp.id}`} value={stamp.id}>{stamp.name}</option>
         ))}
@@ -696,10 +732,10 @@ export default function AdminPage({
 
               {currentLocationMessage && <small>{currentLocationMessage}</small>}
 
-              <input style={styles.inputLight} placeholder="Latitude" value={gpsLatitude} onChange={(event) => setGpsLatitude(event.target.value)} />
-              <input style={styles.inputLight} placeholder="Longitude" value={gpsLongitude} onChange={(event) => setGpsLongitude(event.target.value)} />
-              <input style={styles.inputLight} placeholder="Radius feet, example 300" value={gpsRadiusFeet} onChange={(event) => setGpsRadiusFeet(event.target.value)} />
-              <input style={styles.inputLight} placeholder="Drop title" value={gpsTitle} onChange={(event) => setGpsTitle(event.target.value)} />
+              <input style={phoneLockInputStyle} placeholder="Latitude" value={gpsLatitude} onChange={(event) => setGpsLatitude(event.target.value)} />
+              <input style={phoneLockInputStyle} placeholder="Longitude" value={gpsLongitude} onChange={(event) => setGpsLongitude(event.target.value)} />
+              <input style={phoneLockInputStyle} placeholder="Radius feet, example 300" value={gpsRadiusFeet} onChange={(event) => setGpsRadiusFeet(event.target.value)} />
+              <input style={phoneLockInputStyle} placeholder="Drop title" value={gpsTitle} onChange={(event) => setGpsTitle(event.target.value)} />
 
               <button type="button" style={styles.mainButton} onClick={saveDistributionGpsDrop}>
                 SAVE GPS PIN DROP
@@ -716,10 +752,10 @@ export default function AdminPage({
               {distributionQrUrl && (
                 <div style={{ background: 'white', color: '#111', padding: 16, borderRadius: 18, display: 'grid', gap: 8, justifyItems: 'center' }}>
                   <strong>QR CLAIM CODE</strong>
-                  <img src={distributionQrUrl} alt="QR claim code" style={{ width: 220, maxWidth: '100%', borderRadius: 12 }} />
+                  <img src={distributionQrUrl} alt="QR claim code" style={{ width: 220, maxWidth: '100%', maxWidth: '100%', borderRadius: 12 }} />
                 </div>
               )}
-              <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
+              <input style={phoneLockInputStyle} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
               <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
                 COPY QR CLAIM LINK
               </button>
@@ -730,7 +766,7 @@ export default function AdminPage({
             <div style={adminHardFixCardStyle}>
               <strong>NFC Tag</strong>
               <small>Program this exact URL onto an NFC tag. Tapping the tag opens the claim flow.</small>
-              <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
+              <input style={phoneLockInputStyle} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
               <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
                 COPY NFC URL
               </button>
@@ -742,9 +778,9 @@ export default function AdminPage({
               <strong>Timed Drop</strong>
               <small>Use this for opening ceremonies, sunrise sets, parade windows, and limited drops.</small>
               <label style={styles.labelDark}>Start Time</label>
-              <input style={styles.inputLight} type="datetime-local" value={dropStart} onChange={(event) => setDropStart(event.target.value)} />
+              <input style={phoneLockInputStyle} type="datetime-local" value={dropStart} onChange={(event) => setDropStart(event.target.value)} />
               <label style={styles.labelDark}>End Time</label>
-              <input style={styles.inputLight} type="datetime-local" value={dropEnd} onChange={(event) => setDropEnd(event.target.value)} />
+              <input style={phoneLockInputStyle} type="datetime-local" value={dropEnd} onChange={(event) => setDropEnd(event.target.value)} />
               <label style={styles.checkboxRow}>
                 <input type="checkbox" checked={dropSecret} onChange={(event) => setDropSecret(event.target.checked)} />
                 Secret Drop
@@ -753,7 +789,7 @@ export default function AdminPage({
                 <input type="checkbox" checked={dropLegendary} onChange={(event) => setDropLegendary(event.target.checked)} />
                 Legendary Drop
               </label>
-              <input style={styles.inputLight} type="number" placeholder="Max claims, optional" value={dropMaxClaims} onChange={(event) => setDropMaxClaims(event.target.value)} />
+              <input style={phoneLockInputStyle} type="number" placeholder="Max claims, optional" value={dropMaxClaims} onChange={(event) => setDropMaxClaims(event.target.value)} />
               <button type="button" style={styles.mainButton} onClick={handleAdvancedDropSave}>
                 SAVE TIMED DROP
               </button>
@@ -765,7 +801,7 @@ export default function AdminPage({
             <div style={adminHardFixCardStyle}>
               <strong>Admin Giveaway</strong>
               <small>Use this at parades, meetups, booths, or one-on-one handouts. Share the claim link by QR, NFC, AirDrop, or message.</small>
-              <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
+              <input style={phoneLockInputStyle} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
               <button type="button" style={styles.secondaryButton} onClick={copyAdminClaimUrl}>
                 COPY GIVEAWAY CLAIM LINK
               </button>
@@ -896,19 +932,19 @@ export default function AdminPage({
           <strong>Step 1 — Festival Basics</strong>
           <small>Name the festival and set its business status.</small>
 
-          <input style={styles.inputLight} placeholder="Festival name, example: EDC Las Vegas 2027" value={festivalName || ''} onChange={(event) => setFestivalName?.(event.target.value)} />
-          <input style={styles.inputLight} placeholder="Location, example: Las Vegas Motor Speedway" value={festivalLocation || ''} onChange={(event) => setFestivalLocation?.(event.target.value)} />
+          <input style={phoneLockInputStyle} placeholder="Festival name, example: EDC Las Vegas 2027" value={festivalName || ''} onChange={(event) => setFestivalName?.(event.target.value)} />
+          <input style={phoneLockInputStyle} placeholder="Location, example: Las Vegas Motor Speedway" value={festivalLocation || ''} onChange={(event) => setFestivalLocation?.(event.target.value)} />
 
-          <select style={styles.inputLight} value={festivalStatus || 'upcoming'} onChange={(event) => setFestivalStatus?.(event.target.value)}>
+          <select style={phoneLockInputStyle} value={festivalStatus || 'upcoming'} onChange={(event) => setFestivalStatus?.(event.target.value)}>
             <option value="upcoming">Upcoming</option>
             <option value="attended">Attended</option>
           </select>
 
           <label style={styles.labelDark}>Start Date</label>
-          <input style={styles.inputLight} type="date" value={festivalStartDate || ''} onChange={(event) => setFestivalStartDate?.(event.target.value)} />
+          <input style={phoneLockInputStyle} type="date" value={festivalStartDate || ''} onChange={(event) => setFestivalStartDate?.(event.target.value)} />
 
           <label style={styles.labelDark}>End Date</label>
-          <input style={styles.inputLight} type="date" value={festivalEndDate || ''} onChange={(event) => setFestivalEndDate?.(event.target.value)} />
+          <input style={phoneLockInputStyle} type="date" value={festivalEndDate || ''} onChange={(event) => setFestivalEndDate?.(event.target.value)} />
 
           <button type="button" style={styles.mainButton} onClick={() => goToWizardStep(2)}>
             NEXT: MAP
@@ -921,8 +957,8 @@ export default function AdminPage({
           <strong>Step 2 — Festival Map</strong>
           <small>Add the official or approved map URL. Build 20 will replace this with direct upload.</small>
 
-          <input style={styles.inputLight} placeholder="Festival banner image URL" value={festivalBannerUrl || ''} onChange={(event) => setFestivalBannerUrl?.(event.target.value)} />
-          <input style={styles.inputLight} placeholder="Festival map image URL / official map URL" value={festivalMapUrl || ''} onChange={(event) => setFestivalMapUrl?.(event.target.value)} />
+          <input style={phoneLockInputStyle} placeholder="Festival banner image URL" value={festivalBannerUrl || ''} onChange={(event) => setFestivalBannerUrl?.(event.target.value)} />
+          <input style={phoneLockInputStyle} placeholder="Festival map image URL / official map URL" value={festivalMapUrl || ''} onChange={(event) => setFestivalMapUrl?.(event.target.value)} />
 
           {festivalMapUrl && (
             <div style={styles.linkCard}>
@@ -1023,22 +1059,22 @@ export default function AdminPage({
         <small>Create each festival first. Then select it below before dropping pins. GPS drops are saved only to the selected festival.</small>
       </div>
 
-      <input style={styles.inputLight} placeholder="Festival name" value={festivalName || ''} onChange={(event) => setFestivalName?.(event.target.value)} />
-      <input style={styles.inputLight} placeholder="Festival location" value={festivalLocation || ''} onChange={(event) => setFestivalLocation?.(event.target.value)} />
+      <input style={phoneLockInputStyle} placeholder="Festival name" value={festivalName || ''} onChange={(event) => setFestivalName?.(event.target.value)} />
+      <input style={phoneLockInputStyle} placeholder="Festival location" value={festivalLocation || ''} onChange={(event) => setFestivalLocation?.(event.target.value)} />
 
-      <select style={styles.inputLight} value={festivalStatus || 'upcoming'} onChange={(event) => setFestivalStatus?.(event.target.value)}>
+      <select style={phoneLockInputStyle} value={festivalStatus || 'upcoming'} onChange={(event) => setFestivalStatus?.(event.target.value)}>
         <option value="upcoming">Upcoming</option>
         <option value="attended">Attended</option>
       </select>
 
       <label style={styles.labelDark}>Start Date</label>
-      <input style={styles.inputLight} type="date" value={festivalStartDate || ''} onChange={(event) => setFestivalStartDate?.(event.target.value)} />
+      <input style={phoneLockInputStyle} type="date" value={festivalStartDate || ''} onChange={(event) => setFestivalStartDate?.(event.target.value)} />
 
       <label style={styles.labelDark}>End Date</label>
-      <input style={styles.inputLight} type="date" value={festivalEndDate || ''} onChange={(event) => setFestivalEndDate?.(event.target.value)} />
+      <input style={phoneLockInputStyle} type="date" value={festivalEndDate || ''} onChange={(event) => setFestivalEndDate?.(event.target.value)} />
 
-      <input style={styles.inputLight} placeholder="Festival banner image URL" value={festivalBannerUrl || ''} onChange={(event) => setFestivalBannerUrl?.(event.target.value)} />
-      <input style={styles.inputLight} placeholder="Festival map image URL / official map URL" value={festivalMapUrl || ''} onChange={(event) => setFestivalMapUrl?.(event.target.value)} />
+      <input style={phoneLockInputStyle} placeholder="Festival banner image URL" value={festivalBannerUrl || ''} onChange={(event) => setFestivalBannerUrl?.(event.target.value)} />
+      <input style={phoneLockInputStyle} placeholder="Festival map image URL / official map URL" value={festivalMapUrl || ''} onChange={(event) => setFestivalMapUrl?.(event.target.value)} />
 
       <button style={styles.mainButton} onClick={handleCreateFestival}>
         CREATE FESTIVAL
@@ -1083,7 +1119,7 @@ export default function AdminPage({
 
       <label style={styles.labelDark}>Selected Festival For Drops</label>
       <select
-        style={styles.inputLight}
+        style={phoneLockInputStyle}
         value={adminFestivalId || ''}
         onChange={(event) => setAdminFestivalId?.(event.target.value)}
       >
@@ -1171,7 +1207,7 @@ export default function AdminPage({
           </div>
 
           <input
-            style={styles.inputLight}
+            style={phoneLockInputStyle}
             placeholder="Map note, example: left of Kinetic Field entrance"
             value={festivalMapNote}
             onChange={(event) => setFestivalMapNote(event.target.value)}
@@ -1224,7 +1260,7 @@ export default function AdminPage({
         </small>
 
         <input
-          style={styles.inputLight}
+          style={phoneLockInputStyle}
           placeholder="Stamp name"
           value={adminStampNameInput}
           onChange={(event) => setAdminStampNameInput(event.target.value)}
@@ -1234,7 +1270,7 @@ export default function AdminPage({
           <strong>Upload Stamp Image</strong>
           <small>Recommended: square PNG/JPG/WebP. This saves to Supabase Storage.</small>
           <input
-            style={styles.inputLight}
+            style={phoneLockInputStyle}
             type="file"
             accept="image/png,image/jpeg,image/webp"
             onChange={(event) => {
@@ -1257,28 +1293,28 @@ export default function AdminPage({
         )}
 
         <input
-          style={styles.inputLight}
+          style={phoneLockInputStyle}
           placeholder="Optional fallback image URL"
           value={adminStampImageUrlInput}
           onChange={(event) => setAdminStampImageUrlInput(event.target.value)}
         />
 
         <input
-          style={styles.inputLight}
+          style={phoneLockInputStyle}
           placeholder="Location / event name"
           value={adminStampLocationInput}
           onChange={(event) => setAdminStampLocationInput(event.target.value)}
         />
 
         <input
-          style={styles.inputLight}
+          style={phoneLockInputStyle}
           placeholder="XP value"
           value={adminStampXpInput}
           onChange={(event) => setAdminStampXpInput(event.target.value)}
         />
 
         <select
-          style={styles.inputLight}
+          style={phoneLockInputStyle}
           value={adminStampRarityInput}
           onChange={(event) => setAdminStampRarityInput(event.target.value)}
         >
@@ -1305,10 +1341,10 @@ export default function AdminPage({
               <img
                 src={stamp.image}
                 alt={stamp.name}
-                style={{ width: 110, height: 110, objectFit: 'cover', borderRadius: 18 }}
+                style={{ width: 110, maxWidth: '100%', height: 110, objectFit: 'cover', borderRadius: 18 }}
               />
               <input
-                style={styles.inputLight}
+                style={phoneLockInputStyle}
                 readOnly
                 value={getClaimUrl(stamp.id)}
                 onClick={(event) => event.target.select()}
@@ -1345,7 +1381,7 @@ export default function AdminPage({
               />
 
               <input
-                style={styles.inputLight}
+                style={phoneLockInputStyle}
                 readOnly
                 value={claimUrl}
                 onClick={(event) => event.target.select()}
