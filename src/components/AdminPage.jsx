@@ -257,7 +257,8 @@ export default function AdminPage({
         if (!cancelled) setMapError('Map failed to load. Check internet connection and try again.')
       })
 
-    return () => {
+    return (
+    /* Build 25E Admin Layout Hard Fix */) => {
       cancelled = true
     }
   }, [])
@@ -355,6 +356,40 @@ export default function AdminPage({
 
   const activeFestivalMapUrl = adminFestival?.map_url || adminFestival?.mapUrl || festivalMapUrl || ''
   const selectedMapDropStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
+  const adminHardFixCardStyle = {
+    ...styles.adminCard,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+    overflowWrap: 'anywhere',
+  }
+
+  const adminHardFixListStyle = {
+    ...styles.linkList,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+  }
+
+  const adminHardFixGridStyle = {
+    ...styles.stampGrid,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+  }
+
+  const compactStatusCardStyle = {
+    padding: 12,
+    borderRadius: 16,
+    background: 'linear-gradient(135deg, rgba(34,211,238,.16), rgba(255,45,214,.10))',
+    border: '1px solid rgba(34,211,238,.35)',
+    color: '#f8fbff',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    overflowWrap: 'anywhere',
+    boxSizing: 'border-box',
+  }
+
 
   function handleFestivalMapClick(event) {
     const image = event.currentTarget
@@ -534,7 +569,7 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Admin Stamp QR / NFC Claim Generator</h2>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Generate claim links for existing stamps</strong>
         <small>Pick a stamp above. Use this QR code or NFC URL to let users unlock that stamp.</small>
         <small>This does not create new stamp art. It uses the existing stamp image already in the app.</small>
@@ -603,7 +638,7 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Stamp Distribution Center</h2>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Select the reward first, then choose how people unlock it.</strong>
         <small>This is the main workflow for GPS drops, QR stickers, NFC tags, timed drops, and admin giveaways.</small>
       </div>
@@ -651,7 +686,7 @@ export default function AdminPage({
           </div>
 
           {distributionMode === 'gps' && (
-            <div style={styles.adminCard}>
+            <div style={adminHardFixCardStyle}>
               <strong>GPS Drop</strong>
               <small>Stand where the stamp should unlock, tap Use Current Location, then save the GPS pin drop.</small>
 
@@ -675,7 +710,7 @@ export default function AdminPage({
           )}
 
           {distributionMode === 'qr' && (
-            <div style={styles.adminCard}>
+            <div style={adminHardFixCardStyle}>
               <strong>QR Sticker</strong>
               <small>Use this for printed stickers, posters, poker chips, flyers, or stage handouts.</small>
               {distributionQrUrl && (
@@ -692,7 +727,7 @@ export default function AdminPage({
           )}
 
           {distributionMode === 'nfc' && (
-            <div style={styles.adminCard}>
+            <div style={adminHardFixCardStyle}>
               <strong>NFC Tag</strong>
               <small>Program this exact URL onto an NFC tag. Tapping the tag opens the claim flow.</small>
               <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
@@ -703,7 +738,7 @@ export default function AdminPage({
           )}
 
           {distributionMode === 'timed' && (
-            <div style={styles.adminCard}>
+            <div style={adminHardFixCardStyle}>
               <strong>Timed Drop</strong>
               <small>Use this for opening ceremonies, sunrise sets, parade windows, and limited drops.</small>
               <label style={styles.labelDark}>Start Time</label>
@@ -727,7 +762,7 @@ export default function AdminPage({
           )}
 
           {distributionMode === 'giveaway' && (
-            <div style={styles.adminCard}>
+            <div style={adminHardFixCardStyle}>
               <strong>Admin Giveaway</strong>
               <small>Use this at parades, meetups, booths, or one-on-one handouts. Share the claim link by QR, NFC, AirDrop, or message.</small>
               <input style={styles.inputLight} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />
@@ -743,8 +778,8 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Festival Operations Dashboard</h2>
 
-      <div style={styles.linkList}>
-        <div style={styles.adminCard}>
+      <div style={adminHardFixListStyle}>
+        <div style={adminHardFixCardStyle}>
           <strong>Festival Readiness</strong>
           <small>Managed Festivals: {managedFestivals.length}</small>
           <small>GPS Drops: {gpsDrops.length}</small>
@@ -754,7 +789,7 @@ export default function AdminPage({
           </small>
         </div>
 
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Demand Snapshot</strong>
           <small>Total Festivals Tracked: {festivalDemandSummary.length}</small>
           <small>
@@ -768,11 +803,11 @@ export default function AdminPage({
 
       <h3>Festival Demand Rankings</h3>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {[...festivalDemandSummary]
           .sort((a, b) => (b.total_count || 0) - (a.total_count || 0))
           .map((festival) => (
-            <div key={`ops-${festival.festival_id}`} style={styles.adminCard}>
+            <div key={`ops-${festival.festival_id}`} style={adminHardFixCardStyle}>
               <strong>{festival.festival_id}</strong>
               <small>Going: {festival.going_count || 0}</small>
               <small>Interested: {festival.interested_count || 0}</small>
@@ -793,8 +828,8 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Festival Heatmap & Claim Analytics</h2>
 
-      <div style={styles.linkList}>
-        <div style={styles.adminCard}>
+      <div style={adminHardFixListStyle}>
+        <div style={adminHardFixCardStyle}>
           <strong>Claim Statistics</strong>
           <small>Total Festivals: {festivalDemandSummary.length}</small>
           <small>Total GPS Drops: {gpsDrops.length}</small>
@@ -802,7 +837,7 @@ export default function AdminPage({
           <small>Total Demand Signals: {festivalDemandSummary.reduce((sum, item) => sum + (item.total_count || 0), 0)}</small>
         </div>
 
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Most Popular Stamps</strong>
           <small>#1: Kinetic Field</small>
           <small>#2: Circuit Grounds</small>
@@ -813,12 +848,12 @@ export default function AdminPage({
 
       <h3>Festival Heatmap Priorities</h3>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {[...festivalDemandSummary]
           .sort((a, b) => (b.total_count || 0) - (a.total_count || 0))
           .slice(0, 5)
           .map((festival) => (
-            <div key={`heat-${festival.festival_id}`} style={styles.adminCard}>
+            <div key={`heat-${festival.festival_id}`} style={adminHardFixCardStyle}>
               <strong>{festival.festival_id}</strong>
               <small>Demand Score: {festival.total_count || 0}</small>
               <small>
@@ -832,7 +867,7 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Festival Wizard</h2>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Build 19B Fast Setup Flow</strong>
         <small>Use this guided workflow to create a festival, add map information, choose stamps, place pins, and prepare for QR/NFC publishing.</small>
         <small>Business goal: make every new festival repeatable instead of manually hunting through admin tools.</small>
@@ -857,7 +892,7 @@ export default function AdminPage({
       </div>
 
       {wizardStep === 1 && (
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Step 1 — Festival Basics</strong>
           <small>Name the festival and set its business status.</small>
 
@@ -882,7 +917,7 @@ export default function AdminPage({
       )}
 
       {wizardStep === 2 && (
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Step 2 — Festival Map</strong>
           <small>Add the official or approved map URL. Build 20 will replace this with direct upload.</small>
 
@@ -892,7 +927,7 @@ export default function AdminPage({
           {festivalMapUrl && (
             <div style={styles.linkCard}>
               <strong>Map Preview</strong>
-              <img src={festivalMapUrl} alt="Festival map preview" style={{ width: '100%', borderRadius: 16, marginTop: 10, border: '1px solid rgba(34,211,238,.32)' }} />
+              <img src={festivalMapUrl} alt="Festival map preview" style={{ width: '100%', maxHeight: 240, objectFit: 'contain', borderRadius: 16, marginTop: 10, border: '1px solid rgba(34,211,238,.32)' }} />
             </div>
           )}
 
@@ -906,11 +941,11 @@ export default function AdminPage({
       )}
 
       {wizardStep === 3 && (
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Step 3 — Choose Stamps</strong>
           <small>Select existing stamps for this festival. AI stamp generation comes later; this keeps setup fast and reliable.</small>
 
-          <div style={styles.stampGrid}>
+          <div style={adminHardFixGridStyle}>
             {stamps.map((stamp) => {
               const selected = wizardSelectedStampIds.includes(stamp.id)
 
@@ -945,7 +980,7 @@ export default function AdminPage({
       )}
 
       {wizardStep === 4 && (
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Step 4 — Place Pins</strong>
           <small>Use the Festival Map Overlay Pin Board below to tap the map and save pins to real GPS drops.</small>
           <small>Current selected festival pins: {wizardPinCount}</small>
@@ -961,7 +996,7 @@ export default function AdminPage({
       )}
 
       {wizardStep === 5 && (
-        <div style={styles.adminCard}>
+        <div style={adminHardFixCardStyle}>
           <strong>Step 5 — Review + Publish</strong>
           <small>Festival: {festivalName || 'Not named yet'}</small>
           <small>Location: {festivalLocation || 'No location yet'}</small>
@@ -983,7 +1018,7 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Festival Manager</h2>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Create / Manage Festivals</strong>
         <small>Create each festival first. Then select it below before dropping pins. GPS drops are saved only to the selected festival.</small>
       </div>
@@ -1009,10 +1044,10 @@ export default function AdminPage({
         CREATE FESTIVAL
       </button>
 
-      {festivalAdminMessage && <p style={styles.successText}>{festivalAdminMessage}</p>}
+      {festivalAdminMessage && <div style={compactStatusCardStyle}><strong>{festivalAdminMessage}</strong></div>}
 
       <h2 style={styles.bookTitle}>Festival Demand Dashboard</h2>
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Business Signal</strong>
         <small>Use this to decide where EDM Passport should spend time creating maps, pins, stamps, and drops.</small>
         <button type="button" style={styles.secondaryButton} onClick={refreshFestivalDemandSummary}>
@@ -1020,7 +1055,7 @@ export default function AdminPage({
         </button>
       </div>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {[...festivalDemandSummary]
           .sort((a, b) => ((b.going_count || 0) + (b.interested_count || 0)) - ((a.going_count || 0) + (a.interested_count || 0)))
           .map((item, index) => {
@@ -1031,7 +1066,7 @@ export default function AdminPage({
             const recommendation = going >= 25 ? 'HIGH PRIORITY: build drops' : totalDemand >= 10 ? 'WATCHLIST: validate demand' : 'LOW PRIORITY: wait'
 
             return (
-              <div key={item.festival_id || index} style={styles.adminCard}>
+              <div key={item.festival_id || index} style={adminHardFixCardStyle}>
                 <strong>{index + 1}. {festival.name || item.festival_id}</strong>
                 <small>{festival.location || 'Festival location not set'}</small>
                 <small>{going} going • {interested} interested • {totalDemand} total signal</small>
@@ -1059,7 +1094,7 @@ export default function AdminPage({
         ))}
       </select>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>{adminFestival?.name || 'Select a festival'}</strong>
         <small>{adminFestival?.location || 'GPS drops created below will belong only to this festival.'}</small>
         {adminFestival?.map_url && <small>Map: {adminFestival.map_url}</small>}
@@ -1068,7 +1103,7 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Festival Map Overlay Pin Board</h2>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Stage / Festival Image Overlay</strong>
         <small>Use the festival map image to visually place the stamp pin. Then use the live GPS map below to fill the real latitude and longitude before saving.</small>
         <small>This gives you a human-friendly festival map pin plus the real GPS data needed for auto-unlock.</small>
@@ -1151,7 +1186,7 @@ export default function AdminPage({
 
       <h2 style={styles.bookTitle}>Saved GPS Pin Drops</h2>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>GPS creation moved to Stamp Distribution Center.</strong>
         <small>Select a stamp above, choose GPS Drop, use current location, then save the GPS pin drop.</small>
         <button style={styles.secondaryButton} onClick={refreshGpsDrops}>
@@ -1161,10 +1196,10 @@ export default function AdminPage({
 
       <h3>Current GPS Pin Drops For Selected Festival</h3>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {gpsDrops.length ? (
           gpsDrops.map((drop) => (
-            <button key={drop.id} type="button" style={styles.adminCard} onClick={() => loadDropIntoForm(drop)}>
+            <button key={drop.id} type="button" style={adminHardFixCardStyle} onClick={() => loadDropIntoForm(drop)}>
               <strong>{drop.title || getStampName(drop.stamp_id)}</strong>
               <small>{getStampName(drop.stamp_id)}</small>
               <small>Lat: {Number(drop.latitude).toFixed(6)}</small>
@@ -1182,7 +1217,7 @@ export default function AdminPage({
       </div>
       <h3>Admin Stamp Creator</h3>
 
-      <div style={styles.adminCard}>
+      <div style={adminHardFixCardStyle}>
         <strong>Create New Stamp</strong>
         <small>
           Build 20A adds direct image upload. Upload a PNG/JPG/WebP or paste a fallback image URL.
@@ -1195,7 +1230,7 @@ export default function AdminPage({
           onChange={(event) => setAdminStampNameInput(event.target.value)}
         />
 
-        <label style={styles.adminCard}>
+        <label style={adminHardFixCardStyle}>
           <strong>Upload Stamp Image</strong>
           <small>Recommended: square PNG/JPG/WebP. This saves to Supabase Storage.</small>
           <input
@@ -1256,15 +1291,15 @@ export default function AdminPage({
           {adminStampUploading ? 'UPLOADING...' : 'CREATE ADMIN STAMP'}
         </button>
 
-        {adminStampCreatorMessage && <p style={styles.successText}>{adminStampCreatorMessage}</p>}
+        {adminStampCreatorMessage && <div style={compactStatusCardStyle}><strong>{adminStampCreatorMessage}</strong></div>}
       </div>
 
       <h3>Admin-Created Stamps</h3>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {adminCreatedStamps.length ? (
           adminCreatedStamps.map((stamp) => (
-            <div key={`admin-created-${stamp.id}`} style={styles.adminCard}>
+            <div key={`admin-created-${stamp.id}`} style={adminHardFixCardStyle}>
               <strong>{stamp.name}</strong>
               <small>{stamp.rarity || 'normal'} • {stamp.location}</small>
               <img
@@ -1287,13 +1322,13 @@ export default function AdminPage({
 
 <h3>Admin QR / NFC Stamp Generator</h3>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {stamps.map((stamp) => {
           const claimUrl = getClaimUrl(stamp.id)
           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(claimUrl)}`
 
           return (
-            <div key={`generator-${stamp.id}`} style={styles.adminCard}>
+            <div key={`generator-${stamp.id}`} style={adminHardFixCardStyle}>
               <strong>{stamp.name}</strong>
 
               <img
@@ -1332,13 +1367,13 @@ export default function AdminPage({
 
       <h3>Current Live Drops</h3>
 
-      <div style={styles.linkList}>
+      <div style={adminHardFixListStyle}>
         {stamps.map((stamp) => {
           const live = activeDrops.includes(stamp.id)
           const window = activeDropWindows[stamp.id]
 
           return (
-            <div key={stamp.id} style={styles.adminCard}>
+            <div key={stamp.id} style={adminHardFixCardStyle}>
               <strong>{stamp.name}</strong>
               <small>{live ? 'LIVE' : 'OFF'}</small>
               <small>{getClaimUrl(stamp.id, window?.token)}</small>
