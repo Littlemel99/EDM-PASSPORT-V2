@@ -147,9 +147,40 @@ export default function AdminPage({
     setWizardStep(Math.min(5, Math.max(1, nextStep)))
   }
 
-  function publishWizardFestival() {
-    handleCreateFestival?.()
+  function forceMobileViewportReflow() {
+    if (typeof window === 'undefined') return
+
+    const root = document.documentElement
+    const body = document.body
+
+    root.style.overflowX = 'hidden'
+    body.style.overflowX = 'hidden'
+    body.style.width = '100%'
+    body.style.maxWidth = '100vw'
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo(window.scrollX, window.scrollY)
+
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'))
+
+        const map = leafletMapRef.current
+        if (map?.invalidateSize) {
+          map.invalidateSize()
+        }
+      }, 75)
+    })
+  }
+
+  async function handleCreateAdminStampWithReflow() {
+    await handleCreateAdminStamp?.()
+    forceMobileViewportReflow()
+  }
+
+  async function publishWizardFestival() {
+    await handleCreateFestival?.()
     setWizardMessage('Festival setup saved. Next: use the Festival Map Overlay Pin Board below to place live drops and QR/NFC claim points.')
+    forceMobileViewportReflow()
   }
 
   function getStampName(stampId) {
@@ -258,7 +289,7 @@ export default function AdminPage({
       })
 
     return (
-    /* Build 25F Phone Layout Lock */
+    /* Build 25G Mobile Viewport Reflow Fix */
     /* Build 25E Admin Layout Hard Fix */) => {
       cancelled = true
     }
@@ -1076,7 +1107,7 @@ export default function AdminPage({
       <input style={phoneLockInputStyle} placeholder="Festival banner image URL" value={festivalBannerUrl || ''} onChange={(event) => setFestivalBannerUrl?.(event.target.value)} />
       <input style={phoneLockInputStyle} placeholder="Festival map image URL / official map URL" value={festivalMapUrl || ''} onChange={(event) => setFestivalMapUrl?.(event.target.value)} />
 
-      <button style={styles.mainButton} onClick={handleCreateFestival}>
+      <button style={styles.mainButton} onClick={async () => { await handleCreateFestival?.(); forceMobileViewportReflow() }}>
         CREATE FESTIVAL
       </button>
 
@@ -1323,7 +1354,7 @@ export default function AdminPage({
           <option value="legendary">Legendary</option>
         </select>
 
-        <button style={styles.mainButton} onClick={handleCreateAdminStamp} disabled={adminStampUploading}>
+        <button style={styles.mainButton} onClick={handleCreateAdminStampWithReflow} disabled={adminStampUploading}>
           {adminStampUploading ? 'UPLOADING...' : 'CREATE ADMIN STAMP'}
         </button>
 
