@@ -182,6 +182,9 @@ export default function App() {
   }, [adminCreatedStamps])
   const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
+  const isHiddenStamp = (stamp) => ['hidden', 'secret', 'legendary'].includes(String(stamp?.rarity || '').toLowerCase()) || stamp?.is_hidden || stamp?.hidden
+  const hiddenStampCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && !collectedIds.includes(stamp.id)).length
+  const discoveredHiddenCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && collectedIds.includes(stamp.id)).length
   const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
   const collectionTotal = allStamps.length || 1
   const collectionPercent = Math.round((collectedStamps.length / collectionTotal) * 100)
@@ -192,6 +195,7 @@ export default function App() {
     if (collectionFilter === 'collected') return collected
     if (collectionFilter === 'locked') return !collected
     if (collectionFilter === 'live') return live
+    if (collectionFilter === 'hidden') return isHiddenStamp(stamp)
     return true
   })
   const stats = getStats(collectedStamps, allStamps.length)
@@ -1753,7 +1757,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
                   <div style={styles.progressCard}>
                     <strong>Collection Progress</strong>
-                    <small>{collectedStamps.length} / {collectionTotal} stamps collected</small>
+                    <small>{collectedStamps.length} / {collectionTotal} stamps collected • {hiddenStampCount} hidden</small>
                     <div style={styles.progressTrack}>
                       <div style={{ ...styles.progressFill, width: `${collectionPercent}%` }} />
                     </div>
@@ -1766,6 +1770,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       ['collected', 'COLLECTED'],
                       ['locked', 'LOCKED'],
                       ['live', 'LIVE'],
+                      ['hidden', 'HIDDEN'],
                     ].map(([filter, label]) => (
                       <button
                         key={filter}
@@ -1783,16 +1788,18 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       const collected = collectedIds.includes(stamp.id)
                       const live = activeDrops.includes(stamp.id)
                       const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
+                      const hidden = isHiddenStamp(stamp) && !collected && !live
+                      const cardStyle = hidden ? styles.hiddenPreviewCard : styles.previewCard
 
                       return (
-                        <button key={stamp.id} style={styles.previewCard} onClick={() => chooseStamp(stamp)}>
-                          <div style={styles.previewThumbWrap}>
-                            <Stamp stamp={stamp} collected={collected || live} />
+                        <button key={stamp.id} style={cardStyle} onClick={() => chooseStamp(stamp)}>
+                          <div style={hidden ? styles.hiddenStampSilhouette : styles.previewThumbWrap}>
+                            {hidden ? '???' : <Stamp stamp={stamp} collected={collected || live} />}
                           </div>
-                          <strong>{collected ? stamp.name : live ? stamp.name : '??? Mystery Stamp'}</strong>
-                          <small>{collected ? 'COLLECTED' : live ? 'LIVE NOW' : 'LOCKED'}</small>
-                          <small>{collected ? `${memoryCount} memories` : live ? 'Available now' : `Hint: ${stamp.location || 'Find this at the festival'}`}</small>
-                          <span style={styles.previewAction}>{collected || live ? 'VIEW' : 'DETAILS'}</span>
+                          <strong>{hidden ? '??? Hidden Stamp' : collected ? stamp.name : live ? stamp.name : '??? Mystery Stamp'}</strong>
+                          <small>{collected ? 'COLLECTED' : live ? 'LIVE NOW' : hidden ? 'HIDDEN' : 'LOCKED'}</small>
+                          <small>{collected ? `${memoryCount} memories` : live ? 'Available now' : hidden ? `Hint: ${stamp.location || 'Explore the festival'}` : `Hint: ${stamp.location || 'Find this at the festival'}`}</small>
+                          <span style={styles.previewAction}>{collected || live ? 'VIEW' : hidden ? 'HINT' : 'DETAILS'}</span>
                         </button>
                       )
                     })}
@@ -2428,10 +2435,12 @@ const styles = {
   progressCard: { marginTop: 12, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(34,211,238,.14), rgba(255,45,214,.10))', border: '1px solid rgba(34,211,238,.34)', display: 'grid', gap: 8 },
   progressTrack: { width: '100%', height: 10, borderRadius: 999, background: 'rgba(255,255,255,.10)', overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)' },
   progressFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #22d3ee, #ff2dd6)' },
-  filterRow: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6, marginTop: 12 },
+  filterRow: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 6, marginTop: 12 },
   filterButton: { border: '1px solid rgba(34,211,238,.28)', borderRadius: 999, padding: '8px 6px', background: 'rgba(255,255,255,.06)', color: '#f8fbff', fontSize: 10, fontWeight: 900 },
   filterButtonActive: { border: '1px solid rgba(34,211,238,.7)', borderRadius: 999, padding: '8px 6px', background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
   collectionGrid: { maxWidth: '100%', overflowX: 'hidden', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 18 },
+  hiddenPreviewCard: { minHeight: 0, border: '1px solid rgba(168,85,247,.46)', background: 'linear-gradient(180deg, rgba(20,10,40,.86), rgba(75,25,110,.30), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 5, fontWeight: 900, boxShadow: '0 0 18px rgba(168,85,247,.18), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
+  hiddenStampSilhouette: { height: 70, width: 70, borderRadius: 18, display: 'grid', placeItems: 'center', background: 'radial-gradient(circle, rgba(168,85,247,.26), rgba(10,5,35,.86))', border: '1px solid rgba(168,85,247,.45)', color: '#f8fbff', fontSize: 18, letterSpacing: '.08em' },
   previewCard: { minHeight: 0, border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 5, fontWeight: 900, boxShadow: '0 0 16px rgba(34,211,238,.10), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
   previewThumbWrap: { transform: 'scale(.82)', height: 70, display: 'grid', placeItems: 'center' },
   previewAction: { marginTop: 2, padding: '5px 10px', borderRadius: 999, background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
