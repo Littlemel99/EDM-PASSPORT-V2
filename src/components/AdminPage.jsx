@@ -1351,12 +1351,15 @@ export default function AdminPage({
           value={adminStampRarityInput}
           onChange={(event) => setAdminStampRarityInput(event.target.value)}
         >
-          <option value="normal">Normal</option>
+          <option value="common">Common</option>
+          <option value="rare">Rare</option>
+          <option value="epic">Epic</option>
+          <option value="legendary">Legendary</option>
+          <option value="mythic">Mythic</option>
           <option value="hidden">Hidden</option>
           <option value="secret">Secret</option>
-          <option value="legendary">Legendary</option>
         </select>
-        <small>Hidden stamps appear as ??? until collected. Secret and legendary stamps are also hidden until discovered.</small>
+        <small>Use rarity to make stamps feel collectible. Hidden, secret, and legendary stamps appear as ??? until discovered.</small>
 
         <button style={styles.mainButton} onClick={handleCreateAdminStampWithReflow} disabled={adminStampUploading}>
           {adminStampUploading ? 'UPLOADING...' : 'CREATE ADMIN STAMP'}

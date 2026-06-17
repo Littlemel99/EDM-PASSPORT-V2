@@ -184,6 +184,31 @@ export default function App() {
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
   const isHiddenStamp = (stamp) => ['hidden', 'secret', 'legendary'].includes(String(stamp?.rarity || '').toLowerCase()) || stamp?.is_hidden || stamp?.hidden
   const hiddenStampCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && !collectedIds.includes(stamp.id)).length
+  const getStampRarity = (stamp) => String(stamp?.rarity || 'common').toLowerCase()
+  const rarityLabels = {
+    common: 'COMMON',
+    normal: 'COMMON',
+    rare: 'RARE',
+    epic: 'EPIC',
+    legendary: 'LEGENDARY',
+    mythic: 'MYTHIC',
+    hidden: 'HIDDEN',
+    secret: 'SECRET',
+  }
+  const rarityStats = ['common', 'rare', 'epic', 'legendary', 'mythic', 'hidden'].map((rarity) => {
+    const matching = allStamps.filter((stamp) => {
+      const stampRarity = getStampRarity(stamp)
+      if (rarity === 'common') return stampRarity === 'common' || stampRarity === 'normal'
+      return stampRarity === rarity
+    })
+    const collectedMatching = matching.filter((stamp) => collectedIds.includes(stamp.id))
+
+    return {
+      rarity,
+      total: matching.length,
+      collected: collectedMatching.length,
+    }
+  })
   const discoveredHiddenCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && collectedIds.includes(stamp.id)).length
   const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
   const collectionTotal = allStamps.length || 1
@@ -196,6 +221,11 @@ export default function App() {
     if (collectionFilter === 'locked') return !collected
     if (collectionFilter === 'live') return live
     if (collectionFilter === 'hidden') return isHiddenStamp(stamp)
+    if (['common', 'rare', 'epic', 'legendary', 'mythic'].includes(collectionFilter)) {
+      const stampRarity = getStampRarity(stamp)
+      if (collectionFilter === 'common') return stampRarity === 'common' || stampRarity === 'normal'
+      return stampRarity === collectionFilter
+    }
     return true
   })
   const stats = getStats(collectedStamps, allStamps.length)
@@ -1764,6 +1794,20 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     <small>{collectionPercent}% complete</small>
                   </div>
 
+                  <div style={styles.rarityStatsGrid}>
+                    {rarityStats.map((item) => (
+                      <button
+                        key={item.rarity}
+                        type="button"
+                        style={collectionFilter === item.rarity ? styles.rarityStatActive : styles.rarityStat}
+                        onClick={() => setCollectionFilter(item.rarity)}
+                      >
+                        <strong>{rarityLabels[item.rarity]}</strong>
+                        <small>{item.collected}/{item.total}</small>
+                      </button>
+                    ))}
+                  </div>
+
                   <div style={styles.filterRow}>
                     {[
                       ['all', 'ALL'],
@@ -1789,10 +1833,16 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       const live = activeDrops.includes(stamp.id)
                       const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
                       const hidden = isHiddenStamp(stamp) && !collected && !live
-                      const cardStyle = hidden ? styles.hiddenPreviewCard : styles.previewCard
+                      const rarity = getStampRarity(stamp)
+                      const cardStyle = hidden
+                        ? styles.hiddenPreviewCard
+                        : { ...styles.previewCard, ...(styles.rarityBorders[rarity] || styles.rarityBorders.common) }
 
                       return (
                         <button key={stamp.id} style={cardStyle} onClick={() => chooseStamp(stamp)}>
+                          <span style={{ ...styles.rarityBadge, ...(styles.rarityBadges[rarity] || styles.rarityBadges.common) }}>
+                            {rarityLabels[rarity] || rarity.toUpperCase()}
+                          </span>
                           <div style={hidden ? styles.hiddenStampSilhouette : styles.previewThumbWrap}>
                             {hidden ? '???' : <Stamp stamp={stamp} collected={collected || live} />}
                           </div>
@@ -2439,6 +2489,30 @@ const styles = {
   filterButton: { border: '1px solid rgba(34,211,238,.28)', borderRadius: 999, padding: '8px 6px', background: 'rgba(255,255,255,.06)', color: '#f8fbff', fontSize: 10, fontWeight: 900 },
   filterButtonActive: { border: '1px solid rgba(34,211,238,.7)', borderRadius: 999, padding: '8px 6px', background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
   collectionGrid: { maxWidth: '100%', overflowX: 'hidden', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 18 },
+  rarityStatsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 12 },
+  rarityStat: { border: '1px solid rgba(34,211,238,.24)', borderRadius: 14, padding: 8, background: 'rgba(255,255,255,.06)', color: '#f8fbff', display: 'grid', gap: 2, fontSize: 10, fontWeight: 900 },
+  rarityStatActive: { border: '1px solid rgba(253,224,71,.72)', borderRadius: 14, padding: 8, background: 'linear-gradient(135deg, rgba(253,224,71,.22), rgba(255,45,214,.14))', color: '#fff7cc', display: 'grid', gap: 2, fontSize: 10, fontWeight: 900 },
+  rarityBadge: { justifySelf: 'center', padding: '4px 8px', borderRadius: 999, fontSize: 9, fontWeight: 1000, letterSpacing: '.08em', border: '1px solid rgba(255,255,255,.18)' },
+  rarityBadges: {
+    common: { background: 'rgba(148,163,184,.20)', color: '#e5e7eb' },
+    normal: { background: 'rgba(148,163,184,.20)', color: '#e5e7eb' },
+    rare: { background: 'rgba(34,211,238,.22)', color: '#a5f3fc' },
+    epic: { background: 'rgba(168,85,247,.24)', color: '#ddd6fe' },
+    legendary: { background: 'rgba(253,224,71,.24)', color: '#fef08a' },
+    mythic: { background: 'rgba(248,113,113,.24)', color: '#fecaca' },
+    hidden: { background: 'rgba(168,85,247,.22)', color: '#f5d0fe' },
+    secret: { background: 'rgba(244,114,182,.22)', color: '#fbcfe8' },
+  },
+  rarityBorders: {
+    common: { borderColor: 'rgba(148,163,184,.42)' },
+    normal: { borderColor: 'rgba(148,163,184,.42)' },
+    rare: { borderColor: 'rgba(34,211,238,.62)', boxShadow: '0 0 18px rgba(34,211,238,.18)' },
+    epic: { borderColor: 'rgba(168,85,247,.66)', boxShadow: '0 0 20px rgba(168,85,247,.20)' },
+    legendary: { borderColor: 'rgba(253,224,71,.72)', boxShadow: '0 0 22px rgba(253,224,71,.22)' },
+    mythic: { borderColor: 'rgba(248,113,113,.78)', boxShadow: '0 0 26px rgba(248,113,113,.25)' },
+    hidden: { borderColor: 'rgba(168,85,247,.66)' },
+    secret: { borderColor: 'rgba(244,114,182,.66)' },
+  },
   hiddenPreviewCard: { minHeight: 0, border: '1px solid rgba(168,85,247,.46)', background: 'linear-gradient(180deg, rgba(20,10,40,.86), rgba(75,25,110,.30), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 5, fontWeight: 900, boxShadow: '0 0 18px rgba(168,85,247,.18), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
   hiddenStampSilhouette: { height: 70, width: 70, borderRadius: 18, display: 'grid', placeItems: 'center', background: 'radial-gradient(circle, rgba(168,85,247,.26), rgba(10,5,35,.86))', border: '1px solid rgba(168,85,247,.45)', color: '#f8fbff', fontSize: 18, letterSpacing: '.08em' },
   previewCard: { minHeight: 0, border: '1px solid rgba(34,211,238,.34)', background: 'linear-gradient(180deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.06))', color: '#f8fbff', borderRadius: 18, padding: 10, display: 'grid', justifyItems: 'center', gap: 5, fontWeight: 900, boxShadow: '0 0 16px rgba(34,211,238,.10), inset 0 0 18px rgba(255,255,255,.025)', textAlign: 'center', maxWidth: '100%', overflow: 'hidden' },
