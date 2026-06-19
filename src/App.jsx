@@ -210,6 +210,37 @@ export default function App() {
     }
   })
   const discoveredHiddenCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && collectedIds.includes(stamp.id)).length
+  const stageStampIds = ['kinetic-field', 'circuit-grounds', 'cosmic-meadow', 'basspod', 'neon-garden', 'wasteland', 'quantum-valley', 'stereo-bloom', 'bionic-jungle', 'art-cars-downtown-edc']
+  const stageStamps = allStamps.filter((stamp) => {
+    const haystack = `${stamp.id || ''} ${stamp.name || ''} ${stamp.location || ''}`.toLowerCase()
+    return stageStampIds.some((id) => haystack.includes(id.replaceAll('-', ' ')) || haystack.includes(id))
+  })
+  const kineticStamps = allStamps.filter((stamp) => `${stamp.id || ''} ${stamp.name || ''} ${stamp.location || ''}`.toLowerCase().includes('kinetic'))
+  const hiddenStamps = allStamps.filter((stamp) => isHiddenStamp(stamp))
+
+  function buildCompletionReward(id, title, description, targetStamps) {
+    const total = Math.max(targetStamps.length, 1)
+    const collected = targetStamps.filter((stamp) => collectedIds.includes(stamp.id)).length
+    const percent = Math.round((collected / total) * 100)
+
+    return {
+      id,
+      title,
+      description,
+      collected,
+      total,
+      percent,
+      unlocked: collected >= total && targetStamps.length > 0,
+    }
+  }
+
+  const completionRewards = [
+    buildCompletionReward('edc-explorer', 'EDC Explorer', 'Collect every major EDC stage stamp.', stageStamps),
+    buildCompletionReward('secret-hunter', 'Secret Hunter', 'Discover every hidden, secret, and legendary stamp.', hiddenStamps),
+    buildCompletionReward('kinetic-master', 'Kinetic Master', 'Complete the Kinetic Field stamp set.', kineticStamps),
+    buildCompletionReward('edc-completionist', 'EDC 2026 Completionist', 'Collect every available EDC Passport stamp.', allStamps),
+  ]
+  const unlockedCompletionRewards = completionRewards.filter((reward) => reward.unlocked)
   const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
   const collectionTotal = allStamps.length || 1
   const collectionPercent = Math.round((collectedStamps.length / collectionTotal) * 100)
@@ -1808,6 +1839,28 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     ))}
                   </div>
 
+                  <div style={styles.completionRewardsCard}>
+                    <strong>Festival Completion Rewards</strong>
+                    <small>{unlockedCompletionRewards.length} / {completionRewards.length} rewards unlocked</small>
+
+                    <div style={styles.completionRewardList}>
+                      {completionRewards.map((reward) => (
+                        <div key={reward.id} style={reward.unlocked ? styles.completionRewardUnlocked : styles.completionRewardLocked}>
+                          <div>
+                            <strong>{reward.unlocked ? '🏆 ' : '🔒 '}{reward.title}</strong>
+                            <small>{reward.description}</small>
+                          </div>
+                          <div style={styles.rewardProgressBlock}>
+                            <small>{reward.collected}/{reward.total}</small>
+                            <div style={styles.rewardProgressTrack}>
+                              <div style={{ ...styles.rewardProgressFill, width: `${reward.percent}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={styles.filterRow}>
                     {[
                       ['all', 'ALL'],
@@ -2489,6 +2542,13 @@ const styles = {
   filterButton: { border: '1px solid rgba(34,211,238,.28)', borderRadius: 999, padding: '8px 6px', background: 'rgba(255,255,255,.06)', color: '#f8fbff', fontSize: 10, fontWeight: 900 },
   filterButtonActive: { border: '1px solid rgba(34,211,238,.7)', borderRadius: 999, padding: '8px 6px', background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
   collectionGrid: { maxWidth: '100%', overflowX: 'hidden', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 18 },
+  completionRewardsCard: { marginTop: 12, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(253,224,71,.14), rgba(255,45,214,.10), rgba(34,211,238,.08))', border: '1px solid rgba(253,224,71,.38)', display: 'grid', gap: 10, maxWidth: '100%', overflow: 'hidden' },
+  completionRewardList: { display: 'grid', gap: 8 },
+  completionRewardLocked: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 10, borderRadius: 14, background: 'rgba(255,255,255,.055)', border: '1px solid rgba(255,255,255,.12)', opacity: .82, maxWidth: '100%', overflow: 'hidden' },
+  completionRewardUnlocked: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 10, borderRadius: 14, background: 'linear-gradient(135deg, rgba(253,224,71,.22), rgba(34,211,238,.12))', border: '1px solid rgba(253,224,71,.62)', boxShadow: '0 0 22px rgba(253,224,71,.18)', maxWidth: '100%', overflow: 'hidden' },
+  rewardProgressBlock: { minWidth: 70, display: 'grid', gap: 4, justifyItems: 'end' },
+  rewardProgressTrack: { width: 70, height: 7, borderRadius: 999, background: 'rgba(255,255,255,.10)', overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)' },
+  rewardProgressFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #facc15, #22d3ee)' },
   rarityStatsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 12 },
   rarityStat: { border: '1px solid rgba(34,211,238,.24)', borderRadius: 14, padding: 8, background: 'rgba(255,255,255,.06)', color: '#f8fbff', display: 'grid', gap: 2, fontSize: 10, fontWeight: 900 },
   rarityStatActive: { border: '1px solid rgba(253,224,71,.72)', borderRadius: 14, padding: 8, background: 'linear-gradient(135deg, rgba(253,224,71,.22), rgba(255,45,214,.14))', color: '#fff7cc', display: 'grid', gap: 2, fontSize: 10, fontWeight: 900 },
