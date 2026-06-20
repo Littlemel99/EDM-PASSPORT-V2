@@ -241,6 +241,48 @@ export default function App() {
     buildCompletionReward('edc-completionist', 'EDC 2026 Completionist', 'Collect every available EDC Passport stamp.', allStamps),
   ]
   const unlockedCompletionRewards = completionRewards.filter((reward) => reward.unlocked)
+  const artistCollectionDefinitions = [
+    {
+      id: 'chainsmokers',
+      name: 'The Chainsmokers',
+      reward: 'Chainsmokers Superfan',
+      keywords: ['chainsmokers', 'chain smokers', 'kinetic field'],
+      description: 'Collect The Chainsmokers artist set and unlock the Superfan badge.',
+    },
+    {
+      id: 'above-beyond',
+      name: 'Above & Beyond',
+      reward: 'Above & Beyond Legend',
+      keywords: ['above', 'beyond', 'sunrise', 'group therapy'],
+      description: 'Complete the Above & Beyond sunrise collection.',
+    },
+    {
+      id: 'kinetic-artists',
+      name: 'Kinetic Field Artists',
+      reward: 'Kinetic Artist Hunter',
+      keywords: ['kinetic field', 'kinetic'],
+      description: 'Collect artist drops tied to the Kinetic Field experience.',
+    },
+  ]
+
+  const artistCollections = artistCollectionDefinitions.map((artist) => {
+    const matching = allStamps.filter((stamp) => {
+      const haystack = `${stamp.id || ''} ${stamp.name || ''} ${stamp.location || ''}`.toLowerCase()
+      return artist.keywords.some((keyword) => haystack.includes(keyword))
+    })
+    const collected = matching.filter((stamp) => collectedIds.includes(stamp.id)).length
+    const total = Math.max(matching.length, 1)
+    const percent = Math.round((collected / total) * 100)
+
+    return {
+      ...artist,
+      collected,
+      total,
+      percent,
+      unlocked: matching.length > 0 && collected >= total,
+    }
+  })
+  const unlockedArtistCollections = artistCollections.filter((collection) => collection.unlocked)
   const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
   const collectionTotal = allStamps.length || 1
   const collectionPercent = Math.round((collectedStamps.length / collectionTotal) * 100)
@@ -1861,6 +1903,29 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     </div>
                   </div>
 
+                  <div style={styles.artistCollectionsCard}>
+                    <strong>Artist Collections</strong>
+                    <small>{unlockedArtistCollections.length} / {artistCollections.length} artist rewards unlocked</small>
+
+                    <div style={styles.completionRewardList}>
+                      {artistCollections.map((artist) => (
+                        <div key={artist.id} style={artist.unlocked ? styles.artistCollectionUnlocked : styles.artistCollectionLocked}>
+                          <div>
+                            <strong>{artist.unlocked ? '🎧 ' : '🎵 '}{artist.name}</strong>
+                            <small>{artist.description}</small>
+                            <small>Reward: {artist.reward}</small>
+                          </div>
+                          <div style={styles.rewardProgressBlock}>
+                            <small>{artist.collected}/{artist.total}</small>
+                            <div style={styles.rewardProgressTrack}>
+                              <div style={{ ...styles.artistProgressFill, width: `${artist.percent}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={styles.filterRow}>
                     {[
                       ['all', 'ALL'],
@@ -2542,6 +2607,10 @@ const styles = {
   filterButton: { border: '1px solid rgba(34,211,238,.28)', borderRadius: 999, padding: '8px 6px', background: 'rgba(255,255,255,.06)', color: '#f8fbff', fontSize: 10, fontWeight: 900 },
   filterButtonActive: { border: '1px solid rgba(34,211,238,.7)', borderRadius: 999, padding: '8px 6px', background: 'linear-gradient(135deg, #22d3ee, #ff2dd6)', color: '#030014', fontSize: 10, fontWeight: 900 },
   collectionGrid: { maxWidth: '100%', overflowX: 'hidden', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 18 },
+  artistCollectionsCard: { marginTop: 12, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(34,211,238,.12), rgba(168,85,247,.12), rgba(255,45,214,.08))', border: '1px solid rgba(34,211,238,.38)', display: 'grid', gap: 10, maxWidth: '100%', overflow: 'hidden' },
+  artistCollectionLocked: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 10, borderRadius: 14, background: 'rgba(255,255,255,.055)', border: '1px solid rgba(34,211,238,.18)', opacity: .86, maxWidth: '100%', overflow: 'hidden' },
+  artistCollectionUnlocked: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 10, borderRadius: 14, background: 'linear-gradient(135deg, rgba(34,211,238,.20), rgba(255,45,214,.14))', border: '1px solid rgba(34,211,238,.62)', boxShadow: '0 0 22px rgba(34,211,238,.18)', maxWidth: '100%', overflow: 'hidden' },
+  artistProgressFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #22d3ee, #ff2dd6)' },
   completionRewardsCard: { marginTop: 12, padding: 12, borderRadius: 18, background: 'linear-gradient(135deg, rgba(253,224,71,.14), rgba(255,45,214,.10), rgba(34,211,238,.08))', border: '1px solid rgba(253,224,71,.38)', display: 'grid', gap: 10, maxWidth: '100%', overflow: 'hidden' },
   completionRewardList: { display: 'grid', gap: 8 },
   completionRewardLocked: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 10, borderRadius: 14, background: 'rgba(255,255,255,.055)', border: '1px solid rgba(255,255,255,.12)', opacity: .82, maxWidth: '100%', overflow: 'hidden' },
