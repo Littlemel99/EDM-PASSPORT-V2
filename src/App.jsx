@@ -175,7 +175,7 @@ export default function App() {
   const autoCollectLastCheckRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
-  const maxPage = isAdmin ? 12 : 11
+  const maxPage = isAdmin ? 13 : 12
   const allStamps = useMemo(() => {
     const adminIds = new Set(adminCreatedStamps.map((stamp) => stamp.id))
     return [...stamps.filter((stamp) => !adminIds.has(stamp.id)), ...adminCreatedStamps]
@@ -2374,6 +2374,27 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               {pageIndex === 11 && (
                 <>
                   <p style={styles.pageNumber}>Passport Page 12</p>
+                  <h2 style={styles.bookTitle}>My Passport Profile</h2>
+                  <p style={styles.bookText}>Your basic EDM Passport profile foundation.</p>
+
+                  <div style={styles.profileFoundationCard}>
+                    <p style={styles.tag}>PASSPORT PROFILE</p>
+                    <h2>{displayName}</h2>
+                    <small>{country || 'Global Passport'}</small>
+
+                    <div style={styles.profileFoundationGrid}>
+                      <div>
+                        <strong>{collectedStamps.length}</strong>
+                        <small>Stamps</small>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {pageIndex === 12 && (
+                <>
+                  <p style={styles.pageNumber}>Passport Page 13</p>
                   <h2 style={styles.bookTitle}>Passport Export Center</h2>
                   <p style={styles.bookText}>
                     Download, print, or save your EDM Passport identity. These exports use your rave name and country passport cover.
@@ -2451,7 +2472,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 </>
               )}
 
-              {pageIndex === 12 && isAdmin && (
+              {pageIndex === 13 && isAdmin && (
                 <AdminPage
                   styles={styles}
                   stamps={allStamps}
@@ -2695,6 +2716,8 @@ const styles = {
   adminMapLabel: { position: 'absolute', left: 12, top: 12, padding: '6px 10px', borderRadius: 999, background: 'rgba(3,0,20,.78)', color: '#22d3ee', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', border: '1px solid rgba(34,211,238,.35)' },
   adminMapPin: { position: 'absolute', transform: 'translate(-50%, -100%)', border: 0, background: 'transparent', fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 0 8px rgba(255,45,214,.95))', cursor: 'pointer' },
   adminMapSelectedPin: { position: 'absolute', transform: 'translate(-50%, -50%)', fontSize: 24, filter: 'drop-shadow(0 0 10px rgba(34,211,238,.95))', pointerEvents: 'none' },
+  profileFoundationCard: { padding: 16, borderRadius: 22, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', display: 'grid', gap: 12, maxWidth: '100%', overflow: 'hidden', textAlign: 'center' },
+  profileFoundationGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: 8, textAlign: 'center' },
   exportGrid: { maxWidth: '100%', overflowX: 'hidden', display: 'grid', gap: 14, marginTop: 16 },
   exportCard: { padding: 14, borderRadius: 20, background: 'linear-gradient(135deg, rgba(255,255,255,.08), rgba(34,211,238,.07), rgba(255,45,214,.05))', display: 'grid', gap: 10, textAlign: 'center', border: '1px solid rgba(34,211,238,.32)', color: '#f8fbff', boxShadow: '0 0 20px rgba(34,211,238,.12)' },
   exportMiniPassport: { padding: 12, borderRadius: 16, background: 'linear-gradient(135deg, rgba(255,45,214,.14), rgba(34,211,238,.12))', border: '1px solid rgba(34,211,238,.28)', display: 'grid', gap: 6, justifyItems: 'center' },
