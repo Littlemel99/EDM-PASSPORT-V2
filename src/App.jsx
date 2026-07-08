@@ -61,6 +61,7 @@ import {
   loadFestivalDemandSummary,
 } from './services/festivalAttendanceService'
 
+import ProfilePage from './components/Profile/ProfilePage'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
