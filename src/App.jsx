@@ -2374,20 +2374,12 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
               {pageIndex === 11 && (
                 <>
-                  <ProfilePage styles={styles} />
-
-                  <div style={styles.profileFoundationCard}>
-                    <p style={styles.tag}>PASSPORT PROFILE</p>
-                    <h2>{displayName}</h2>
-                    <small>{country || 'Global Passport'}</small>
-
-                    <div style={styles.profileFoundationGrid}>
-                      <div>
-                        <strong>{collectedStamps.length}</strong>
-                        <small>Stamps</small>
-                      </div>
-                    </div>
-                  </div>
+                  <ProfilePage
+                    styles={styles}
+                    displayName={displayName}
+                    country={country}
+                    collectedStamps={collectedStamps}
+                  />
                 </>
               )}
 
