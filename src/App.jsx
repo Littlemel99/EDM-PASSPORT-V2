@@ -2373,14 +2373,12 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               )}
 
               {pageIndex === 11 && (
-                <>
-                  <ProfilePage
-                    styles={styles}
-                    displayName={displayName}
-                    country={country}
-                    collectedStamps={collectedStamps}
-                  />
-                </>
+                <ProfilePage
+                  styles={styles}
+                  displayName={displayName}
+                  country={country}
+                  collectedStamps={collectedStamps}
+                />
               )}
 
               {pageIndex === 12 && (
