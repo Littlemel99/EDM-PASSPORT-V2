@@ -62,6 +62,7 @@ import {
 } from './services/festivalAttendanceService'
 
 import ProfilePage from './components/Profile/ProfilePage'
+import RewardsShowcase from './components/Rewards/RewardsShowcase'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
@@ -1882,27 +1883,11 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     ))}
                   </div>
 
-                  <div style={styles.completionRewardsCard}>
-                    <strong>Festival Completion Rewards</strong>
-                    <small>{unlockedCompletionRewards.length} / {completionRewards.length} rewards unlocked</small>
-
-                    <div style={styles.completionRewardList}>
-                      {completionRewards.map((reward) => (
-                        <div key={reward.id} style={reward.unlocked ? styles.completionRewardUnlocked : styles.completionRewardLocked}>
-                          <div>
-                            <strong>{reward.unlocked ? '🏆 ' : '🔒 '}{reward.title}</strong>
-                            <small>{reward.description}</small>
-                          </div>
-                          <div style={styles.rewardProgressBlock}>
-                            <small>{reward.collected}/{reward.total}</small>
-                            <div style={styles.rewardProgressTrack}>
-                              <div style={{ ...styles.rewardProgressFill, width: `${reward.percent}%` }} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <RewardsShowcase
+                    styles={styles}
+                    completionRewards={completionRewards}
+                    unlockedCompletionRewards={unlockedCompletionRewards}
+                  />
 
                   <div style={styles.artistCollectionsCard}>
                     <strong>Artist Collections</strong>
