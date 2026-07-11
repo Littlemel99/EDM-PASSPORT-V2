@@ -63,6 +63,7 @@ import {
 
 import ProfilePage from './components/Profile/ProfilePage'
 import RewardsShowcase from './components/Rewards/RewardsShowcase'
+import ArtistCollections from './components/Artists/ArtistCollections'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
@@ -1889,28 +1890,11 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     unlockedCompletionRewards={unlockedCompletionRewards}
                   />
 
-                  <div style={styles.artistCollectionsCard}>
-                    <strong>Artist Collections</strong>
-                    <small>{unlockedArtistCollections.length} / {artistCollections.length} artist rewards unlocked</small>
-
-                    <div style={styles.completionRewardList}>
-                      {artistCollections.map((artist) => (
-                        <div key={artist.id} style={artist.unlocked ? styles.artistCollectionUnlocked : styles.artistCollectionLocked}>
-                          <div>
-                            <strong>{artist.unlocked ? '🎧 ' : '🎵 '}{artist.name}</strong>
-                            <small>{artist.description}</small>
-                            <small>Reward: {artist.reward}</small>
-                          </div>
-                          <div style={styles.rewardProgressBlock}>
-                            <small>{artist.collected}/{artist.total}</small>
-                            <div style={styles.rewardProgressTrack}>
-                              <div style={{ ...styles.artistProgressFill, width: `${artist.percent}%` }} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <ArtistCollections
+                    styles={styles}
+                    artistCollections={artistCollections}
+                    unlockedArtistCollections={unlockedArtistCollections}
+                  />
 
                   <div style={styles.filterRow}>
                     {[
