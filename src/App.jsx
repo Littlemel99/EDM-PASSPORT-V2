@@ -65,6 +65,13 @@ import ProfilePage from './components/Profile/ProfilePage'
 import RewardsShowcase from './components/Rewards/RewardsShowcase'
 import ArtistCollections from './components/Artists/ArtistCollections'
 import ExportCenter from './components/Passport/ExportCenter'
+import {
+  getClaimIdFromUrl,
+  savePendingClaim,
+  getPendingClaim,
+  clearPendingClaim,
+  cleanClaimUrl,
+} from './services/claimService'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
@@ -119,6 +126,7 @@ export default function App() {
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationError, setLocationError] = useState('')
   const [claimMessage, setClaimMessage] = useState('')
+  const [pendingClaimId, setPendingClaimId] = useState(getPendingClaim())
   const [adminTestMode, setAdminTestMode] = useState(false)
 
   const [families, setFamilies] = useState([])
@@ -365,7 +373,7 @@ export default function App() {
     refreshFestivalDemandSummary()
 
     const params = new URLSearchParams(window.location.search)
-    const claimId = params.get('claim')
+    const claimId = getClaimIdFromUrl()
     const joinCrewCode = params.get('joincrew')
     const passportProfileId = params.get('passport') || params.get('profile')
 
@@ -375,6 +383,8 @@ export default function App() {
     }
 
     if (claimId) {
+      savePendingClaim(claimId)
+      setPendingClaimId(claimId)
       setActiveId(claimId)
       setBookOpen(true)
       setPageIndex(2)
@@ -409,6 +419,20 @@ export default function App() {
   }, [])
 
 
+
+  useEffect(() => {
+    if (!pendingClaimId) return
+
+    setActiveId(pendingClaimId)
+    setBookOpen(true)
+    setPageIndex(2)
+
+    if (user) {
+      setClaimMessage('Your QR/NFC claim is ready. Tap COLLECT STAMP.')
+    } else {
+      setClaimMessage('Claim saved. Login first, then return to collect your stamp.')
+    }
+  }, [user, pendingClaimId])
 
   useEffect(() => {
     if (!pendingFamilyInviteCode) return
@@ -955,6 +979,11 @@ export default function App() {
   }
 
   async function collectActiveStamp(method = 'manual') {
+    if (pendingClaimId && !user) {
+      setClaimMessage('Login first to finish this QR/NFC claim.')
+      return
+    }
+
     const status = adminTestMode
       ? { required: false, unlocked: true }
       : getGpsStatus(activeStamp.id, location)
@@ -967,6 +996,12 @@ export default function App() {
     setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
 
     if (user) await saveStamp(user, activeStamp.id, method)
+
+    if (pendingClaimId) {
+      clearPendingClaim()
+      setPendingClaimId('')
+      cleanClaimUrl()
+    }
 
     setClaimMessage(`${activeStamp.name} collected and saved.`)
   }
