@@ -10,6 +10,7 @@ import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
 import { getGpsStatus } from './lib/gps'
 import { getStats, getAchievements } from './lib/stats'
+import { normalizeDiscoveries } from './adventure'
 import Stamp from './components/Stamp'
 import StampModal from './components/StampModal'
 import {
@@ -191,8 +192,15 @@ export default function App() {
   const maxPage = isAdmin ? 13 : 12
   const allStamps = useMemo(() => {
     const adminIds = new Set(adminCreatedStamps.map((stamp) => stamp.id))
-    return [...stamps.filter((stamp) => !adminIds.has(stamp.id)), ...adminCreatedStamps]
-  }, [adminCreatedStamps])
+    const mergedStamps = [
+      ...stamps.filter((stamp) => !adminIds.has(stamp.id)),
+      ...adminCreatedStamps,
+    ]
+
+    return normalizeDiscoveries(mergedStamps, {
+      festivalId: selectedFestivalId || 'edc-las-vegas-2026',
+    })
+  }, [adminCreatedStamps, selectedFestivalId])
   const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
   const isHiddenStamp = (stamp) => ['hidden', 'secret', 'legendary'].includes(String(stamp?.rarity || '').toLowerCase()) || stamp?.is_hidden || stamp?.hidden
