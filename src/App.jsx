@@ -16,6 +16,7 @@ import {
   loadCollectedIds,
   loadCollectedIdsByUserId,
   saveStamp,
+  claimStampDrop,
   loadLiveDrops,
   setLiveDrop,
   setAdvancedLiveDrop,
@@ -995,7 +996,13 @@ export default function App() {
 
     setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
 
-    if (user) await saveStamp(user, activeStamp.id, method)
+    if (user) {
+      if (pendingClaimId) {
+        await claimStampDrop(user, activeStamp.id, 'qr-nfc')
+      } else {
+        await saveStamp(user, activeStamp.id, method)
+      }
+    }
 
     if (pendingClaimId) {
       clearPendingClaim()
