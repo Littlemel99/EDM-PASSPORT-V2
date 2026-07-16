@@ -19,3 +19,13 @@ export {
   createAdventureState,
   getReputationLevel,
 } from './AdventureEngine'
+
+export {
+  getDiscoveredHiddenCount,
+  getDiscoveriesByCategory,
+  getHiddenDiscoveries,
+  getRarityProgress,
+  getStageDiscoveries,
+  getUndiscoveredHiddenCount,
+  searchDiscoveries,
+} from './DiscoverySelectors'
