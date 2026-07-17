@@ -5,6 +5,7 @@ import RecapPage from './components/RecapPage'
 import PublicProfile from './components/PublicProfile'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
+import { usePassport } from './providers/PassportProvider.jsx'
 import { stamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
@@ -116,10 +117,16 @@ export default function App() {
   const [festivalAttendance, setFestivalAttendance] = useState([])
   const [festivalDemandSummary, setFestivalDemandSummary] = useState([])
   const [festivalAttendanceMessage, setFestivalAttendanceMessage] = useState('')
-  const [activeId, setActiveId] = useState('world-party-parade')
-  const [bookOpen, setBookOpen] = useState(false)
-  const [pageIndex, setPageIndex] = useState(0)
-  const [selectedStamp, setSelectedStamp] = useState(null)
+  const {
+    activeId,
+    setActiveId,
+    bookOpen,
+    setBookOpen,
+    pageIndex,
+    setPageIndex,
+    selectedStamp,
+    setSelectedStamp,
+  } = usePassport()
 
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
