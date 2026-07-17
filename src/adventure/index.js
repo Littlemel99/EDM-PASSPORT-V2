@@ -29,3 +29,11 @@ export {
   getUndiscoveredHiddenCount,
   searchDiscoveries,
 } from './DiscoverySelectors'
+
+export {
+  createArtistCollections,
+  createCompletionReward,
+  createCompletionRewards,
+  getCollectionProgress,
+  getUnlockedItems,
+} from './ProgressionEngine'

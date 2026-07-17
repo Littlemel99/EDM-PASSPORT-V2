@@ -10,7 +10,13 @@ import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
 import { getGpsStatus } from './lib/gps'
 import { getStats, getAchievements } from './lib/stats'
-import { normalizeDiscoveries } from './adventure'
+import {
+  createArtistCollections,
+  createCompletionRewards,
+  getCollectionProgress,
+  getUnlockedItems,
+  normalizeDiscoveries,
+} from './adventure'
 import Stamp from './components/Stamp'
 import StampModal from './components/StampModal'
 import {
@@ -239,29 +245,53 @@ export default function App() {
   const kineticStamps = allStamps.filter((stamp) => `${stamp.id || ''} ${stamp.name || ''} ${stamp.location || ''}`.toLowerCase().includes('kinetic'))
   const hiddenStamps = allStamps.filter((stamp) => isHiddenStamp(stamp))
 
-  function buildCompletionReward(id, title, description, targetStamps) {
-    const total = Math.max(targetStamps.length, 1)
-    const collected = targetStamps.filter((stamp) => collectedIds.includes(stamp.id)).length
-    const percent = Math.round((collected / total) * 100)
+  const completionRewards = useMemo(
+    () =>
+      createCompletionRewards({
+        collectedIds,
+        definitions: [
+          {
+            id: 'edc-explorer',
+            title: 'EDC Explorer',
+            description: 'Collect every major EDC stage stamp.',
+            discoveries: stageStamps,
+          },
+          {
+            id: 'secret-hunter',
+            title: 'Secret Hunter',
+            description:
+              'Discover every hidden, secret, and legendary stamp.',
+            discoveries: hiddenStamps,
+          },
+          {
+            id: 'kinetic-master',
+            title: 'Kinetic Master',
+            description: 'Complete the Kinetic Field stamp set.',
+            discoveries: kineticStamps,
+          },
+          {
+            id: 'edc-completionist',
+            title: 'EDC 2026 Completionist',
+            description:
+              'Collect every available EDC Passport stamp.',
+            discoveries: allStamps,
+          },
+        ],
+      }),
+    [
+      allStamps,
+      collectedIds,
+      hiddenStamps,
+      kineticStamps,
+      stageStamps,
+    ]
+  )
 
-    return {
-      id,
-      title,
-      description,
-      collected,
-      total,
-      percent,
-      unlocked: collected >= total && targetStamps.length > 0,
-    }
-  }
+  const unlockedCompletionRewards = useMemo(
+    () => getUnlockedItems(completionRewards),
+    [completionRewards]
+  )
 
-  const completionRewards = [
-    buildCompletionReward('edc-explorer', 'EDC Explorer', 'Collect every major EDC stage stamp.', stageStamps),
-    buildCompletionReward('secret-hunter', 'Secret Hunter', 'Discover every hidden, secret, and legendary stamp.', hiddenStamps),
-    buildCompletionReward('kinetic-master', 'Kinetic Master', 'Complete the Kinetic Field stamp set.', kineticStamps),
-    buildCompletionReward('edc-completionist', 'EDC 2026 Completionist', 'Collect every available EDC Passport stamp.', allStamps),
-  ]
-  const unlockedCompletionRewards = completionRewards.filter((reward) => reward.unlocked)
   const artistCollectionDefinitions = [
     {
       id: 'chainsmokers',
@@ -286,27 +316,28 @@ export default function App() {
     },
   ]
 
-  const artistCollections = artistCollectionDefinitions.map((artist) => {
-    const matching = allStamps.filter((stamp) => {
-      const haystack = `${stamp.id || ''} ${stamp.name || ''} ${stamp.location || ''}`.toLowerCase()
-      return artist.keywords.some((keyword) => haystack.includes(keyword))
-    })
-    const collected = matching.filter((stamp) => collectedIds.includes(stamp.id)).length
-    const total = Math.max(matching.length, 1)
-    const percent = Math.round((collected / total) * 100)
+  const artistCollections = useMemo(
+    () =>
+      createArtistCollections({
+        discoveries: allStamps,
+        collectedIds,
+        definitions: artistCollectionDefinitions,
+      }),
+    [allStamps, collectedIds]
+  )
 
-    return {
-      ...artist,
-      collected,
-      total,
-      percent,
-      unlocked: matching.length > 0 && collected >= total,
-    }
-  })
-  const unlockedArtistCollections = artistCollections.filter((collection) => collection.unlocked)
-  const collectedStamps = allStamps.filter((stamp) => collectedIds.includes(stamp.id))
-  const collectionTotal = allStamps.length || 1
-  const collectionPercent = Math.round((collectedStamps.length / collectionTotal) * 100)
+  const unlockedArtistCollections = useMemo(
+    () => getUnlockedItems(artistCollections),
+    [artistCollections]
+  )
+
+  const collectionProgress = useMemo(
+    () => getCollectionProgress(allStamps, collectedIds),
+    [allStamps, collectedIds]
+  )
+  const collectedStamps = collectionProgress.collected
+  const collectionTotal = collectionProgress.total || 1
+  const collectionPercent = collectionProgress.percent
   const filteredCollectionStamps = allStamps.filter((stamp) => {
     const collected = collectedIds.includes(stamp.id)
     const live = activeDrops.includes(stamp.id)
