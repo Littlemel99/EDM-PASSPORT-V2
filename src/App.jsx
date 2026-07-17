@@ -6,6 +6,7 @@ import PublicProfile from './components/PublicProfile'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { usePassport } from './providers/PassportProvider.jsx'
+import { useCrew } from './providers/CrewProvider.jsx'
 import { stamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
@@ -144,13 +145,22 @@ export default function App() {
   const [pendingClaimId, setPendingClaimId] = useState(getPendingClaim())
   const [adminTestMode, setAdminTestMode] = useState(false)
 
-  const [families, setFamilies] = useState([])
-  const [publicFamilies, setPublicFamilies] = useState([])
-  const [activeFamilyId, setActiveFamilyId] = useState('')
-  const [familyInput, setFamilyInput] = useState('')
-  const [joinCode, setJoinCode] = useState('')
-  const [pendingFamilyInviteCode, setPendingFamilyInviteCode] = useState(localStorage.getItem('edm-pending-family-invite') || '')
-  const [familyMessage, setFamilyMessage] = useState('')
+  const {
+    families,
+    setFamilies,
+    publicFamilies,
+    setPublicFamilies,
+    activeFamilyId,
+    setActiveFamilyId,
+    familyInput,
+    setFamilyInput,
+    joinCode,
+    setJoinCode,
+    pendingFamilyInviteCode,
+    setPendingFamilyInviteCode,
+    familyMessage,
+    setFamilyMessage,
+  } = useCrew()
 
   const [memoryNote, setMemoryNote] = useState('')
   const [memoryPhotoFile, setMemoryPhotoFile] = useState(null)
