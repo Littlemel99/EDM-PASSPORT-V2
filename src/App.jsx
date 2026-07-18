@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { usePassport } from './providers/PassportProvider.jsx'
 import { useCrew } from './providers/CrewProvider.jsx'
+import { useProfile } from './providers/ProfileProvider.jsx'
 import { stamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
@@ -93,17 +94,30 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [country, setCountry] = useState(localStorage.getItem('edm-country') || '')
   const [raveName, setRaveName] = useState(localStorage.getItem('edm-rave-name') || '')
-  const [profile, setProfile] = useState(null)
-  const [profileMessage, setProfileMessage] = useState('')
-  const [profileSaving, setProfileSaving] = useState(false)
-  const [publicProfileId, setPublicProfileId] = useState('')
-  const [publicProfile, setPublicProfile] = useState(null)
-  const [publicProfileCollectedIds, setPublicProfileCollectedIds] = useState(['world-party-parade'])
-  const [publicProfileLoading, setPublicProfileLoading] = useState(false)
-  const [publicProfileMessage, setPublicProfileMessage] = useState('')
-  const [publicOwnerFamily, setPublicOwnerFamily] = useState(null)
-  const [publicSmartMessage, setPublicSmartMessage] = useState('')
-  const [publicJoinLoading, setPublicJoinLoading] = useState(false)
+  const {
+    profile,
+    setProfile,
+    profileMessage,
+    setProfileMessage,
+    profileSaving,
+    setProfileSaving,
+    publicProfileId,
+    setPublicProfileId,
+    publicProfile,
+    setPublicProfile,
+    publicProfileCollectedIds,
+    setPublicProfileCollectedIds,
+    publicProfileLoading,
+    setPublicProfileLoading,
+    publicProfileMessage,
+    setPublicProfileMessage,
+    publicOwnerFamily,
+    setPublicOwnerFamily,
+    publicSmartMessage,
+    setPublicSmartMessage,
+    publicJoinLoading,
+    setPublicJoinLoading,
+  } = useProfile()
   const [selectedFestivalId, setSelectedFestivalId] = useState(localStorage.getItem('edm-selected-festival') || '')
   const [adminFestivalId, setAdminFestivalId] = useState(localStorage.getItem('edm-admin-festival') || localStorage.getItem('edm-selected-festival') || 'edc-las-vegas-2026')
   const [managedFestivals, setManagedFestivals] = useState(fallbackFestivals)
