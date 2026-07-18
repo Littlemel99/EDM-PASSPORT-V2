@@ -117,6 +117,8 @@ export default function App() {
     setPublicSmartMessage,
     publicJoinLoading,
     setPublicJoinLoading,
+    loadPublicPassportProfile,
+    closePublicProfile,
   } = useProfile()
   const [selectedFestivalId, setSelectedFestivalId] = useState(localStorage.getItem('edm-selected-festival') || '')
   const [adminFestivalId, setAdminFestivalId] = useState(localStorage.getItem('edm-admin-festival') || localStorage.getItem('edm-selected-festival') || 'edc-las-vegas-2026')
@@ -574,47 +576,6 @@ export default function App() {
       }
     }
   }, [bookOpen, autoCollectEnabled, user])
-
-  async function loadPublicPassportProfile(profileId) {
-    if (!profileId) return
-
-    try {
-      setPublicProfileLoading(true)
-      setPublicProfileMessage('Loading EDM Passport profile...')
-
-      const foundProfile = await loadPublicProfile(profileId)
-
-      if (!foundProfile) {
-        setPublicProfile(null)
-        setPublicOwnerFamily(null)
-        setPublicProfileCollectedIds(['world-party-parade'])
-        setPublicProfileMessage('This EDM Passport profile was not found yet.')
-        return
-      }
-
-      setPublicProfile(foundProfile)
-      setPublicOwnerFamily(await loadPrimaryFamilyByOwner(profileId))
-      setPublicProfileCollectedIds(await loadCollectedIdsByUserId(profileId))
-      setPublicProfileMessage('')
-      setPublicSmartMessage('')
-    } catch (error) {
-      setPublicProfile(null)
-      setPublicOwnerFamily(null)
-      setPublicProfileMessage(error.message || 'Could not load this EDM Passport profile.')
-    } finally {
-      setPublicProfileLoading(false)
-    }
-  }
-
-  function closePublicProfile() {
-    const cleanUrl = window.location.origin + window.location.pathname
-    window.history.replaceState({}, '', cleanUrl)
-    setPublicProfileId('')
-    setPublicProfile(null)
-    setPublicOwnerFamily(null)
-    setPublicProfileMessage('')
-    setPublicSmartMessage('')
-  }
 
   function createPassportFromScannedQr() {
     const scannedName = publicProfile?.rave_name || 'this passport holder'

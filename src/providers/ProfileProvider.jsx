@@ -1,9 +1,19 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
 } from 'react'
+import {
+  loadPublicProfile,
+} from '../services/profileService'
+import {
+  loadCollectedIdsByUserId,
+} from '../services/stampService'
+import {
+  loadPrimaryFamilyByOwner,
+} from '../services/crewService'
 
 const ProfileContext = createContext(null)
 
@@ -33,6 +43,65 @@ export function ProfileProvider({ children }) {
   const [publicJoinLoading, setPublicJoinLoading] =
     useState(false)
 
+  const loadPublicPassportProfile = useCallback(
+    async (profileId) => {
+      if (!profileId) return
+
+      try {
+        setPublicProfileLoading(true)
+        setPublicProfileMessage(
+          'Loading EDM Passport profile...'
+        )
+
+        const foundProfile = await loadPublicProfile(profileId)
+
+        if (!foundProfile) {
+          setPublicProfile(null)
+          setPublicOwnerFamily(null)
+          setPublicProfileCollectedIds([
+            'world-party-parade',
+          ])
+          setPublicProfileMessage(
+            'This EDM Passport profile was not found yet.'
+          )
+          return
+        }
+
+        setPublicProfile(foundProfile)
+        setPublicOwnerFamily(
+          await loadPrimaryFamilyByOwner(profileId)
+        )
+        setPublicProfileCollectedIds(
+          await loadCollectedIdsByUserId(profileId)
+        )
+        setPublicProfileMessage('')
+        setPublicSmartMessage('')
+      } catch (error) {
+        setPublicProfile(null)
+        setPublicOwnerFamily(null)
+        setPublicProfileMessage(
+          error.message ||
+            'Could not load this EDM Passport profile.'
+        )
+      } finally {
+        setPublicProfileLoading(false)
+      }
+    },
+    []
+  )
+
+  const closePublicProfile = useCallback(() => {
+    const cleanUrl =
+      window.location.origin + window.location.pathname
+
+    window.history.replaceState({}, '', cleanUrl)
+    setPublicProfileId('')
+    setPublicProfile(null)
+    setPublicOwnerFamily(null)
+    setPublicProfileMessage('')
+    setPublicSmartMessage('')
+  }, [])
+
   const value = useMemo(
     () => ({
       profile,
@@ -57,6 +126,8 @@ export function ProfileProvider({ children }) {
       setPublicSmartMessage,
       publicJoinLoading,
       setPublicJoinLoading,
+      loadPublicPassportProfile,
+      closePublicProfile,
     }),
     [
       profile,
@@ -70,6 +141,8 @@ export function ProfileProvider({ children }) {
       publicOwnerFamily,
       publicSmartMessage,
       publicJoinLoading,
+      loadPublicPassportProfile,
+      closePublicProfile,
     ]
   )
 
