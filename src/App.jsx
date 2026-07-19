@@ -1787,8 +1787,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 onOpenDiscovery={(discovery) => {
                   if (!discovery) return
 
+                  setActiveId(discovery.id)
+                  setSelectedStamp(null)
                   setBookOpen(true)
-                  chooseStamp(discovery)
+                  setPageIndex(2)
                 }}
                 onEditPassport={() => {
                   setShowProfileEditor((current) => !current)

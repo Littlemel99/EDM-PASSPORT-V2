@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DiscoveryClaim from './DiscoveryClaim.jsx'
 
 const scanStates = [
   {
@@ -24,6 +25,7 @@ export default function DiscoveryRadar({
   onOpenDiscovery,
 }) {
   const [radarOpen, setRadarOpen] = useState(false)
+  const [claimOpen, setClaimOpen] = useState(false)
   const [scanStep, setScanStep] = useState(0)
 
   const handleOpenRadar = () => {
@@ -33,6 +35,23 @@ export default function DiscoveryRadar({
 
   const handleCloseRadar = () => {
     setRadarOpen(false)
+    setClaimOpen(false)
+    setScanStep(0)
+  }
+
+  const handleTargetLocated = () => {
+    setRadarOpen(false)
+    setClaimOpen(true)
+  }
+
+  const handleVerifyClaim = () => {
+    setClaimOpen(false)
+    setScanStep(0)
+    onOpenDiscovery?.(discovery)
+  }
+
+  const handleNotNow = () => {
+    setClaimOpen(false)
     setScanStep(0)
   }
 
@@ -218,12 +237,9 @@ export default function DiscoveryRadar({
               <button
                 type="button"
                 style={styles.lockedButton}
-                onClick={() => {
-                  handleCloseRadar()
-                  onOpenDiscovery?.(discovery)
-                }}
+                onClick={handleTargetLocated}
               >
-                OPEN TARGET IN PASSPORT
+                REVIEW TARGET
               </button>
             )}
 
@@ -233,6 +249,14 @@ export default function DiscoveryRadar({
             </p>
           </section>
         </div>
+      )}
+
+      {claimOpen && (
+        <DiscoveryClaim
+          discovery={discovery}
+          onVerifyClaim={handleVerifyClaim}
+          onNotNow={handleNotNow}
+        />
       )}
     </>
   )
