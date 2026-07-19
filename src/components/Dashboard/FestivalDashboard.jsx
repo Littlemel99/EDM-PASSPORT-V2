@@ -1,4 +1,5 @@
 import FestivalMissionCard from './FestivalMissionCard.jsx'
+import DiscoveryRadar from './DiscoveryRadar.jsx'
 
 export default function FestivalDashboard({
   displayName,
@@ -104,6 +105,8 @@ export default function FestivalDashboard({
           </>
         )}
       </div>
+
+      <DiscoveryRadar />
 
       <FestivalMissionCard
         collectedCount={collectedCount}
