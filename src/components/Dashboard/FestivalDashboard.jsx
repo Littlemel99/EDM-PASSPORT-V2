@@ -1,3 +1,5 @@
+import FestivalMissionCard from './FestivalMissionCard.jsx'
+
 export default function FestivalDashboard({
   displayName,
   country,
@@ -12,6 +14,7 @@ export default function FestivalDashboard({
   onOpenPassport,
   onEditPassport,
   onSignOut,
+  missionReady,
 }) {
   return (
     <section style={styles.dashboard}>
@@ -101,6 +104,11 @@ export default function FestivalDashboard({
           </>
         )}
       </div>
+
+      <FestivalMissionCard
+        collectedCount={collectedCount}
+        ready={missionReady}
+      />
 
       <div style={styles.actionGrid}>
         <button

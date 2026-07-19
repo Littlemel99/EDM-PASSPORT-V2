@@ -1788,6 +1788,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   setShowProfileEditor((current) => !current)
                 }}
                 onSignOut={signOut}
+                missionReady={Boolean(profile)}
               />
             )}
 
