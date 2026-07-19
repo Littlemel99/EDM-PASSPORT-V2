@@ -7,6 +7,7 @@ import {
 } from 'react'
 import {
   loadPublicProfile,
+  saveProfile,
 } from '../services/profileService'
 import {
   loadCollectedIdsByUserId,
@@ -42,6 +43,47 @@ export function ProfileProvider({ children }) {
     useState('')
   const [publicJoinLoading, setPublicJoinLoading] =
     useState(false)
+
+  const saveCurrentProfile = useCallback(
+    async ({ user, raveName, country }) => {
+      if (!user) {
+        setProfileMessage('Login first to save your rave profile.')
+        return null
+      }
+
+      if (!String(raveName || '').trim()) {
+        setProfileMessage('Choose your rave name first.')
+        return null
+      }
+
+      if (!country) {
+        setProfileMessage('Choose your passport country first.')
+        return null
+      }
+
+      try {
+        setProfileSaving(true)
+        setProfileMessage('Saving rave profile...')
+
+        const savedProfile = await saveProfile(user, {
+          raveName: String(raveName).trim(),
+          country,
+        })
+
+        setProfile(savedProfile)
+        setProfileMessage('Rave profile saved.')
+        return savedProfile
+      } catch (error) {
+        setProfileMessage(
+          error.message || 'Rave profile save failed.'
+        )
+        return null
+      } finally {
+        setProfileSaving(false)
+      }
+    },
+    []
+  )
 
   const loadPublicPassportProfile = useCallback(
     async (profileId) => {
@@ -126,6 +168,7 @@ export function ProfileProvider({ children }) {
       setPublicSmartMessage,
       publicJoinLoading,
       setPublicJoinLoading,
+      saveCurrentProfile,
       loadPublicPassportProfile,
       closePublicProfile,
     }),
@@ -141,6 +184,7 @@ export function ProfileProvider({ children }) {
       publicOwnerFamily,
       publicSmartMessage,
       publicJoinLoading,
+      saveCurrentProfile,
       loadPublicPassportProfile,
       closePublicProfile,
     ]

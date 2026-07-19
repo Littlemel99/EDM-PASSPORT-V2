@@ -53,7 +53,6 @@ import {
 import {
   loadProfile,
   loadPublicProfile,
-  saveProfile,
   getProfileDisplayName,
 } from './services/profileService'
 
@@ -117,6 +116,7 @@ export default function App() {
     setPublicSmartMessage,
     publicJoinLoading,
     setPublicJoinLoading,
+    saveCurrentProfile,
     loadPublicPassportProfile,
     closePublicProfile,
   } = useProfile()
@@ -941,35 +941,11 @@ export default function App() {
   }
 
   async function handleSaveRaveProfile() {
-    if (!user) {
-      setProfileMessage('Login first to save your rave name.')
-      return
-    }
-
-    if (!raveName.trim()) {
-      setProfileMessage('Choose your rave name first.')
-      return
-    }
-
-    if (!country) {
-      setProfileMessage('Choose your passport country first.')
-      return
-    }
-
-    try {
-      setProfileSaving(true)
-      setProfileMessage('Saving rave profile...')
-      const savedProfile = await saveProfile(user, {
-        raveName,
-        country,
-      })
-      setProfile(savedProfile)
-      setProfileMessage('Rave profile saved.')
-    } catch (error) {
-      setProfileMessage(error.message || 'Rave profile save failed.')
-    } finally {
-      setProfileSaving(false)
-    }
+    await saveCurrentProfile({
+      user,
+      raveName,
+      country,
+    })
   }
 
   async function signInWithGoogle() {
