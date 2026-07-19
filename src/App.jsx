@@ -72,6 +72,7 @@ import {
 } from './services/festivalAttendanceService'
 
 import ProfilePage from './components/Profile/ProfilePage'
+import FestivalDashboard from './components/Dashboard/FestivalDashboard'
 import RewardsShowcase from './components/Rewards/RewardsShowcase'
 import ArtistCollections from './components/Artists/ArtistCollections'
 import ExportCenter from './components/Passport/ExportCenter'
@@ -93,6 +94,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [country, setCountry] = useState(localStorage.getItem('edm-country') || '')
   const [raveName, setRaveName] = useState(localStorage.getItem('edm-rave-name') || '')
+  const [showProfileEditor, setShowProfileEditor] = useState(false)
   const {
     profile,
     setProfile,
@@ -951,7 +953,9 @@ export default function App() {
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: APP_URL },
+      options: {
+        redirectTo: window.location.origin,
+      },
     })
   }
 
@@ -1733,10 +1737,62 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
       <section style={styles.card}>
         {!bookOpen ? (
           <>
-            <img src="/edm-passport-logo.png" alt="EDM Passport" style={styles.logo} />
-            <h1 style={styles.title}>EDM Passport</h1>
-            <p style={styles.tag}>CREATE YOUR FESTIVAL IDENTITY</p>
+            {!user ? (
+              <>
+                <img
+                  src="/edm-passport-logo.png"
+                  alt="EDM Passport"
+                  style={styles.logo}
+                />
+                <h1 style={styles.title}>EDM Passport</h1>
+                <p style={styles.tag}>
+                  CREATE YOUR FESTIVAL IDENTITY
+                </p>
+              </>
+            ) : (
+              <img
+                src="/edm-passport-logo.png"
+                alt="EDM Passport"
+                style={{
+                  ...styles.logo,
+                  width: 110,
+                  marginBottom: 8,
+                }}
+              />
+            )}
 
+            {user && (
+              <FestivalDashboard
+                displayName={displayName}
+                country={country}
+                collectedCount={collectedStamps.length}
+                totalCount={allStamps.length}
+                collectionPercent={collectionPercent}
+                totalXp={stats.totalXp}
+                rank={stats.level}
+                crewName={families.find(
+                  (family) => family.id === activeFamilyId
+                )?.name || families[0]?.name}
+                festivalName={
+                  activeFestival?.name ||
+                  upcomingFestivals[0]?.name
+                }
+                nextDiscovery={allStamps.find(
+                  (stamp) => !collectedIds.includes(stamp.id)
+                )}
+                onOpenPassport={() => {
+                  setBookOpen(true)
+                  setPageIndex(0)
+                }}
+                onEditPassport={() => {
+                  setShowProfileEditor((current) => !current)
+                }}
+                onSignOut={signOut}
+              />
+            )}
+
+            {(!user || showProfileEditor) && (
+              <div style={styles.profileEditorPanel}>
             <button
               style={styles.passportButton}
               onClick={() => {
@@ -1791,7 +1847,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 <button style={styles.mainButton} onClick={handleSaveRaveProfile} disabled={profileSaving}>
                   {profileSaving ? 'SAVING...' : 'SAVE RAVE PROFILE'}
                 </button>
-                <button style={styles.secondaryButton} onClick={signOut}>SIGN OUT</button>
+
               </div>
             )}
 
@@ -1821,6 +1877,19 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             >
               OPEN PASSPORT
             </button>
+
+                {user && (
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    onClick={() => setShowProfileEditor(false)}
+                  >
+                    DONE EDITING
+                  </button>
+                )}
+              </div>
+            )}
+
           </>        ) : (
           <>
             <div
@@ -2515,6 +2584,15 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 }
 
 const styles = {
+  profileEditorPanel: {
+    width: '100%',
+    boxSizing: 'border-box',
+    marginTop: 18,
+    padding: 16,
+    borderRadius: 20,
+    background: 'rgba(255,255,255,0.035)',
+    border: '1px solid rgba(0,245,255,0.2)',
+  },
   screen: {
     minHeight: '100vh',
     padding: 16,
