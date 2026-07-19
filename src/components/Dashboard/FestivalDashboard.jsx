@@ -13,6 +13,7 @@ export default function FestivalDashboard({
   festivalName,
   nextDiscovery,
   onOpenPassport,
+  onOpenDiscovery,
   onEditPassport,
   onSignOut,
   missionReady,
@@ -106,7 +107,10 @@ export default function FestivalDashboard({
         )}
       </div>
 
-      <DiscoveryRadar />
+      <DiscoveryRadar
+        discovery={nextDiscovery}
+        onOpenDiscovery={onOpenDiscovery}
+      />
 
       <FestivalMissionCard
         collectedCount={collectedCount}

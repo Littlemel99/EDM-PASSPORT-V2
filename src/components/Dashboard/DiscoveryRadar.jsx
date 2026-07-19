@@ -1,67 +1,97 @@
 import { useState } from 'react'
 
-export default function DiscoveryRadar() {
+const scanStates = [
+  {
+    label: 'READY TO HUNT',
+    message: 'Start the radar when you are ready to explore.',
+  },
+  {
+    label: 'SIGNAL FOUND',
+    message: 'A discovery signal is active somewhere in the festival.',
+  },
+  {
+    label: 'SIGNAL STABLE',
+    message: 'Use the location hint and look for matching landmarks.',
+  },
+  {
+    label: 'TARGET LOCKED',
+    message: 'Open the passport to inspect the discovery and claim options.',
+  },
+]
+
+export default function DiscoveryRadar({
+  discovery,
+  onOpenDiscovery,
+}) {
   const [radarOpen, setRadarOpen] = useState(false)
+  const [scanStep, setScanStep] = useState(0)
+
+  const handleOpenRadar = () => {
+    setScanStep(0)
+    setRadarOpen(true)
+  }
+
+  const handleCloseRadar = () => {
+    setRadarOpen(false)
+    setScanStep(0)
+  }
+
+  const handleScan = () => {
+    setScanStep((current) =>
+      Math.min(current + 1, scanStates.length - 1)
+    )
+  }
+
+  if (!discovery) {
+    return (
+      <section style={styles.emptyCard}>
+        <span style={styles.label}>DISCOVERY RADAR</span>
+        <strong>All available discoveries collected</strong>
+        <p style={styles.text}>
+          New targets will appear here when they become available.
+        </p>
+      </section>
+    )
+  }
+
+  const scanState = scanStates[scanStep]
+  const targetLocked = scanStep === scanStates.length - 1
+  const rarity = String(
+    discovery.rarity || 'common'
+  ).toUpperCase()
 
   return (
     <>
-      <section
-        style={{
-          marginTop: 16,
-          padding: 18,
-          borderRadius: 18,
-          background:
-            'linear-gradient(135deg, rgba(0,245,255,.12), rgba(168,85,247,.12))',
-          border: '1px solid rgba(0,245,255,.35)',
-          color: '#fff',
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: 2,
-            opacity: 0.7,
-            marginBottom: 8,
-          }}
-        >
-          DISCOVERY RADAR
+      <section style={styles.launchCard}>
+        <span style={styles.label}>DISCOVERY RADAR</span>
+
+        <div style={styles.launchHeader}>
+          <div>
+            <h2 style={styles.launchTitle}>
+              Signal Detected
+            </h2>
+
+            <p style={styles.text}>
+              Your next discovery is waiting.
+            </p>
+          </div>
+
+          <span style={styles.radarIcon}>◎</span>
         </div>
 
-        <h2 style={{ margin: 0 }}>
-          Signal Detected
-        </h2>
-
-        <p style={{ opacity: 0.8 }}>
-          Your next adventure is waiting.
-        </p>
-
-        <div
-          style={{
-            margin: '24px auto',
-            width: 180,
-            height: 180,
-            borderRadius: '50%',
-            border: '2px solid #00f5ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 42,
-          }}
-        >
-          ◎
+        <div style={styles.targetPreview}>
+          <span style={styles.label}>CURRENT TARGET</span>
+          <strong>{discovery.name}</strong>
+          <small>
+            {discovery.location ||
+              'Explore the active festival area'}
+          </small>
         </div>
 
         <button
           type="button"
-          style={{
-            width: '100%',
-            padding: 14,
-            borderRadius: 12,
-            border: 0,
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-          onClick={() => setRadarOpen(true)}
+          style={styles.primaryButton}
+          onClick={handleOpenRadar}
         >
           OPEN RADAR
         </button>
@@ -72,164 +102,404 @@ export default function DiscoveryRadar() {
           role="dialog"
           aria-modal="true"
           aria-label="Discovery Radar"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-            background: 'rgba(0,0,0,0.9)',
-            backdropFilter: 'blur(8px)',
-          }}
+          style={styles.overlay}
         >
-          <section
-            style={{
-              width: '100%',
-              maxWidth: 440,
-              boxSizing: 'border-box',
-              padding: 20,
-              borderRadius: 24,
-              color: '#fff',
-              background:
-                'linear-gradient(180deg, #08051c, #100323)',
-              border: '1px solid rgba(0,245,255,0.5)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: 16,
-              }}
-            >
+          <section style={styles.radarPanel}>
+            <div style={styles.topBar}>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: 2,
-                    opacity: 0.7,
-                    marginBottom: 6,
-                  }}
-                >
+                <span style={styles.label}>
                   DISCOVERY RADAR
-                </div>
+                </span>
 
-                <h2 style={{ margin: 0 }}>
-                  Signal Detected
+                <h2 style={styles.panelTitle}>
+                  {scanState.label}
                 </h2>
               </div>
 
               <button
                 type="button"
                 aria-label="Close Discovery Radar"
-                onClick={() => setRadarOpen(false)}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  cursor: 'pointer',
-                  color: '#fff',
-                  fontSize: 24,
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                }}
+                style={styles.closeButton}
+                onClick={handleCloseRadar}
               >
                 ×
               </button>
             </div>
 
-            <div
-              style={{
-                width: 230,
-                height: 230,
-                margin: '24px auto',
-                borderRadius: '50%',
-                display: 'grid',
-                placeItems: 'center',
-                background:
-                  'radial-gradient(circle, rgba(0,245,255,0.2), rgba(0,0,0,0.75) 68%)',
-                border: '1px solid rgba(0,245,255,0.5)',
-                boxShadow:
-                  'inset 0 0 45px rgba(0,245,255,0.12), 0 0 35px rgba(0,245,255,0.18)',
-              }}
-            >
+            <div style={styles.radar}>
+              <div style={styles.ringOuter}>
+                <div style={styles.ringMiddle}>
+                  <div style={styles.ringInner}>
+                    <span
+                      style={{
+                        ...styles.targetDot,
+                        opacity: scanStep === 0 ? 0.35 : 1,
+                      }}
+                    >
+                      ●
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div
                 style={{
-                  width: 170,
-                  height: 170,
-                  borderRadius: '50%',
-                  display: 'grid',
-                  placeItems: 'center',
-                  border: '1px solid rgba(0,245,255,0.35)',
+                  ...styles.scanLine,
+                  transform: `rotate(${scanStep * 75 - 35}deg)`,
                 }}
-              >
-                <div
-                  style={{
-                    width: 100,
-                    height: 100,
-                    borderRadius: '50%',
-                    display: 'grid',
-                    placeItems: 'center',
-                    border: '1px solid rgba(0,245,255,0.4)',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: '#ff4fd8',
-                      fontSize: 24,
-                      textShadow: '0 0 15px #ff4fd8',
-                    }}
-                  >
-                    ●
-                  </span>
-                </div>
+              />
+            </div>
+
+            <div style={styles.targetCard}>
+              <span style={styles.label}>TARGET</span>
+
+              <strong style={styles.discoveryName}>
+                {discovery.name}
+              </strong>
+
+              <div style={styles.metaRow}>
+                <span>{rarity}</span>
+                <span>•</span>
+                <span>
+                  {discovery.category ||
+                    'Festival Discovery'}
+                </span>
               </div>
             </div>
 
-            <div
-              style={{
-                padding: 14,
-                borderRadius: 16,
-                background: 'rgba(255,255,255,0.06)',
-              }}
-            >
-              <small style={{ opacity: 0.65 }}>
-                RADAR STATUS
-              </small>
+            <div style={styles.hintCard}>
+              <span style={styles.label}>LOCATION HINT</span>
 
-              <strong
-                style={{
-                  display: 'block',
-                  marginTop: 6,
-                  fontSize: 18,
-                }}
-              >
-                Ready to begin the hunt
+              <strong>
+                {discovery.location ||
+                  'Explore the active festival area.'}
               </strong>
+
+              <p style={styles.text}>
+                Look for matching stage landmarks, themed
+                installations, active crews, GPS drops, QR codes,
+                or NFC checkpoints.
+              </p>
             </div>
 
-            <button
-              type="button"
-              disabled
-              style={{
-                width: '100%',
-                marginTop: 14,
-                padding: 14,
-                borderRadius: 14,
-                border: 0,
-                fontWeight: 900,
-                opacity: 0.45,
-                cursor: 'not-allowed',
-              }}
-            >
-              START SCAN
-            </button>
+            <div style={styles.statusCard}>
+              <span style={styles.label}>RADAR STATUS</span>
+
+              <strong>{scanState.label}</strong>
+
+              <p style={styles.text}>
+                {scanState.message}
+              </p>
+
+              <div style={styles.stepRow}>
+                {scanStates.map((state, index) => (
+                  <span
+                    key={state.label}
+                    style={{
+                      ...styles.stepDot,
+                      opacity: index <= scanStep ? 1 : 0.22,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {!targetLocked ? (
+              <button
+                type="button"
+                style={styles.primaryButton}
+                onClick={handleScan}
+              >
+                {scanStep === 0
+                  ? 'START SCAN'
+                  : 'SCAN AGAIN'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                style={styles.lockedButton}
+                onClick={() => {
+                  handleCloseRadar()
+                  onOpenDiscovery?.(discovery)
+                }}
+              >
+                OPEN TARGET IN PASSPORT
+              </button>
+            )}
+
+            <p style={styles.disclaimer}>
+              Beta radar does not claim live distance. Real proximity
+              will require verified festival GPS coordinates.
+            </p>
           </section>
         </div>
       )}
     </>
   )
+}
+
+const styles = {
+  launchCard: {
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 18,
+    color: '#ffffff',
+    background:
+      'linear-gradient(135deg, rgba(0,245,255,.12), rgba(168,85,247,.12))',
+    border: '1px solid rgba(0,245,255,.35)',
+  },
+
+  emptyCard: {
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 18,
+    color: '#ffffff',
+    background: 'rgba(255,255,255,.05)',
+    border: '1px solid rgba(255,255,255,.12)',
+  },
+
+  launchHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+
+  launchTitle: {
+    margin: 0,
+    fontSize: 22,
+  },
+
+  radarIcon: {
+    width: 55,
+    height: 55,
+    display: 'grid',
+    placeItems: 'center',
+    flexShrink: 0,
+    borderRadius: 999,
+    color: '#00f5ff',
+    fontSize: 36,
+    border: '1px solid rgba(0,245,255,.5)',
+    boxShadow: '0 0 24px rgba(0,245,255,.2)',
+  },
+
+  targetPreview: {
+    margin: '16px 0',
+    padding: 13,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    borderRadius: 14,
+    background: 'rgba(255,255,255,.06)',
+  },
+
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 9999,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
+    padding: 16,
+    overflowY: 'auto',
+    background: 'rgba(0,0,0,.92)',
+    backdropFilter: 'blur(9px)',
+  },
+
+  radarPanel: {
+    width: '100%',
+    maxWidth: 440,
+    boxSizing: 'border-box',
+    padding: 20,
+    borderRadius: 24,
+    color: '#ffffff',
+    background:
+      'linear-gradient(180deg, #08051c, #100323)',
+    border: '1px solid rgba(0,245,255,.5)',
+    boxShadow: '0 25px 80px rgba(0,0,0,.6)',
+  },
+
+  topBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+
+  panelTitle: {
+    margin: 0,
+    fontSize: 23,
+  },
+
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    cursor: 'pointer',
+    color: '#ffffff',
+    fontSize: 24,
+    background: 'rgba(255,255,255,.08)',
+    border: '1px solid rgba(255,255,255,.2)',
+  },
+
+  radar: {
+    position: 'relative',
+    width: 230,
+    height: 230,
+    margin: '24px auto',
+    display: 'grid',
+    placeItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 999,
+    background:
+      'radial-gradient(circle, rgba(0,245,255,.2), rgba(0,0,0,.75) 68%)',
+    border: '1px solid rgba(0,245,255,.5)',
+    boxShadow:
+      'inset 0 0 45px rgba(0,245,255,.12), 0 0 35px rgba(0,245,255,.18)',
+  },
+
+  ringOuter: {
+    width: 190,
+    height: 190,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 999,
+    border: '1px solid rgba(0,245,255,.28)',
+  },
+
+  ringMiddle: {
+    width: 130,
+    height: 130,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 999,
+    border: '1px solid rgba(0,245,255,.34)',
+  },
+
+  ringInner: {
+    width: 70,
+    height: 70,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 999,
+    border: '1px solid rgba(0,245,255,.42)',
+  },
+
+  targetDot: {
+    color: '#ff4fd8',
+    fontSize: 22,
+    textShadow: '0 0 16px #ff4fd8',
+    transition: 'opacity 200ms ease',
+  },
+
+  scanLine: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: '45%',
+    height: 2,
+    transformOrigin: 'left center',
+    background:
+      'linear-gradient(90deg, rgba(0,245,255,.95), transparent)',
+    boxShadow: '0 0 12px rgba(0,245,255,.8)',
+    transition: 'transform 350ms ease',
+  },
+
+  targetCard: {
+    padding: 14,
+    borderRadius: 15,
+    background: 'rgba(255,255,255,.07)',
+  },
+
+  discoveryName: {
+    display: 'block',
+    fontSize: 21,
+  },
+
+  metaRow: {
+    display: 'flex',
+    gap: 7,
+    marginTop: 7,
+    fontSize: 12,
+    opacity: 0.72,
+  },
+
+  hintCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 15,
+    background: 'rgba(255,79,216,.07)',
+    border: '1px solid rgba(255,79,216,.28)',
+  },
+
+  statusCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 15,
+    background: 'rgba(0,245,255,.06)',
+    border: '1px solid rgba(0,245,255,.25)',
+  },
+
+  stepRow: {
+    display: 'flex',
+    gap: 7,
+    marginTop: 12,
+  },
+
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    background: '#00f5ff',
+    boxShadow: '0 0 10px rgba(0,245,255,.7)',
+  },
+
+  label: {
+    display: 'block',
+    marginBottom: 5,
+    fontSize: 10,
+    letterSpacing: 1.7,
+    opacity: 0.68,
+  },
+
+  text: {
+    margin: '7px 0 0',
+    lineHeight: 1.45,
+    opacity: 0.8,
+  },
+
+  primaryButton: {
+    width: '100%',
+    marginTop: 14,
+    padding: '14px 16px',
+    border: 0,
+    borderRadius: 14,
+    cursor: 'pointer',
+    fontWeight: 900,
+    color: '#070314',
+    background:
+      'linear-gradient(90deg, #00f5ff, #a855f7, #ff4fd8)',
+  },
+
+  lockedButton: {
+    width: '100%',
+    marginTop: 14,
+    padding: '14px 16px',
+    border: 0,
+    borderRadius: 14,
+    cursor: 'pointer',
+    fontWeight: 900,
+    color: '#061008',
+    background:
+      'linear-gradient(90deg, #72ff8f, #00f5ff)',
+  },
+
+  disclaimer: {
+    margin: '12px 0 0',
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 1.4,
+    opacity: 0.55,
+  },
 }
