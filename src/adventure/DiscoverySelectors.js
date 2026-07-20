@@ -1,8 +1,8 @@
 import {
   DISCOVERY_CATEGORIES,
   DISCOVERY_VISIBILITY,
-} from './constants'
-import { normalizeDiscoveries } from './DiscoveryEngine'
+} from './constants.js'
+import { normalizeDiscoveries } from './DiscoveryEngine.js'
 
 function toCollectedSet(collectedIds = []) {
   return collectedIds instanceof Set ? collectedIds : new Set(collectedIds)
@@ -92,4 +92,114 @@ export function searchDiscoveries(discoveries = [], query = '') {
 
     return haystack.includes(normalizedQuery)
   })
+}
+
+function getFestivalId(item = {}) {
+  return item.festivalId || item.festival_id || ''
+}
+
+function getStampId(item = {}) {
+  return item.stampId || item.stamp_id || ''
+}
+
+function isWithinLiveWindow(window, now) {
+  if (!window || window.isActive === false || window.is_active === false) {
+    return false
+  }
+  if (!Number.isFinite(now)) return false
+
+  const startsAt = window.startsAt || window.starts_at
+  const endsAt = window.endsAt || window.ends_at
+  const startsAtTime = startsAt ? new Date(startsAt).getTime() : null
+  const endsAtTime = endsAt ? new Date(endsAt).getTime() : null
+
+  if (startsAt && Number.isNaN(startsAtTime)) return false
+  if (endsAt && Number.isNaN(endsAtTime)) return false
+  if (startsAtTime !== null && startsAtTime > now) return false
+  if (endsAtTime !== null && endsAtTime < now) return false
+
+  return true
+}
+
+export function selectNextFestivalDiscovery({
+  discoveries = [],
+  collectedIds = [],
+  festivalId = '',
+  activeDropIds = [],
+  activeDropWindows = {},
+  gpsDrops = [],
+  nearbyGpsDrops = [],
+  now = new Date(),
+} = {}) {
+  const discoveryById = new Map(
+    discoveries
+      .filter((discovery) => discovery?.id)
+      .map((discovery) => [discovery.id, discovery])
+  )
+  const collectedSet = toCollectedSet(collectedIds)
+  const nowTime = now instanceof Date ? now.getTime() : new Date(now).getTime()
+  const getUncollectedDiscovery = (stampId) => {
+    if (!stampId || collectedSet.has(stampId)) return null
+    return discoveryById.get(stampId) || null
+  }
+  const isSelectedFestival = (item) =>
+    Boolean(festivalId) && getFestivalId(item) === festivalId
+  const findDropDiscovery = (drops, predicate = () => true) => {
+    for (const drop of drops) {
+      if (!isSelectedFestival(drop) || !predicate(drop)) continue
+
+      const discovery = getUncollectedDiscovery(getStampId(drop))
+      if (discovery) return discovery
+    }
+
+    return null
+  }
+
+  const nearbyDiscovery = findDropDiscovery(
+    nearbyGpsDrops,
+    (drop) => drop.is_active !== false && drop.unlocked === true
+  )
+  if (nearbyDiscovery) return nearbyDiscovery
+
+  if (festivalId) {
+    for (const stampId of activeDropIds) {
+      const window =
+        activeDropWindows instanceof Map
+          ? activeDropWindows.get(stampId)
+          : activeDropWindows[stampId]
+
+      if (
+        !isSelectedFestival(window) ||
+        !isWithinLiveWindow(window, nowTime)
+      ) {
+        continue
+      }
+
+      const discovery = getUncollectedDiscovery(stampId)
+      if (discovery) return discovery
+    }
+  }
+
+  const gpsDiscovery = findDropDiscovery(
+    gpsDrops,
+    (drop) => drop.is_active !== false
+  )
+  if (gpsDiscovery) return gpsDiscovery
+
+  if (festivalId) {
+    const festivalDiscovery = discoveries.find(
+      (discovery) =>
+        isSelectedFestival(discovery) &&
+        !collectedSet.has(discovery.id)
+    )
+
+    if (festivalDiscovery) return festivalDiscovery
+  }
+
+  return (
+    discoveries.find(
+      (discovery) =>
+        discovery?.id && !collectedSet.has(discovery.id)
+    ) || null
+  )
 }

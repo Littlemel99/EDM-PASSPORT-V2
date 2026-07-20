@@ -22,6 +22,7 @@ const scanStates = [
 
 export default function DiscoveryRadar({
   discovery,
+  loading = false,
   onOpenDiscovery,
 }) {
   const [radarOpen, setRadarOpen] = useState(false)
@@ -65,9 +66,15 @@ export default function DiscoveryRadar({
     return (
       <section style={styles.emptyCard}>
         <span style={styles.label}>DISCOVERY RADAR</span>
-        <strong>All available discoveries collected</strong>
+        <strong>
+          {loading
+            ? 'No live target yet'
+            : 'All available discoveries collected'}
+        </strong>
         <p style={styles.text}>
-          New targets will appear here when they become available.
+          {loading
+            ? 'Loading live and GPS drops for the selected festival.'
+            : 'New targets will appear here when they become available.'}
         </p>
       </section>
     )

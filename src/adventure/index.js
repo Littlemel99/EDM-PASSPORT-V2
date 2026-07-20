@@ -28,6 +28,7 @@ export {
   getStageDiscoveries,
   getUndiscoveredHiddenCount,
   searchDiscoveries,
+  selectNextFestivalDiscovery,
 } from './DiscoverySelectors'
 
 export {

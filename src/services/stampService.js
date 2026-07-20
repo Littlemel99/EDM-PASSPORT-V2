@@ -71,13 +71,13 @@ export async function claimStampDrop(user, stampId, claimMethod = 'qr-nfc') {
   return data
 }
 
-export async function loadLiveDrops() {
+export async function loadLiveDrops(festivalId = FESTIVAL_ID) {
   const now = new Date().toISOString()
 
   const { data, error } = await supabase
     .from('live_drops')
     .select('*')
-    .eq('festival_id', FESTIVAL_ID)
+    .eq('festival_id', festivalId || FESTIVAL_ID)
     .eq('is_active', true)
     .or(`starts_at.is.null,starts_at.lte.${now}`)
     .or(`ends_at.is.null,ends_at.gte.${now}`)

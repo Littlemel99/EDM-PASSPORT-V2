@@ -12,6 +12,7 @@ export default function FestivalDashboard({
   crewName,
   festivalName,
   nextDiscovery,
+  discoveryLoading,
   onOpenPassport,
   onOpenDiscovery,
   onEditPassport,
@@ -85,7 +86,16 @@ export default function FestivalDashboard({
       <div style={styles.objectiveCard}>
         <span style={styles.cardLabel}>NEXT OBJECTIVE</span>
 
-        {nextDiscovery ? (
+        {discoveryLoading ? (
+          <>
+            <strong style={styles.objectiveTitle}>
+              Finding a live target
+            </strong>
+            <p style={styles.objectiveText}>
+              Loading discovery data for the selected festival.
+            </p>
+          </>
+        ) : nextDiscovery ? (
           <>
             <strong style={styles.objectiveTitle}>
               Discover {nextDiscovery.name}
@@ -109,6 +119,7 @@ export default function FestivalDashboard({
 
       <DiscoveryRadar
         discovery={nextDiscovery}
+        loading={discoveryLoading}
         onOpenDiscovery={onOpenDiscovery}
       />
 

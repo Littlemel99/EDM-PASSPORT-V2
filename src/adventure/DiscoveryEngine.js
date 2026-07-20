@@ -2,7 +2,7 @@ import {
   DISCOVERY_CATEGORIES,
   DISCOVERY_RARITIES,
   DISCOVERY_VISIBILITY,
-} from './constants'
+} from './constants.js'
 
 const LEGACY_RARITY_MAP = Object.freeze({
   normal: DISCOVERY_RARITIES.COMMON,

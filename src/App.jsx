@@ -19,6 +19,7 @@ import {
   getCollectionProgress,
   getUnlockedItems,
   normalizeDiscoveries,
+  selectNextFestivalDiscovery,
 } from './adventure'
 import Stamp from './components/Stamp'
 import StampModal from './components/StampModal'
@@ -157,6 +158,7 @@ export default function App() {
   const [activeDropWindows, setActiveDropWindows] = useState({})
   const [gpsDrops, setGpsDrops] = useState([])
   const [nearbyGpsDrops, setNearbyGpsDrops] = useState([])
+  const [festivalDiscoveryLoading, setFestivalDiscoveryLoading] = useState(true)
 
   const [location, setLocation] = useState(null)
   const [locationLoading, setLocationLoading] = useState(false)
@@ -231,6 +233,9 @@ export default function App() {
   const collectedIdsRef = useRef(collectedIds)
   const gpsDropsRef = useRef(gpsDrops)
   const autoCollectLastCheckRef = useRef(0)
+  const liveDropsRequestIdRef = useRef(0)
+  const gpsDropsRequestIdRef = useRef(0)
+  const festivalDiscoveryRequestIdRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
   const maxPage = isAdmin ? 13 : 12
@@ -397,11 +402,24 @@ export default function App() {
   const activeFamilyUrl = activeFamily?.code ? `${APP_URL}?joincrew=${encodeURIComponent(activeFamily.code)}` : ''
   const displayName = getProfileDisplayName(profile, user, raveName)
   const activeFestival = selectedFestivalId
-    ? managedFestivals.find((festival) => festival.id === selectedFestivalId) || getFestivalById(selectedFestivalId)
+    ? managedFestivals.find((festival) => festival.id === selectedFestivalId) ||
+      fallbackFestivals.find((festival) => festival.id === selectedFestivalId) ||
+      null
     : null
-  const activeFestivalId = activeFestival?.id || selectedFestivalId || 'edc-las-vegas-2026'
+  const activeFestivalId = selectedFestivalId || activeFestival?.id || 'edc-las-vegas-2026'
   const adminFestival = managedFestivals.find((festival) => festival.id === adminFestivalId) || getFestivalById(adminFestivalId)
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
+  const nextDiscovery = festivalDiscoveryLoading
+    ? null
+    : selectNextFestivalDiscovery({
+        discoveries: allStamps,
+        collectedIds,
+        festivalId: selectedFestivalId,
+        activeDropIds: activeDrops,
+        activeDropWindows,
+        gpsDrops,
+        nearbyGpsDrops,
+      })
   const upcomingFestivals = managedFestivals.filter((festival) => festival.status === 'upcoming')
   const attendedFestivals = managedFestivals.filter((festival) => festival.status === 'attended')
   const myGoingFestivals = festivalAttendance.filter((item) => item.status === 'going')
@@ -444,9 +462,8 @@ export default function App() {
   }, [gpsDrops])
 
   useEffect(() => {
-    refreshLiveDrops()
+    refreshFestivalDiscoveryData(activeFestivalId)
     refreshPublicFamilies()
-    refreshGpsDrops()
     refreshFestivalRecords()
     refreshFestivalDemandSummary()
 
@@ -720,8 +737,11 @@ export default function App() {
     setPublicFamilies(await loadPublicFamilies())
   }
 
-  async function refreshLiveDrops() {
-    const drops = await loadLiveDrops()
+  async function refreshLiveDrops(festivalId = activeFestivalId) {
+    const requestId = ++liveDropsRequestIdRef.current
+    const drops = await loadLiveDrops(festivalId)
+    if (requestId !== liveDropsRequestIdRef.current) return
+
     const liveIds = drops.map((drop) => drop.stamp_id)
 
     setActiveDrops(Array.from(new Set(['world-party-parade', ...liveIds])))
@@ -730,6 +750,8 @@ export default function App() {
 
     drops.forEach((drop) => {
       windows[drop.stamp_id] = {
+        festivalId: drop.festival_id,
+        isActive: drop.is_active,
         token: drop.claim_code,
         label: drop.ends_at ? new Date(drop.ends_at).toLocaleString() : 'Live now',
         startsAt: drop.starts_at,
@@ -745,7 +767,33 @@ export default function App() {
   }
 
   async function refreshGpsDrops(festivalId = adminDropFestivalId) {
-    setGpsDrops(await loadGpsDrops(festivalId || 'edc-las-vegas-2026'))
+    const requestId = ++gpsDropsRequestIdRef.current
+    const drops = await loadGpsDrops(festivalId || 'edc-las-vegas-2026')
+    if (requestId !== gpsDropsRequestIdRef.current) return
+
+    setGpsDrops(drops)
+  }
+
+  async function refreshFestivalDiscoveryData(festivalId) {
+    const requestId = ++festivalDiscoveryRequestIdRef.current
+
+    liveDropsRequestIdRef.current += 1
+    gpsDropsRequestIdRef.current += 1
+    setFestivalDiscoveryLoading(true)
+    setActiveDrops([])
+    setActiveDropWindows({})
+    setGpsDrops([])
+    gpsDropsRef.current = []
+    setNearbyGpsDrops([])
+
+    await Promise.all([
+      refreshLiveDrops(festivalId),
+      refreshGpsDrops(festivalId),
+    ])
+
+    if (requestId === festivalDiscoveryRequestIdRef.current) {
+      setFestivalDiscoveryLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -1712,12 +1760,11 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
   function selectFestival(festivalId) {
     setSelectedFestivalId(festivalId)
     setAdminFestivalId(festivalId)
-    refreshGpsDrops(festivalId)
+    refreshFestivalDiscoveryData(festivalId)
     setPageIndex(1)
   }
 
   function backToFestivals() {
-    setSelectedFestivalId('')
     setPageIndex(0)
   }
 
@@ -1843,9 +1890,8 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   activeFestival?.name ||
                   upcomingFestivals[0]?.name
                 }
-                nextDiscovery={allStamps.find(
-                  (stamp) => !collectedIds.includes(stamp.id)
-                )}
+                nextDiscovery={nextDiscovery}
+                discoveryLoading={festivalDiscoveryLoading}
                 onOpenPassport={() => {
                   setBookOpen(true)
                   setPageIndex(0)
