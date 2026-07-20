@@ -73,6 +73,7 @@ import {
 
 import ProfilePage from './components/Profile/ProfilePage'
 import FestivalDashboard from './components/Dashboard/FestivalDashboard'
+import RewardCelebration from './components/Dashboard/RewardCelebration'
 import RewardsShowcase from './components/Rewards/RewardsShowcase'
 import ArtistCollections from './components/Artists/ArtistCollections'
 import ExportCenter from './components/Passport/ExportCenter'
@@ -83,6 +84,7 @@ import {
   clearPendingClaim,
   cleanClaimUrl,
 } from './services/claimService'
+import { getDailyMissionClaimProgress } from './adventure/DailyMission'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
@@ -161,6 +163,7 @@ export default function App() {
   const [locationError, setLocationError] = useState('')
   const [claimMessage, setClaimMessage] = useState('')
   const [pendingClaimId, setPendingClaimId] = useState(getPendingClaim())
+  const [rewardCelebrations, setRewardCelebrations] = useState([])
   const [adminTestMode, setAdminTestMode] = useState(false)
 
   const {
@@ -874,17 +877,25 @@ export default function App() {
       .join(', ')
 
     if (newUnlockedIds.length) {
-      setActiveId(newUnlockedIds[0])
-      setCollectedIds((current) => {
-        const updated = Array.from(new Set([...current, ...newUnlockedIds, 'world-party-parade']))
-        collectedIdsRef.current = updated
-        return updated
-      })
-
       if (user) {
         await Promise.all(
           newUnlockedIds.map((stampId) => saveStamp(user, stampId, options.method || 'gps-pin-drop'))
         )
+      }
+
+      const updated = Array.from(new Set([...currentCollectedIds, ...newUnlockedIds, 'world-party-parade']))
+      setActiveId(newUnlockedIds[0])
+      setCollectedIds(updated)
+      collectedIdsRef.current = updated
+
+      if (user) {
+        let celebrationIds = currentCollectedIds
+
+        newUnlockedIds.forEach((stampId) => {
+          const nextIds = Array.from(new Set([...celebrationIds, stampId, 'world-party-parade']))
+          queueRewardCelebration(stampId, celebrationIds, nextIds)
+          celebrationIds = nextIds
+        })
       }
     }
 
@@ -1005,7 +1016,8 @@ export default function App() {
       return
     }
 
-    setCollectedIds((current) => Array.from(new Set([...current, activeStamp.id, 'world-party-parade'])))
+    const previousIds = collectedIdsRef.current
+    const updatedIds = Array.from(new Set([...previousIds, activeStamp.id, 'world-party-parade']))
 
     if (user) {
       if (pendingClaimId) {
@@ -1015,6 +1027,13 @@ export default function App() {
       }
     }
 
+    setCollectedIds(updatedIds)
+    collectedIdsRef.current = updatedIds
+
+    if (user) {
+      queueRewardCelebration(activeStamp.id, previousIds, updatedIds)
+    }
+
     if (pendingClaimId) {
       clearPendingClaim()
       setPendingClaimId('')
@@ -1022,6 +1041,53 @@ export default function App() {
     }
 
     setClaimMessage(`${activeStamp.name} collected and saved.`)
+  }
+
+  function queueRewardCelebration(stampId, previousIds, updatedIds) {
+    const discovery = allStamps.find((stamp) => stamp.id === stampId)
+    if (!discovery) return
+
+    const isNew = !previousIds.includes(stampId)
+    const progress = getCollectionProgress(allStamps, updatedIds)
+    const previousProgress = getCollectionProgress(allStamps, previousIds)
+
+    setRewardCelebrations((current) => [
+      ...current,
+      {
+        discovery,
+        isNew,
+        xpEarned: isNew ? discovery.xp : 0,
+        collectionCount: progress.collectedCount,
+        collectionPercent: progress.percent,
+        missionProgress: getDailyMissionClaimProgress(
+          previousProgress.collectedCount,
+          progress.collectedCount
+        ),
+      },
+    ])
+  }
+
+  function closeRewardCelebration() {
+    setRewardCelebrations((current) => current.slice(1))
+  }
+
+  function viewCelebratedDiscovery(discovery) {
+    setRewardCelebrations([])
+    setBookOpen(true)
+    chooseStamp(discovery)
+  }
+
+  function repeatLastClaim(discovery) {
+    if (!adminTestMode || !discovery) return
+
+    setRewardCelebrations([])
+    setActiveId(discovery.id)
+    setSelectedStamp(null)
+    setBookOpen(true)
+    setPageIndex(2)
+    setClaimMessage(
+      `${discovery.name} reloaded for duplicate claim testing.`
+    )
   }
 
 
@@ -2588,6 +2654,15 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
       </section>
 
       {selectedStamp && <StampModal stamp={selectedStamp} onClose={() => setSelectedStamp(null)} />}
+      {rewardCelebrations[0] && (
+        <RewardCelebration
+          result={rewardCelebrations[0]}
+          developerMode={adminTestMode}
+          onContinue={closeRewardCelebration}
+          onRepeatLastClaim={repeatLastClaim}
+          onViewInPassport={viewCelebratedDiscovery}
+        />
+      )}
     </main>
   )
 }
