@@ -10,7 +10,11 @@ import { useCrew } from './providers/CrewProvider.jsx'
 import { useProfile } from './providers/ProfileProvider.jsx'
 import { stamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
-import { festivals as fallbackFestivals, getFestivalById } from './data/festivals'
+import { festivals as fallbackFestivals } from './data/festivals'
+import {
+  getFestivalProfile,
+  mergeFestivalCatalog,
+} from './festivals'
 import { getGpsStatus } from './lib/gps'
 import { getStats, getAchievements } from './lib/stats'
 import {
@@ -127,7 +131,9 @@ export default function App() {
   } = useProfile()
   const [selectedFestivalId, setSelectedFestivalId] = useState(localStorage.getItem('edm-selected-festival') || '')
   const [adminFestivalId, setAdminFestivalId] = useState(localStorage.getItem('edm-admin-festival') || localStorage.getItem('edm-selected-festival') || 'edc-las-vegas-2026')
-  const [managedFestivals, setManagedFestivals] = useState(fallbackFestivals)
+  const [managedFestivals, setManagedFestivals] = useState(() =>
+    mergeFestivalCatalog([], fallbackFestivals)
+  )
   const [festivalName, setFestivalName] = useState('')
   const [festivalLocation, setFestivalLocation] = useState('')
   const [festivalStatus, setFestivalStatus] = useState('upcoming')
@@ -402,12 +408,11 @@ export default function App() {
   const activeFamilyUrl = activeFamily?.code ? `${APP_URL}?joincrew=${encodeURIComponent(activeFamily.code)}` : ''
   const displayName = getProfileDisplayName(profile, user, raveName)
   const activeFestival = selectedFestivalId
-    ? managedFestivals.find((festival) => festival.id === selectedFestivalId) ||
-      fallbackFestivals.find((festival) => festival.id === selectedFestivalId) ||
-      null
+    ? managedFestivals.find((festival) => festival.id === selectedFestivalId) || null
     : null
+  const activeFestivalProfile = getFestivalProfile(selectedFestivalId)
   const activeFestivalId = selectedFestivalId || activeFestival?.id || 'edc-las-vegas-2026'
-  const adminFestival = managedFestivals.find((festival) => festival.id === adminFestivalId) || getFestivalById(adminFestivalId)
+  const adminFestival = managedFestivals.find((festival) => festival.id === adminFestivalId) || null
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
   const nextDiscovery = festivalDiscoveryLoading
     ? null
@@ -415,12 +420,13 @@ export default function App() {
         discoveries: allStamps,
         collectedIds,
         festivalId: selectedFestivalId,
+        festivalDiscoveryIds: activeFestivalProfile?.discoveryIds,
         activeDropIds: activeDrops,
         activeDropWindows,
         gpsDrops,
         nearbyGpsDrops,
       })
-  const upcomingFestivals = managedFestivals.filter((festival) => festival.status === 'upcoming')
+  const upcomingFestivals = managedFestivals.filter((festival) => festival.status !== 'attended')
   const attendedFestivals = managedFestivals.filter((festival) => festival.status === 'attended')
   const myGoingFestivals = festivalAttendance.filter((item) => item.status === 'going')
   const myInterestedFestivals = festivalAttendance.filter((item) => item.status === 'interested')
@@ -837,7 +843,7 @@ export default function App() {
 
   async function refreshFestivalRecords() {
     const records = await loadFestivalRecords()
-    const nextFestivals = records.length ? records : fallbackFestivals
+    const nextFestivals = mergeFestivalCatalog(records, fallbackFestivals)
     setManagedFestivals(nextFestivals)
 
     if (!adminFestivalId && nextFestivals[0]?.id) {

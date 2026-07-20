@@ -125,6 +125,7 @@ export function selectNextFestivalDiscovery({
   discoveries = [],
   collectedIds = [],
   festivalId = '',
+  festivalDiscoveryIds,
   activeDropIds = [],
   activeDropWindows = {},
   gpsDrops = [],
@@ -137,9 +138,16 @@ export function selectNextFestivalDiscovery({
       .map((discovery) => [discovery.id, discovery])
   )
   const collectedSet = toCollectedSet(collectedIds)
+  const configuredDiscoverySet =
+    Array.isArray(festivalDiscoveryIds) && festivalDiscoveryIds.length > 0
+      ? new Set(festivalDiscoveryIds)
+      : null
   const nowTime = now instanceof Date ? now.getTime() : new Date(now).getTime()
   const getUncollectedDiscovery = (stampId) => {
     if (!stampId || collectedSet.has(stampId)) return null
+    if (configuredDiscoverySet && !configuredDiscoverySet.has(stampId)) {
+      return null
+    }
     return discoveryById.get(stampId) || null
   }
   const isSelectedFestival = (item) =>
@@ -185,6 +193,22 @@ export function selectNextFestivalDiscovery({
     (drop) => drop.is_active !== false
   )
   if (gpsDiscovery) return gpsDiscovery
+
+  if (Array.isArray(festivalDiscoveryIds)) {
+    for (const stampId of festivalDiscoveryIds) {
+      const discovery = getUncollectedDiscovery(stampId)
+      if (discovery) return discovery
+    }
+
+    if (festivalDiscoveryIds.length > 0) return null
+
+    return (
+      discoveries.find(
+        (discovery) =>
+          discovery?.id && !collectedSet.has(discovery.id)
+      ) || null
+    )
+  }
 
   if (festivalId) {
     const festivalDiscovery = discoveries.find(

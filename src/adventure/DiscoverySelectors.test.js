@@ -177,3 +177,50 @@ test('stale cross-festival drop state cannot select the previous target', () => 
 
   assert.equal(result?.id, 'gamma')
 })
+
+test('festival discovery IDs constrain the discovery fallback', () => {
+  const result = select({ festivalDiscoveryIds: ['beta'] })
+
+  assert.equal(result?.id, 'beta')
+})
+
+test('unknown configured discovery IDs are ignored safely', () => {
+  const result = select({
+    festivalDiscoveryIds: ['missing', 'beta'],
+  })
+
+  assert.equal(result?.id, 'beta')
+})
+
+test('empty festival discovery IDs preserve generic fallback', () => {
+  const result = select({
+    discoveries: [
+      { id: 'gamma', name: 'Gamma', festivalId: 'festival-b' },
+      { id: 'delta', name: 'Delta' },
+    ],
+    festivalDiscoveryIds: [],
+  })
+
+  assert.equal(result?.id, 'gamma')
+})
+
+test('configured festival returns null when its discoveries are collected', () => {
+  const result = select({
+    collectedIds: ['alpha', 'beta'],
+    festivalDiscoveryIds: ['alpha', 'beta'],
+  })
+
+  assert.equal(result, null)
+})
+
+test('configured profile rejects a live discovery owned by another profile', () => {
+  const result = select({
+    festivalDiscoveryIds: ['beta'],
+    activeDropIds: ['gamma'],
+    activeDropWindows: {
+      gamma: { festivalId: FESTIVAL_ID, isActive: true },
+    },
+  })
+
+  assert.equal(result?.id, 'beta')
+})
