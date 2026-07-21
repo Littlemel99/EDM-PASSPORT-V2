@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { resolveFestivalId } from './festivalPersistence.js'
 
 function normalizeAdminStamp(row) {
   return {
@@ -12,6 +13,8 @@ function normalizeAdminStamp(row) {
     glow: row.rarity === 'legendary' ? 'legendary' : row.rarity === 'secret' ? 'rare' : undefined,
     isSecret: row.rarity === 'secret' || row.rarity === 'legendary',
     isAdminCreated: true,
+    // Existing admin stamps predate festival ownership and are EDC content.
+    festivalId: resolveFestivalId(row.festival_id),
     createdAt: row.created_at,
   }
 }

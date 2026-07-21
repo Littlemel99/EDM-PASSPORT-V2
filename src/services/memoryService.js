@@ -1,15 +1,15 @@
 import { supabase } from '../lib/supabase'
+import { resolveFestivalId } from './festivalPersistence.js'
 
-const FESTIVAL_ID = 'edc-las-vegas-2026'
-
-export async function loadMemories(user) {
+export async function loadMemories(user, festivalId) {
   if (!user) return []
+  const resolvedFestivalId = resolveFestivalId(festivalId)
 
   const { data, error } = await supabase
     .from('memories')
     .select('*')
     .eq('user_id', user.id)
-    .eq('festival_id', FESTIVAL_ID)
+    .eq('festival_id', resolvedFestivalId)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -20,14 +20,15 @@ export async function loadMemories(user) {
   return data || []
 }
 
-export async function loadMemoriesByStamp(user, stampId) {
+export async function loadMemoriesByStamp(user, stampId, festivalId) {
   if (!user || !stampId) return []
+  const resolvedFestivalId = resolveFestivalId(festivalId)
 
   const { data, error } = await supabase
     .from('memories')
     .select('*')
     .eq('user_id', user.id)
-    .eq('festival_id', FESTIVAL_ID)
+    .eq('festival_id', resolvedFestivalId)
     .eq('stamp_id', stampId)
     .order('created_at', { ascending: true })
 
@@ -45,13 +46,14 @@ export async function saveMemory(
   stampId = null,
   imageUrl = null,
   eventDay = 'EDC 2026',
-  eventTitle = ''
+  eventTitle = '',
+  festivalId
 ) {
   if (!user) throw new Error('You must be logged in to save a memory.')
 
   const { error } = await supabase.from('memories').insert({
     user_id: user.id,
-    festival_id: FESTIVAL_ID,
+    festival_id: resolveFestivalId(festivalId),
     stamp_id: stampId,
     note,
     image_url: imageUrl,

@@ -99,7 +99,7 @@ export default function RewardCelebration({
             style={styles.developerButton}
             onClick={() => onRepeatLastClaim?.(discovery)}
           >
-            REPEAT LAST CLAIM
+            REPEAT PREVIOUS DISCOVERY
           </button>
         )}
       </section>

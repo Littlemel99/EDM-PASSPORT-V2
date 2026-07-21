@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { selectNextFestivalDiscovery } from './DiscoverySelectors.js'
+import {
+  getFestivalDiscoveries,
+  getFestivalProfile,
+} from '../festivals/index.js'
 
 const FESTIVAL_ID = 'festival-a'
 const NOW = new Date('2026-09-25T12:00:00.000Z')
@@ -223,4 +227,76 @@ test('configured profile rejects a live discovery owned by another profile', () 
   })
 
   assert.equal(result?.id, 'beta')
+})
+
+function selectProfileDiscovery(festivalId, collectedIds = [], discoveryIds) {
+  const profile = getFestivalProfile(festivalId)
+
+  return selectNextFestivalDiscovery({
+    discoveries: getFestivalDiscoveries(),
+    collectedIds,
+    festivalId,
+    festivalDiscoveryIds: discoveryIds || profile?.discoveryIds,
+    now: NOW,
+  })
+}
+
+test('Lost Lands profile selects a Lost Lands discovery', () => {
+  const result = selectProfileDiscovery('lost-lands-2026')
+
+  assert.equal(result?.id, 'lost-lands-prehistoric-stage')
+})
+
+test('EDC profile does not select a Lost Lands discovery', () => {
+  const result = selectProfileDiscovery('edc-las-vegas-2026')
+
+  assert.equal(result?.festivalId, 'edc-las-vegas-2026')
+})
+
+test('collected Lost Lands discovery is skipped', () => {
+  const result = selectProfileDiscovery('lost-lands-2026', [
+    'lost-lands-prehistoric-stage',
+  ])
+
+  assert.equal(result?.id, 'lost-lands-crater')
+})
+
+test('unknown Lost Lands discovery ID is ignored', () => {
+  const profile = getFestivalProfile('lost-lands-2026')
+  const result = selectProfileDiscovery(
+    'lost-lands-2026',
+    [],
+    ['lost-lands-unknown', ...profile.discoveryIds]
+  )
+
+  assert.equal(result?.id, 'lost-lands-prehistoric-stage')
+})
+
+test('all claimable Lost Lands discoveries collected returns null', () => {
+  const profile = getFestivalProfile('lost-lands-2026')
+  const achievementId = 'lost-lands-prehistoric-explorer'
+  const claimableIds = profile.discoveryIds.filter(
+    (discoveryId) => discoveryId !== achievementId
+  )
+  const result = selectProfileDiscovery('lost-lands-2026', claimableIds)
+
+  assert.equal(result, null)
+})
+
+test('achievement-only Lost Lands discovery is excluded from Radar', () => {
+  const result = selectProfileDiscovery(
+    'lost-lands-2026',
+    [],
+    ['lost-lands-prehistoric-explorer']
+  )
+
+  assert.equal(result, null)
+})
+
+test('switching festival profiles changes the constrained catalog', () => {
+  const edcResult = selectProfileDiscovery('edc-las-vegas-2026')
+  const lostLandsResult = selectProfileDiscovery('lost-lands-2026')
+
+  assert.equal(edcResult?.festivalId, 'edc-las-vegas-2026')
+  assert.equal(lostLandsResult?.festivalId, 'lost-lands-2026')
 })

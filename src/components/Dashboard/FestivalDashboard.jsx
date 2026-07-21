@@ -11,8 +11,12 @@ export default function FestivalDashboard({
   rank,
   crewName,
   festivalName,
+  festivalId,
   nextDiscovery,
   discoveryLoading,
+  developerMode = false,
+  previousDiscovery,
+  onRepeatPreviousDiscovery,
   onOpenPassport,
   onOpenDiscovery,
   onEditPassport,
@@ -123,8 +127,19 @@ export default function FestivalDashboard({
         onOpenDiscovery={onOpenDiscovery}
       />
 
+      {developerMode && previousDiscovery && (
+        <button
+          type="button"
+          style={styles.developerButton}
+          onClick={onRepeatPreviousDiscovery}
+        >
+          REPEAT PREVIOUS DISCOVERY
+        </button>
+      )}
+
       <FestivalMissionCard
         collectedCount={collectedCount}
+        festivalId={festivalId}
         ready={missionReady}
       />
 
@@ -169,6 +184,18 @@ const styles = {
       'linear-gradient(145deg, rgba(29,12,65,0.98), rgba(5,15,38,0.98))',
     border: '1px solid rgba(141, 92, 246, 0.55)',
     boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+  },
+
+  developerButton: {
+    width: '100%',
+    marginTop: 12,
+    padding: '11px 14px',
+    borderRadius: 12,
+    border: '1px dashed rgba(255,196,0,0.65)',
+    color: '#ffd666',
+    background: 'rgba(255,196,0,0.08)',
+    fontWeight: 900,
+    cursor: 'pointer',
   },
 
   header: {

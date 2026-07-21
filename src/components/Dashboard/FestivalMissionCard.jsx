@@ -1,47 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-
-const MISSION_STORAGE_KEY = 'edm-daily-festival-mission'
-const MISSION_TARGET = 3
-
-function getTodayKey() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-function loadStoredMission() {
-  try {
-    const rawMission = localStorage.getItem(
-      MISSION_STORAGE_KEY
-    )
-
-    return rawMission ? JSON.parse(rawMission) : null
-  } catch {
-    return null
-  }
-}
-
-function saveStoredMission(mission) {
-  localStorage.setItem(
-    MISSION_STORAGE_KEY,
-    JSON.stringify(mission)
-  )
-}
+import {
+  getTodayKey,
+  loadStoredMission,
+  MISSION_TARGET,
+  saveStoredMission,
+} from '../../adventure/DailyMission.js'
+import { resolveFestivalId } from '../../services/festivalPersistence.js'
 
 export default function FestivalMissionCard({
   collectedCount,
+  festivalId,
   ready = false,
 }) {
   const [mission, setMission] = useState(null)
+  const missionMatchesFestival =
+    mission?.festivalId === resolveFestivalId(festivalId)
 
   useEffect(() => {
     if (!ready) return
 
     const today = getTodayKey()
-    const storedMission = loadStoredMission()
+    const storedMission = loadStoredMission(festivalId)
 
     if (storedMission?.date === today) {
       setMission(storedMission)
@@ -57,12 +36,11 @@ export default function FestivalMissionCard({
       badge: null,
     }
 
-    saveStoredMission(newMission)
-    setMission(newMission)
-  }, [ready, collectedCount])
+    setMission(saveStoredMission(newMission, festivalId))
+  }, [ready, collectedCount, festivalId])
 
   const progress = useMemo(() => {
-    if (!mission) return 0
+    if (!mission || !missionMatchesFestival) return 0
 
     return Math.min(
       Math.max(
@@ -72,10 +50,10 @@ export default function FestivalMissionCard({
       ),
       mission.target
     )
-  }, [collectedCount, mission])
+  }, [collectedCount, mission, missionMatchesFestival])
 
   useEffect(() => {
-    if (!mission || mission.completed) return
+    if (!mission || !missionMatchesFestival || mission.completed) return
     if (progress < mission.target) return
 
     const completedMission = {
@@ -85,11 +63,10 @@ export default function FestivalMissionCard({
       badge: 'Daily Explorer',
     }
 
-    saveStoredMission(completedMission)
-    setMission(completedMission)
-  }, [mission, progress])
+    setMission(saveStoredMission(completedMission, festivalId))
+  }, [festivalId, mission, missionMatchesFestival, progress])
 
-  if (!ready || !mission) {
+  if (!ready || !mission || !missionMatchesFestival) {
     return (
       <section style={styles.card}>
         <span style={styles.label}>TODAY'S MISSION</span>

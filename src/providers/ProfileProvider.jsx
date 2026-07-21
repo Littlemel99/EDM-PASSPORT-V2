@@ -15,6 +15,7 @@ import {
 import {
   loadPrimaryFamilyByOwner,
 } from '../services/crewService'
+import { getDefaultCollectedIds } from '../services/festivalPersistence.js'
 
 const ProfileContext = createContext(null)
 
@@ -86,7 +87,7 @@ export function ProfileProvider({ children }) {
   )
 
   const loadPublicPassportProfile = useCallback(
-    async (profileId) => {
+    async (profileId, festivalId) => {
       if (!profileId) return
 
       try {
@@ -100,9 +101,7 @@ export function ProfileProvider({ children }) {
         if (!foundProfile) {
           setPublicProfile(null)
           setPublicOwnerFamily(null)
-          setPublicProfileCollectedIds([
-            'world-party-parade',
-          ])
+          setPublicProfileCollectedIds(getDefaultCollectedIds(festivalId))
           setPublicProfileMessage(
             'This EDM Passport profile was not found yet.'
           )
@@ -114,7 +113,7 @@ export function ProfileProvider({ children }) {
           await loadPrimaryFamilyByOwner(profileId)
         )
         setPublicProfileCollectedIds(
-          await loadCollectedIdsByUserId(profileId)
+          await loadCollectedIdsByUserId(profileId, festivalId)
         )
         setPublicProfileMessage('')
         setPublicSmartMessage('')

@@ -1,6 +1,13 @@
-const MISSION_STORAGE_KEY = 'edm-daily-festival-mission'
+import {
+  createFestivalStorageKey,
+  LEGACY_EDC_FESTIVAL_ID,
+  resolveFestivalId,
+} from '../services/festivalPersistence.js'
 
-function getTodayKey() {
+export const MISSION_STORAGE_KEY = 'edm-daily-festival-mission'
+export const MISSION_TARGET = 3
+
+export function getTodayKey() {
   const now = new Date()
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -9,20 +16,63 @@ function getTodayKey() {
   return `${year}-${month}-${day}`
 }
 
-function loadStoredMission() {
+export function loadStoredMission(festivalId, storage = localStorage) {
+  const resolvedFestivalId = resolveFestivalId(festivalId)
+  const storageKey = createFestivalStorageKey(
+    MISSION_STORAGE_KEY,
+    resolvedFestivalId
+  )
+
   try {
-    const rawMission = localStorage.getItem(MISSION_STORAGE_KEY)
-    return rawMission ? JSON.parse(rawMission) : null
+    const rawMission = storage.getItem(storageKey)
+    if (rawMission) return JSON.parse(rawMission)
+
+    // Existing releases stored EDC's mission without a festival suffix.
+    // Migrate it lazily so existing progress survives this milestone.
+    if (resolvedFestivalId === LEGACY_EDC_FESTIVAL_ID) {
+      const legacyMission = storage.getItem(MISSION_STORAGE_KEY)
+      if (!legacyMission) return null
+
+      const parsedMission = {
+        ...JSON.parse(legacyMission),
+        festivalId: resolvedFestivalId,
+      }
+      storage.setItem(storageKey, JSON.stringify(parsedMission))
+      return parsedMission
+    }
+
+    return null
   } catch {
     return null
   }
 }
 
+export function saveStoredMission(
+  mission,
+  festivalId,
+  storage = localStorage
+) {
+  const resolvedFestivalId = resolveFestivalId(festivalId)
+  const persistedMission = {
+    ...mission,
+    festivalId: resolvedFestivalId,
+  }
+
+  storage.setItem(
+    createFestivalStorageKey(MISSION_STORAGE_KEY, resolvedFestivalId),
+    JSON.stringify(persistedMission)
+  )
+
+  return persistedMission
+}
+
 export function getDailyMissionClaimProgress(
   previousCollectedCount,
-  updatedCollectedCount
+  updatedCollectedCount,
+  festivalId,
+  storage = localStorage
 ) {
-  const mission = loadStoredMission()
+  const mission = loadStoredMission(festivalId, storage)
 
   if (!mission || mission.date !== getTodayKey()) return null
 

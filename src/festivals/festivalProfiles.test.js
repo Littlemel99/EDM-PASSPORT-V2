@@ -14,11 +14,16 @@ test('EDC Las Vegas 2026 profile loads with repository discoveries', () => {
   assert.ok(profile.stages.some((stage) => stage.id === 'kinetic-field'))
 })
 
-test('Lost Lands 2026 profile loads as a minimal valid profile', () => {
+test('Lost Lands 2026 profile loads with verified dates and venue', () => {
   const profile = getFestivalProfile('lost-lands-2026')
 
   assert.equal(profile?.name, 'Lost Lands 2026')
-  assert.deepEqual(profile.discoveryIds, [])
+  assert.equal(profile.venue, 'Legend Valley')
+  assert.equal(profile.city, 'Thornville')
+  assert.equal(profile.region, 'Ohio')
+  assert.equal(profile.startDate, '2026-09-18')
+  assert.equal(profile.endDate, '2026-09-20')
+  assert.ok(profile.discoveryIds.includes('lost-lands-prehistoric-stage'))
   assert.deepEqual(profile.artists, [])
   assert.equal(profile.mapImage, null)
 })

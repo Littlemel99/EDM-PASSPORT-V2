@@ -1,5 +1,6 @@
 export const DISCOVERY_RARITIES = Object.freeze({
   COMMON: 'common',
+  UNCOMMON: 'uncommon',
   RARE: 'rare',
   EPIC: 'epic',
   LEGENDARY: 'legendary',
@@ -24,6 +25,7 @@ export const DISCOVERY_VISIBILITY = Object.freeze({
 
 export const RARITY_LABELS = Object.freeze({
   common: 'COMMON',
+  uncommon: 'UNCOMMON',
   rare: 'RARE',
   epic: 'EPIC',
   legendary: 'LEGENDARY',

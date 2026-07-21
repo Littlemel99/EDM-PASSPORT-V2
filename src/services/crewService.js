@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { resolveFestivalId } from './festivalPersistence.js'
 
 function generateFamilyCode(name) {
   const base = name
@@ -122,7 +123,7 @@ export async function loadPublicFamilies() {
   }))
 }
 
-export async function createFamily(user, name) {
+export async function createFamily(user, name, festivalId) {
   if (!user) {
     throw new Error('Login required.')
   }
@@ -140,7 +141,7 @@ export async function createFamily(user, name) {
     .insert({
       name: cleanName,
       code,
-      festival_id: 'edc-las-vegas-2026',
+      festival_id: resolveFestivalId(festivalId),
       created_by: user.id,
     })
     .select()
@@ -266,8 +267,8 @@ export async function loadCrew(user) {
   return families[0] || null
 }
 
-export async function createCrew(user, name) {
-  return createFamily(user, name)
+export async function createCrew(user, name, festivalId) {
+  return createFamily(user, name, festivalId)
 }
 
 export async function joinCrew(user, code) {

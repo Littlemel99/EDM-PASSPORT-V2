@@ -1,4 +1,4 @@
-import { normalizeDiscoveries } from './DiscoveryEngine'
+import { normalizeDiscoveries } from './DiscoveryEngine.js'
 
 function toCollectedSet(collectedIds = []) {
   return collectedIds instanceof Set

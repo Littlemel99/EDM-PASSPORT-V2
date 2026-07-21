@@ -1,12 +1,12 @@
 import { supabase } from '../lib/supabase'
+import { resolveFestivalId } from './festivalPersistence.js'
 
-const DEFAULT_FESTIVAL_ID = 'edc-las-vegas-2026'
-
-export async function loadGpsDrops(festivalId = DEFAULT_FESTIVAL_ID) {
+export async function loadGpsDrops(festivalId) {
+  const resolvedFestivalId = resolveFestivalId(festivalId)
   const { data, error } = await supabase
     .from('gps_drops')
     .select('*')
-    .eq('festival_id', festivalId || DEFAULT_FESTIVAL_ID)
+    .eq('festival_id', resolvedFestivalId)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
@@ -34,7 +34,7 @@ export async function createGpsDrop({
     .from('gps_drops')
     .insert({
       stamp_id: stampId,
-      festival_id: festivalId || DEFAULT_FESTIVAL_ID,
+      festival_id: resolveFestivalId(festivalId),
       latitude: Number(latitude),
       longitude: Number(longitude),
       radius_feet: Number(radiusFeet || 300),

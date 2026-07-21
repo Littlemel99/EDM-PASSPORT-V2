@@ -12,6 +12,7 @@ import { stamps } from './data/stamps'
 import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals } from './data/festivals'
 import {
+  getFestivalDiscoveries,
   getFestivalProfile,
   mergeFestivalCatalog,
 } from './festivals'
@@ -29,7 +30,6 @@ import Stamp from './components/Stamp'
 import StampModal from './components/StampModal'
 import {
   loadCollectedIds,
-  loadCollectedIdsByUserId,
   saveStamp,
   claimStampDrop,
   loadLiveDrops,
@@ -37,6 +37,10 @@ import {
   setAdvancedLiveDrop,
   getClaimUrl,
 } from './services/stampService'
+import {
+  createFestivalClaimState,
+  getDefaultCollectedIds,
+} from './services/festivalPersistence.js'
 import {
   loadMemories,
   saveMemory,
@@ -95,6 +99,28 @@ const ADMIN_EMAIL = 'fdruth@gmail.com'
 
 function getActiveStampFromList(stampList, id) {
   return stampList.find((stamp) => stamp.id === id) || stampList[0]
+}
+
+function formatFestivalDates(startDate, endDate) {
+  if (!startDate) return ''
+
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = endDate ? new Date(`${endDate}T00:00:00`) : null
+  const month = new Intl.DateTimeFormat('en-US', { month: 'long' })
+
+  if (
+    end &&
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth()
+  ) {
+    return `${month.format(start)} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
+  }
+
+  return start.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 export default function App() {
@@ -159,7 +185,9 @@ export default function App() {
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
 
-  const [collectedIds, setCollectedIds] = useState(['world-party-parade'])
+  const [collectedIds, setCollectedIds] = useState(() =>
+    getDefaultCollectedIds(selectedFestivalId)
+  )
   const [activeDrops, setActiveDrops] = useState(['world-party-parade'])
   const [activeDropWindows, setActiveDropWindows] = useState({})
   const [gpsDrops, setGpsDrops] = useState([])
@@ -172,6 +200,7 @@ export default function App() {
   const [claimMessage, setClaimMessage] = useState('')
   const [pendingClaimId, setPendingClaimId] = useState(getPendingClaim())
   const [rewardCelebrations, setRewardCelebrations] = useState([])
+  const [lastClaimedDiscovery, setLastClaimedDiscovery] = useState(null)
   const [adminTestMode, setAdminTestMode] = useState(false)
 
   const {
@@ -242,14 +271,33 @@ export default function App() {
   const liveDropsRequestIdRef = useRef(0)
   const gpsDropsRequestIdRef = useRef(0)
   const festivalDiscoveryRequestIdRef = useRef(0)
+  const festivalPersistenceRequestIdRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
   const maxPage = isAdmin ? 13 : 12
   const allStamps = useMemo(() => {
-    const adminIds = new Set(adminCreatedStamps.map((stamp) => stamp.id))
+    const masterDiscoveries = getFestivalDiscoveries()
+    const festivalProfile = getFestivalProfile(
+      selectedFestivalId || 'edc-las-vegas-2026'
+    )
+    const configuredIds = festivalProfile?.discoveryIds || []
+    const configuredIdSet = new Set(configuredIds)
+    const resolvedFestivalId =
+      selectedFestivalId || 'edc-las-vegas-2026'
+    const festivalDiscoveries = configuredIds.length
+      ? masterDiscoveries.filter((discovery) =>
+          configuredIdSet.has(discovery.id)
+        )
+      : masterDiscoveries
+    const festivalAdminStamps = adminCreatedStamps.filter(
+      (stamp) => stamp.festivalId === resolvedFestivalId
+    )
+    const adminIds = new Set(
+      festivalAdminStamps.map((stamp) => stamp.id)
+    )
     const mergedStamps = [
-      ...stamps.filter((stamp) => !adminIds.has(stamp.id)),
-      ...adminCreatedStamps,
+      ...festivalDiscoveries.filter((stamp) => !adminIds.has(stamp.id)),
+      ...festivalAdminStamps,
     ]
 
     return normalizeDiscoveries(mergedStamps, {
@@ -258,12 +306,23 @@ export default function App() {
   }, [adminCreatedStamps, selectedFestivalId])
   const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
+  const activeClaimIsAchievement = activeStamp.claimable === false
+  const activeClaimIsUnconfigured =
+    Array.isArray(activeStamp.claimMethods) &&
+    activeStamp.claimMethods.length === 0 &&
+    !pendingClaimId &&
+    !adminTestMode
+  const activeClaimReady =
+    !activeClaimIsAchievement &&
+    !activeClaimIsUnconfigured &&
+    (gpsStatus.unlocked || adminTestMode)
   const isHiddenStamp = (stamp) => ['hidden', 'secret', 'legendary'].includes(String(stamp?.rarity || '').toLowerCase()) || stamp?.is_hidden || stamp?.hidden
   const hiddenStampCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && !collectedIds.includes(stamp.id)).length
   const getStampRarity = (stamp) => String(stamp?.rarity || 'common').toLowerCase()
   const rarityLabels = {
     common: 'COMMON',
     normal: 'COMMON',
+    uncommon: 'UNCOMMON',
     rare: 'RARE',
     epic: 'EPIC',
     legendary: 'LEGENDARY',
@@ -480,7 +539,7 @@ export default function App() {
 
     if (passportProfileId) {
       setPublicProfileId(passportProfileId)
-      loadPublicPassportProfile(passportProfileId)
+      loadPublicPassportProfile(passportProfileId, activeFestivalId)
     }
 
     if (claimId) {
@@ -712,11 +771,38 @@ export default function App() {
     }
   }
 
-  async function refreshUserData(currentUser = user) {
+  async function refreshFestivalPersistenceData(
+    festivalId,
+    currentUser = user
+  ) {
+    const requestId = ++festivalPersistenceRequestIdRef.current
+    const defaults = getDefaultCollectedIds(festivalId)
+
+    setCollectedIds(defaults)
+    collectedIdsRef.current = defaults
+    setMemories([])
+
     if (!currentUser) return
 
-    setCollectedIds(await loadCollectedIds(currentUser))
-    setMemories(await loadMemories(currentUser))
+    const [nextCollectedIds, nextMemories] = await Promise.all([
+      loadCollectedIds(currentUser, festivalId),
+      loadMemories(currentUser, festivalId),
+    ])
+
+    if (requestId !== festivalPersistenceRequestIdRef.current) return
+
+    setCollectedIds(nextCollectedIds)
+    collectedIdsRef.current = nextCollectedIds
+    setMemories(nextMemories)
+  }
+
+  async function refreshUserData(
+    currentUser = user,
+    festivalId = activeFestivalId
+  ) {
+    if (!currentUser) return
+
+    await refreshFestivalPersistenceData(festivalId, currentUser)
 
     try {
       setAdminCreatedStamps(await loadAdminStamps())
@@ -897,7 +983,9 @@ export default function App() {
     }
 
     const cachedDrops = gpsDropsRef.current.length ? gpsDropsRef.current : gpsDrops
-    const latestDrops = cachedDrops.length ? cachedDrops : await loadGpsDrops()
+    const latestDrops = cachedDrops.length
+      ? cachedDrops
+      : await loadGpsDrops(activeFestivalId)
 
     if (!gpsDropsRef.current.length) {
       gpsDropsRef.current = latestDrops
@@ -933,11 +1021,27 @@ export default function App() {
     if (newUnlockedIds.length) {
       if (user) {
         await Promise.all(
-          newUnlockedIds.map((stampId) => saveStamp(user, stampId, options.method || 'gps-pin-drop'))
+          newUnlockedIds.map((stampId) => {
+            const owningDrop = nearby.find(
+              (drop) => drop.stamp_id === stampId
+            )
+
+            return saveStamp(user, stampId, {
+              festivalId: owningDrop?.festival_id || activeFestivalId,
+              claimMethod: options.method || 'gps-pin-drop',
+            })
+          })
         )
       }
 
-      const updated = Array.from(new Set([...currentCollectedIds, ...newUnlockedIds, 'world-party-parade']))
+      festivalPersistenceRequestIdRef.current += 1
+      const updated = Array.from(
+        new Set([
+          ...currentCollectedIds,
+          ...newUnlockedIds,
+          ...getDefaultCollectedIds(activeFestivalId),
+        ])
+      )
       setActiveId(newUnlockedIds[0])
       setCollectedIds(updated)
       collectedIdsRef.current = updated
@@ -946,7 +1050,13 @@ export default function App() {
         let celebrationIds = currentCollectedIds
 
         newUnlockedIds.forEach((stampId) => {
-          const nextIds = Array.from(new Set([...celebrationIds, stampId, 'world-party-parade']))
+          const nextIds = Array.from(
+            new Set([
+              ...celebrationIds,
+              stampId,
+              ...getDefaultCollectedIds(activeFestivalId),
+            ])
+          )
           queueRewardCelebration(stampId, celebrationIds, nextIds)
           celebrationIds = nextIds
         })
@@ -1061,6 +1171,18 @@ export default function App() {
       return
     }
 
+    if (activeClaimIsAchievement) {
+      setClaimMessage('This achievement is unlocked through progression, not a direct claim.')
+      return
+    }
+
+    if (
+      activeClaimIsUnconfigured
+    ) {
+      setClaimMessage('Verification is not configured for this discovery yet.')
+      return
+    }
+
     const status = adminTestMode
       ? { required: false, unlocked: true }
       : getGpsStatus(activeStamp.id, location)
@@ -1070,17 +1192,38 @@ export default function App() {
       return
     }
 
-    const previousIds = collectedIdsRef.current
-    const updatedIds = Array.from(new Set([...previousIds, activeStamp.id, 'world-party-parade']))
+    const owningFestivalId = activeStamp.festivalId || activeFestivalId
+    const claimState = createFestivalClaimState({
+      collectedIds: collectedIdsRef.current,
+      discoveryId: activeStamp.id,
+      festivalId: owningFestivalId,
+    })
+    const { previousIds, updatedIds } = claimState
 
     if (user) {
-      if (pendingClaimId) {
-        await claimStampDrop(user, activeStamp.id, 'qr-nfc')
-      } else {
-        await saveStamp(user, activeStamp.id, method)
+      try {
+        if (pendingClaimId) {
+          await claimStampDrop(user, activeStamp.id, {
+            festivalId: owningFestivalId,
+            claimMethod: 'qr-nfc',
+          })
+        } else {
+          await saveStamp(user, activeStamp.id, {
+            festivalId: owningFestivalId,
+            claimMethod: adminTestMode ? 'admin-test' : method,
+          })
+        }
+      } catch (error) {
+        setClaimMessage(
+          `Claim persistence failed: ${error.message || 'Unknown database error.'}`
+        )
+        return
       }
     }
 
+    // A festival load started before this verified write may contain a stale
+    // pre-claim snapshot. Invalidate it before publishing the new collection.
+    festivalPersistenceRequestIdRef.current += 1
     setCollectedIds(updatedIds)
     collectedIdsRef.current = updatedIds
 
@@ -1101,6 +1244,7 @@ export default function App() {
     const discovery = allStamps.find((stamp) => stamp.id === stampId)
     if (!discovery) return
 
+    setLastClaimedDiscovery(discovery)
     const isNew = !previousIds.includes(stampId)
     const progress = getCollectionProgress(allStamps, updatedIds)
     const previousProgress = getCollectionProgress(allStamps, previousIds)
@@ -1115,7 +1259,8 @@ export default function App() {
         collectionPercent: progress.percent,
         missionProgress: getDailyMissionClaimProgress(
           previousProgress.collectedCount,
-          progress.collectedCount
+          progress.collectedCount,
+          discovery.festivalId || activeFestivalId
         ),
       },
     ])
@@ -1142,6 +1287,11 @@ export default function App() {
     setClaimMessage(
       `${discovery.name} reloaded for duplicate claim testing.`
     )
+  }
+
+  function repeatPreviousDiscovery() {
+    if (lastClaimedDiscovery?.festivalId !== activeFestivalId) return
+    repeatLastClaim(lastClaimedDiscovery)
   }
 
 
@@ -1178,7 +1328,7 @@ export default function App() {
 
     try {
       setFamilyMessage('Creating family...')
-      await createFamily(user, familyInput)
+      await createFamily(user, familyInput, activeFestivalId)
       setFamilyInput('')
       await refreshUserData(user)
       await refreshPublicFamilies()
@@ -1269,8 +1419,16 @@ export default function App() {
         imageUrl = await uploadMemoryImage(user, memoryPhotoFile)
       }
 
-      await saveMemory(user, memoryNote, activeStamp.id, imageUrl)
-      setMemories(await loadMemories(user))
+      await saveMemory(
+        user,
+        memoryNote,
+        activeStamp.id,
+        imageUrl,
+        activeFestival?.shortName || activeFestival?.name || 'Festival',
+        '',
+        activeStamp.festivalId || activeFestivalId
+      )
+      setMemories(await loadMemories(user, activeFestivalId))
       setMemoryNote('')
       setMemoryPhotoFile(null)
       setMemoryMessage('Memory saved.')
@@ -1506,8 +1664,8 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
   }
 
   async function toggleLiveDrop(stampId, isActive) {
-    await setLiveDrop(stampId, isActive)
-    await refreshLiveDrops()
+    await setLiveDrop(stampId, isActive, adminDropFestivalId)
+    await refreshLiveDrops(adminDropFestivalId)
   }
 
   async function handleAdvancedDropSave() {
@@ -1515,6 +1673,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
       setAdminMessage('Saving event window...')
 
       await setAdvancedLiveDrop(adminStampId, {
+        festivalId: adminDropFestivalId,
         isActive: true,
         startsAt: dropStart ? new Date(dropStart).toISOString() : null,
         endsAt: dropEnd ? new Date(dropEnd).toISOString() : null,
@@ -1523,7 +1682,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
         maxClaims: dropMaxClaims ? Number(dropMaxClaims) : null,
       })
 
-      await refreshLiveDrops()
+      await refreshLiveDrops(adminDropFestivalId)
       setAdminMessage('Event window saved and activated.')
     } catch (error) {
       setAdminMessage(error.message || 'Event window save failed.')
@@ -1766,7 +1925,11 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
   function selectFestival(festivalId) {
     setSelectedFestivalId(festivalId)
     setAdminFestivalId(festivalId)
+    refreshFestivalPersistenceData(festivalId)
     refreshFestivalDiscoveryData(festivalId)
+    if (publicProfileId) {
+      loadPublicPassportProfile(publicProfileId, festivalId)
+    }
     setPageIndex(1)
   }
 
@@ -1896,8 +2059,16 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   activeFestival?.name ||
                   upcomingFestivals[0]?.name
                 }
+                festivalId={activeFestivalId}
                 nextDiscovery={nextDiscovery}
                 discoveryLoading={festivalDiscoveryLoading}
+                developerMode={adminTestMode}
+                previousDiscovery={
+                  lastClaimedDiscovery?.festivalId === activeFestivalId
+                    ? lastClaimedDiscovery
+                    : null
+                }
+                onRepeatPreviousDiscovery={repeatPreviousDiscovery}
                 onOpenPassport={() => {
                   setBookOpen(true)
                   setPageIndex(0)
@@ -2051,7 +2222,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                           <strong>{festival.name}</strong>
                           <small>{festival.location}</small>
                           {(festival.start_date || festival.startDate) && (
-                            <small>{festival.start_date || festival.startDate} {festival.end_date || festival.endDate ? `→ ${festival.end_date || festival.endDate}` : ''}</small>
+                            <small>{formatFestivalDates(
+                              festival.start_date || festival.startDate,
+                              festival.end_date || festival.endDate
+                            )}</small>
                           )}
                           <small>{demand.going_count || 0} going • {demand.interested_count || 0} interested</small>
 
@@ -2206,9 +2380,25 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       </div>
                     </div>
 
-                    <div style={gpsStatus.unlocked || adminTestMode ? styles.successBox : styles.warningBox}>
-                      <strong>{gpsStatus.unlocked || adminTestMode ? 'GPS READY' : 'GPS NEEDED'}</strong>
-                      <p>{adminTestMode ? 'Admin test mode bypass is active.' : gpsStatus.message}</p>
+                    <div style={activeClaimReady ? styles.successBox : styles.warningBox}>
+                      <strong>
+                        {activeClaimIsAchievement
+                          ? 'ACHIEVEMENT ONLY'
+                          : activeClaimIsUnconfigured
+                            ? 'VERIFICATION UNCONFIGURED'
+                            : activeClaimReady
+                              ? 'GPS READY'
+                              : 'GPS NEEDED'}
+                      </strong>
+                      <p>
+                        {activeClaimIsAchievement
+                          ? 'Complete the required progression to unlock this achievement.'
+                          : activeClaimIsUnconfigured
+                            ? 'No live, GPS, QR, or NFC verification is configured yet.'
+                            : adminTestMode
+                              ? 'Admin test mode bypass is active.'
+                              : gpsStatus.message}
+                      </p>
                     </div>
 
                     <div style={styles.autoCollectBox}>
@@ -2237,7 +2427,13 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       CHECK NEARBY GPS DROPS
                     </button>
 
-                    <button style={styles.mainButton} onClick={() => collectActiveStamp('qr-nfc-gps')}>COLLECT STAMP</button>
+                    <button
+                      style={styles.mainButton}
+                      onClick={() => collectActiveStamp('qr-nfc-gps')}
+                      disabled={activeClaimIsAchievement || activeClaimIsUnconfigured}
+                    >
+                      COLLECT STAMP
+                    </button>
 
                     {locationError && <p style={styles.errorText}>{locationError}</p>}
                     {claimMessage && <p style={styles.successText}>{claimMessage}</p>}

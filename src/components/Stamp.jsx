@@ -19,7 +19,7 @@ export default function Stamp({
     position: 'relative',
   }
 
-  const content = showRealStamp ? (
+  const content = showRealStamp && stamp.image ? (
     <img
       src={stamp.image}
       alt={stamp.name}
@@ -29,6 +29,20 @@ export default function Stamp({
         objectFit: 'cover',
       }}
     />
+  ) : showRealStamp ? (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 36,
+        background: 'rgba(0,0,0,.5)',
+      }}
+    >
+      {stamp.fallback || '✨'}
+    </div>
   ) : (
     <div
       style={{

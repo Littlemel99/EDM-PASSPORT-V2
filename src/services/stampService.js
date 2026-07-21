@@ -1,36 +1,42 @@
 import { supabase } from '../lib/supabase'
+import {
+  createStampPersistenceRecord,
+  getDefaultCollectedIds,
+  resolveFestivalId,
+} from './festivalPersistence.js'
 
-const FESTIVAL_ID = 'edc-las-vegas-2026'
-
-export async function loadCollectedIds(user) {
-  if (!user) return ['world-party-parade']
+export async function loadCollectedIds(user, festivalId) {
+  const resolvedFestivalId = resolveFestivalId(festivalId)
+  const defaults = getDefaultCollectedIds(resolvedFestivalId)
+  if (!user) return defaults
 
   const userId = typeof user === 'string' ? user : user.id
-  if (!userId) return ['world-party-parade']
+  if (!userId) return defaults
 
   const { data, error } = await supabase
     .from('user_stamps')
     .select('stamp_id')
     .eq('user_id', userId)
-    .eq('festival_id', FESTIVAL_ID)
+    .eq('festival_id', resolvedFestivalId)
 
   if (error) {
     console.error('Load collected stamps error:', error)
-    return ['world-party-parade']
+    return defaults
   }
 
   const ids = data?.map((item) => item.stamp_id) || []
-  return Array.from(new Set(['world-party-parade', ...ids]))
+  return Array.from(new Set([...defaults, ...ids]))
 }
 
-export async function loadCollectedIdsByUserId(userId) {
+export async function loadCollectedIdsByUserId(userId, festivalId) {
   if (!userId) return []
+  const resolvedFestivalId = resolveFestivalId(festivalId)
 
   const { data, error } = await supabase
     .from('user_stamps')
     .select('stamp_id')
     .eq('user_id', userId)
-    .eq('festival_id', FESTIVAL_ID)
+    .eq('festival_id', resolvedFestivalId)
 
   if (error) {
     console.error('Load public collected stamps error:', error)
@@ -40,44 +46,74 @@ export async function loadCollectedIdsByUserId(userId) {
   return data?.map((item) => item.stamp_id) || []
 }
 
-export async function saveStamp(user, stampId, claimMethod = 'manual') {
+export async function saveStamp(
+  user,
+  stampId,
+  options = {}
+) {
   if (!user) throw new Error('Login required.')
+  const festivalId = typeof options === 'string' ? undefined : options.festivalId
+  const claimMethod =
+    typeof options === 'string'
+      ? options
+      : options.claimMethod || 'manual'
 
-  const { error } = await supabase.from('user_stamps').upsert(
-    {
-      user_id: user.id,
-      stamp_id: stampId,
-      festival_id: FESTIVAL_ID,
-      claim_method: claimMethod,
-    },
+  const persistenceRecord = createStampPersistenceRecord({
+    userId: user.id,
+    stampId,
+    festivalId,
+    claimMethod,
+  })
+  const { data, error } = await supabase.from('user_stamps').upsert(
+    persistenceRecord,
     {
       onConflict: 'user_id,stamp_id,festival_id',
     }
   )
+    .select('user_id,stamp_id,festival_id,claim_method')
+    .single()
 
   if (error) throw error
+  if (data?.festival_id !== persistenceRecord.festival_id) {
+    throw new Error(
+      `Stamp persistence festival mismatch: expected ${persistenceRecord.festival_id}, received ${data?.festival_id || 'none'}.`
+    )
+  }
+
+  return data
 }
 
-export async function claimStampDrop(user, stampId, claimMethod = 'qr-nfc') {
+export async function claimStampDrop(
+  user,
+  stampId,
+  options = {}
+) {
   if (!user) throw new Error('Login required.')
   if (!stampId) throw new Error('Missing stamp claim.')
+  const festivalId = typeof options === 'string' ? undefined : options.festivalId
+  const claimMethod =
+    typeof options === 'string'
+      ? options
+      : options.claimMethod || 'qr-nfc'
 
   const { data, error } = await supabase.rpc('claim_stamp_drop', {
     p_stamp_id: stampId,
     p_claim_method: claimMethod,
+    p_festival_id: resolveFestivalId(festivalId),
   })
 
   if (error) throw error
   return data
 }
 
-export async function loadLiveDrops(festivalId = FESTIVAL_ID) {
+export async function loadLiveDrops(festivalId) {
+  const resolvedFestivalId = resolveFestivalId(festivalId)
   const now = new Date().toISOString()
 
   const { data, error } = await supabase
     .from('live_drops')
     .select('*')
-    .eq('festival_id', festivalId || FESTIVAL_ID)
+    .eq('festival_id', resolvedFestivalId)
     .eq('is_active', true)
     .or(`starts_at.is.null,starts_at.lte.${now}`)
     .or(`ends_at.is.null,ends_at.gte.${now}`)
@@ -90,7 +126,8 @@ export async function loadLiveDrops(festivalId = FESTIVAL_ID) {
   return data || []
 }
 
-export async function setLiveDrop(stampId, isActive) {
+export async function setLiveDrop(stampId, isActive, festivalId) {
+  const resolvedFestivalId = resolveFestivalId(festivalId)
   if (!isActive) {
     const { error } = await supabase
       .from('live_drops')
@@ -98,7 +135,7 @@ export async function setLiveDrop(stampId, isActive) {
         is_active: false,
       })
       .eq('stamp_id', stampId)
-      .eq('festival_id', FESTIVAL_ID)
+      .eq('festival_id', resolvedFestivalId)
 
     if (error) throw error
     return
@@ -106,9 +143,9 @@ export async function setLiveDrop(stampId, isActive) {
 
   const { error } = await supabase.from('live_drops').upsert(
     {
-      id: `${stampId}-${FESTIVAL_ID}`,
+      id: `${stampId}-${resolvedFestivalId}`,
       stamp_id: stampId,
-      festival_id: FESTIVAL_ID,
+      festival_id: resolvedFestivalId,
       is_active: true,
       claim_code: `${stampId}-${Date.now()}`,
     },
@@ -121,11 +158,12 @@ export async function setLiveDrop(stampId, isActive) {
 }
 
 export async function setAdvancedLiveDrop(stampId, options = {}) {
+  const festivalId = resolveFestivalId(options.festivalId)
   const { error } = await supabase.from('live_drops').upsert(
     {
-      id: `${stampId}-${FESTIVAL_ID}`,
+      id: `${stampId}-${festivalId}`,
       stamp_id: stampId,
-      festival_id: FESTIVAL_ID,
+      festival_id: festivalId,
       is_active: options.isActive ?? true,
       claim_code: options.claimCode || `${stampId}-${Date.now()}`,
       starts_at: options.startsAt || null,

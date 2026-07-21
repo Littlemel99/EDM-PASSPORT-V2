@@ -66,6 +66,11 @@ function normalizeProfile(profile = {}) {
   return normalized
 }
 
+function getProfileLocation(profile) {
+  const cityRegion = [profile.city, profile.region].filter(Boolean).join(', ')
+  return [profile.venue, cityRegion].filter(Boolean).join(' — ') || null
+}
+
 const FESTIVAL_PROFILES = [edcLasVegas2026, lostLands2026].map(
   normalizeProfile
 )
@@ -97,7 +102,12 @@ export function mergeFestivalProfile(profile, databaseRecord) {
   if (!profile && !databaseRecord) return null
 
   const normalizedProfile = normalizeProfile(profile || databaseRecord)
-  if (!databaseRecord) return normalizedProfile
+  if (!databaseRecord) {
+    return {
+      ...normalizedProfile,
+      location: getProfileLocation(normalizedProfile),
+    }
+  }
 
   const merged = {
     ...normalizedProfile,
@@ -115,7 +125,8 @@ export function mergeFestivalProfile(profile, databaseRecord) {
       databaseRecord.end_date ??
       databaseRecord.endDate ??
       normalizedProfile.endDate,
-    location: databaseRecord.location ?? null,
+    location:
+      databaseRecord.location ?? getProfileLocation(normalizedProfile),
   }
 
   // Database rows own operational fields. Profile content remains the source
