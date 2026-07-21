@@ -1,5 +1,6 @@
 import FestivalMissionCard from './FestivalMissionCard.jsx'
 import DiscoveryRadar from './DiscoveryRadar.jsx'
+import { formatFestivalDates } from '../../festivals/index.js'
 
 export default function FestivalDashboard({
   displayName,
@@ -11,6 +12,12 @@ export default function FestivalDashboard({
   rank,
   crewName,
   festivalName,
+  festivalEditionName,
+  festivalYear,
+  festivalThemeName,
+  festivalLocation,
+  festivalStartDate,
+  festivalEndDate,
   festivalId,
   nextDiscovery,
   discoveryLoading,
@@ -45,6 +52,25 @@ export default function FestivalDashboard({
         <strong style={styles.festivalName}>
           {festivalName || 'Choose your next festival'}
         </strong>
+        {festivalYear && (
+          <span style={styles.festivalMeta}>
+            {festivalYear}
+            {festivalEditionName && festivalEditionName !== festivalName
+              ? ` • ${festivalEditionName}`
+              : ''}
+          </span>
+        )}
+        {festivalThemeName && (
+          <span style={styles.festivalTheme}>{festivalThemeName}</span>
+        )}
+        {festivalLocation && (
+          <span style={styles.festivalDetail}>{festivalLocation}</span>
+        )}
+        {festivalStartDate && (
+          <span style={styles.festivalDetail}>
+            {formatFestivalDates(festivalStartDate, festivalEndDate)}
+          </span>
+        )}
       </div>
 
       <div style={styles.statGrid}>
@@ -251,6 +277,29 @@ const styles = {
 
   festivalName: {
     fontSize: 18,
+  },
+
+  festivalMeta: {
+    display: 'block',
+    marginTop: 5,
+    fontSize: 12,
+    opacity: 0.72,
+  },
+
+  festivalTheme: {
+    display: 'block',
+    marginTop: 4,
+    color: '#67e8f9',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+
+  festivalDetail: {
+    display: 'block',
+    marginTop: 5,
+    fontSize: 12,
+    lineHeight: 1.35,
+    opacity: 0.82,
   },
 
   statGrid: {

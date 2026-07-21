@@ -9,7 +9,10 @@ const stampById = new Map(stamps.map((stamp) => [stamp.id, stamp]))
 
 export const edcLasVegas2026 = {
   id: 'edc-las-vegas-2026',
+  festivalBrandId: 'edc-las-vegas',
+  year: 2026,
   name: festivalRecord?.name || 'EDC Las Vegas 2026',
+  displayName: festivalRecord?.name || 'EDC Las Vegas 2026',
   shortName: 'EDC Las Vegas',
   country: 'United States',
   city: 'Las Vegas',
@@ -23,7 +26,15 @@ export const edcLasVegas2026 = {
   logo: null,
   heroImage: null,
   mapImage: null,
-  theme: null,
+  theme: {
+    name: null,
+    tagline: null,
+    description: null,
+    palette: [],
+    artworkDirection: null,
+    typographyDirection: null,
+    effects: [],
+  },
   stages: Object.keys(stageLocations).map((discoveryId) => ({
     id: discoveryId,
     name: stampById.get(discoveryId)?.name || discoveryId,

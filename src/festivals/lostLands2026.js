@@ -2,7 +2,10 @@ import { lostLands2026Discoveries } from './lostLands2026Discoveries.js'
 
 export const lostLands2026 = {
   id: 'lost-lands-2026',
+  festivalBrandId: 'lost-lands',
+  year: 2026,
   name: 'Lost Lands 2026',
+  displayName: 'Lost Lands 2026',
   shortName: 'Lost Lands',
   country: 'United States',
   city: 'Thornville',
@@ -17,7 +20,15 @@ export const lostLands2026 = {
   logo: null,
   heroImage: null,
   mapImage: null,
-  theme: null,
+  theme: {
+    name: null,
+    tagline: null,
+    description: null,
+    palette: [],
+    artworkDirection: null,
+    typographyDirection: null,
+    effects: [],
+  },
   stages: [
     {
       id: 'lost-lands-prehistoric-stage',

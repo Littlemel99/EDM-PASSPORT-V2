@@ -1,5 +1,7 @@
 import { edcLasVegas2026 } from './edcLasVegas2026.js'
 import { lostLands2026 } from './lostLands2026.js'
+import { edcLasVegasBrand } from './brands/edcLasVegas.js'
+import { lostLandsBrand } from './brands/lostLands.js'
 
 const ARRAY_FIELDS = [
   'stages',
@@ -13,6 +15,9 @@ const ARRAY_FIELDS = [
 
 const CONTENT_FIELDS = [
   'shortName',
+  'festivalBrandId',
+  'year',
+  'displayName',
   'country',
   'city',
   'region',
@@ -36,10 +41,32 @@ function clone(value) {
   return value
 }
 
+const EMPTY_THEME = {
+  name: null,
+  tagline: null,
+  description: null,
+  palette: [],
+  artworkDirection: null,
+  typographyDirection: null,
+  effects: [],
+}
+
+function normalizeTheme(theme = {}) {
+  return {
+    ...EMPTY_THEME,
+    ...clone(theme || {}),
+    palette: Array.isArray(theme?.palette) ? clone(theme.palette) : [],
+    effects: Array.isArray(theme?.effects) ? clone(theme.effects) : [],
+  }
+}
+
 function normalizeProfile(profile = {}) {
   const normalized = {
     id: profile.id || '',
+    festivalBrandId: profile.festivalBrandId || null,
+    year: Number(profile.year) || null,
     name: profile.name || '',
+    displayName: profile.displayName || profile.name || '',
     shortName: profile.shortName || profile.name || '',
     country: profile.country || null,
     city: profile.city || null,
@@ -54,7 +81,7 @@ function normalizeProfile(profile = {}) {
     heroImage:
       profile.heroImage || profile.bannerUrl || profile.banner_url || null,
     mapImage: profile.mapImage || profile.mapUrl || profile.map_url || null,
-    theme: profile.theme || null,
+    theme: normalizeTheme(profile.theme),
   }
 
   ARRAY_FIELDS.forEach((field) => {
@@ -74,6 +101,7 @@ function getProfileLocation(profile) {
 const FESTIVAL_PROFILES = [edcLasVegas2026, lostLands2026].map(
   normalizeProfile
 )
+const FESTIVAL_BRANDS = [edcLasVegasBrand, lostLandsBrand]
 
 export function getFestivalProfiles() {
   return clone(FESTIVAL_PROFILES)
@@ -98,13 +126,27 @@ export function getFestivalTheme(festivalId) {
   return getFestivalProfile(festivalId)?.theme || null
 }
 
+export function getFestivalEdition(editionId) {
+  return getFestivalProfile(editionId)
+}
+
+export function getFestivalEditionTheme(editionId) {
+  return getFestivalEdition(editionId)?.theme || null
+}
+
 export function mergeFestivalProfile(profile, databaseRecord) {
   if (!profile && !databaseRecord) return null
 
   const normalizedProfile = normalizeProfile(profile || databaseRecord)
+  const brand = FESTIVAL_BRANDS.find(
+    (item) => item.id === normalizedProfile.festivalBrandId
+  )
   if (!databaseRecord) {
     return {
       ...normalizedProfile,
+      brandName: brand?.name || null,
+      brandShortName: brand?.shortName || null,
+      brandDescription: brand?.description || null,
       location: getProfileLocation(normalizedProfile),
     }
   }
@@ -127,6 +169,9 @@ export function mergeFestivalProfile(profile, databaseRecord) {
       normalizedProfile.endDate,
     location:
       databaseRecord.location ?? getProfileLocation(normalizedProfile),
+    brandName: brand?.name || null,
+    brandShortName: brand?.shortName || null,
+    brandDescription: brand?.description || null,
   }
 
   // Database rows own operational fields. Profile content remains the source

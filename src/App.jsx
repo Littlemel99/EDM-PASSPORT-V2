@@ -13,6 +13,9 @@ import { countries, getPassportImage } from './data/passports'
 import { festivals as fallbackFestivals } from './data/festivals'
 import {
   getFestivalDiscoveries,
+  getFestivalBrandForEdition,
+  getFestivalEditionDisplayMetadata,
+  formatFestivalDates,
   getFestivalProfile,
   mergeFestivalCatalog,
 } from './festivals'
@@ -101,26 +104,11 @@ function getActiveStampFromList(stampList, id) {
   return stampList.find((stamp) => stamp.id === id) || stampList[0]
 }
 
-function formatFestivalDates(startDate, endDate) {
-  if (!startDate) return ''
-
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = endDate ? new Date(`${endDate}T00:00:00`) : null
-  const month = new Intl.DateTimeFormat('en-US', { month: 'long' })
-
-  if (
-    end &&
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth()
-  ) {
-    return `${month.format(start)} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
-  }
-
-  return start.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
+function getFestivalYear(festival) {
+  if (festival?.year) return festival.year
+  const startDate = festival?.start_date || festival?.startDate
+  if (startDate) return new Date(`${startDate}T00:00:00`).getFullYear()
+  return null
 }
 
 export default function App() {
@@ -471,6 +459,12 @@ export default function App() {
     : null
   const activeFestivalProfile = getFestivalProfile(selectedFestivalId)
   const activeFestivalId = selectedFestivalId || activeFestival?.id || 'edc-las-vegas-2026'
+  const activeFestivalBrand = getFestivalBrandForEdition(activeFestivalId)
+  const activeFestivalDisplay = getFestivalEditionDisplayMetadata({
+    edition: activeFestival,
+    profile: activeFestivalProfile,
+    brand: activeFestivalBrand,
+  })
   const adminFestival = managedFestivals.find((festival) => festival.id === adminFestivalId) || null
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
   const nextDiscovery = festivalDiscoveryLoading
@@ -2056,9 +2050,15 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   (family) => family.id === activeFamilyId
                 )?.name || families[0]?.name}
                 festivalName={
-                  activeFestival?.name ||
+                  activeFestivalDisplay?.brandName ||
                   upcomingFestivals[0]?.name
                 }
+                festivalEditionName={activeFestivalDisplay?.editionName}
+                festivalYear={activeFestivalDisplay?.year}
+                festivalThemeName={activeFestivalDisplay?.themeName}
+                festivalLocation={activeFestivalDisplay?.location}
+                festivalStartDate={activeFestivalDisplay?.startDate}
+                festivalEndDate={activeFestivalDisplay?.endDate}
                 festivalId={activeFestivalId}
                 nextDiscovery={nextDiscovery}
                 discoveryLoading={festivalDiscoveryLoading}
@@ -2216,10 +2216,17 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     {upcomingFestivals.map((festival) => {
                       const attendanceStatus = getFestivalAttendanceStatus(festival.id)
                       const demand = getFestivalDemand(festival.id)
+                      const brand = getFestivalBrandForEdition(festival.id)
+                      const editionYear = getFestivalYear(festival)
+                      const themeName = festival.theme?.name
 
                       return (
                         <div key={festival.id} style={styles.festivalCard}>
-                          <strong>{festival.name}</strong>
+                          <strong>{brand?.name || festival.name}</strong>
+                          {editionYear && <small>{editionYear}</small>}
+                          {brand && (
+                            <small>{themeName || 'Theme not announced'}</small>
+                          )}
                           <small>{festival.location}</small>
                           {(festival.start_date || festival.startDate) && (
                             <small>{formatFestivalDates(
@@ -2264,13 +2271,22 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
                   <h3 style={styles.sectionTitle}>Attended Festivals</h3>
                   <div style={styles.festivalList}>
-                    {attendedFestivals.map((festival) => (
-                      <button key={festival.id} style={styles.festivalCard} onClick={() => selectFestival(festival.id)}>
-                        <strong>{festival.name}</strong>
-                        <small>{festival.location}</small>
-                        <span style={styles.festivalBadge}>VIEW MEMORIES</span>
-                      </button>
-                    ))}
+                    {attendedFestivals.map((festival) => {
+                      const brand = getFestivalBrandForEdition(festival.id)
+                      const editionYear = getFestivalYear(festival)
+
+                      return (
+                        <button key={festival.id} style={styles.festivalCard} onClick={() => selectFestival(festival.id)}>
+                          <strong>{brand?.name || festival.name}</strong>
+                          {editionYear && <small>{editionYear}</small>}
+                          {brand && (
+                            <small>{festival.theme?.name || 'Theme not announced'}</small>
+                          )}
+                          <small>{festival.location}</small>
+                          <span style={styles.festivalBadge}>VIEW MEMORIES</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </>
               )}
@@ -2278,8 +2294,30 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               {pageIndex === 1 && (
                 <>
                   <p style={styles.pageNumber}>Passport Page 2</p>
-                  <h2 style={styles.bookTitle}>{activeFestival?.name || 'EDC Las Vegas 2026'}</h2>
-                  <p style={styles.bookText}>{activeFestival?.location || 'Under the Electric Sky'}</p>
+                  <h2 style={styles.bookTitle}>
+                    {activeFestivalDisplay?.brandName || 'Festival'}
+                  </h2>
+                  {activeFestivalDisplay?.year && (
+                    <p style={styles.bookText}>{activeFestivalDisplay.year}</p>
+                  )}
+                  {activeFestivalDisplay?.themeName && (
+                    <p style={styles.bookText}>
+                      {activeFestivalDisplay.themeName}
+                    </p>
+                  )}
+                  {activeFestivalDisplay?.location && (
+                    <p style={styles.bookText}>
+                      {activeFestivalDisplay.location}
+                    </p>
+                  )}
+                  {activeFestivalDisplay?.startDate && (
+                    <p style={styles.bookText}>
+                      {formatFestivalDates(
+                        activeFestivalDisplay.startDate,
+                        activeFestivalDisplay.endDate
+                      )}
+                    </p>
+                  )}
 
                   <div style={styles.progressCard}>
                     <strong>Collection Progress</strong>
