@@ -459,6 +459,10 @@ export default function App() {
     : null
   const activeFestivalProfile = getFestivalProfile(selectedFestivalId)
   const activeFestivalId = selectedFestivalId || activeFestival?.id || 'edc-las-vegas-2026'
+  const dashboardRecentDiscovery =
+    lastClaimedDiscovery?.festivalId === activeFestivalId
+      ? lastClaimedDiscovery
+      : null
   const activeFestivalBrand = getFestivalBrandForEdition(activeFestivalId)
   const activeFestivalDisplay = getFestivalEditionDisplayMetadata({
     edition: activeFestival,
@@ -2044,19 +2048,23 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 collectedCount={collectedStamps.length}
                 totalCount={allStamps.length}
                 collectionPercent={collectionPercent}
-                totalXp={stats.totalXp}
-                rank={stats.level}
-                crewName={families.find(
-                  (family) => family.id === activeFamilyId
-                )?.name || families[0]?.name}
+                collectionsCompleted={
+                  unlockedCompletionRewards.length +
+                  unlockedArtistCollections.length
+                }
+                collectionsTotal={
+                  completionRewards.length + artistCollections.length
+                }
+                recentDiscovery={dashboardRecentDiscovery}
                 festivalName={
                   activeFestivalDisplay?.brandName ||
                   upcomingFestivals[0]?.name
                 }
-                festivalEditionName={activeFestivalDisplay?.editionName}
                 festivalYear={activeFestivalDisplay?.year}
                 festivalThemeName={activeFestivalDisplay?.themeName}
-                festivalLocation={activeFestivalDisplay?.location}
+                festivalVenue={
+                  activeFestivalProfile?.venue || activeFestival?.venue
+                }
                 festivalStartDate={activeFestivalDisplay?.startDate}
                 festivalEndDate={activeFestivalDisplay?.endDate}
                 festivalId={activeFestivalId}
@@ -2071,7 +2079,15 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 onRepeatPreviousDiscovery={repeatPreviousDiscovery}
                 onOpenPassport={() => {
                   setBookOpen(true)
-                  setPageIndex(0)
+                  setPageIndex(9)
+                }}
+                onOpenCollections={() => {
+                  setBookOpen(true)
+                  setPageIndex(1)
+                }}
+                onOpenMemories={() => {
+                  setBookOpen(true)
+                  setPageIndex(10)
                 }}
                 onOpenDiscovery={(discovery) => {
                   if (!discovery) return

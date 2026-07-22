@@ -1,5 +1,8 @@
 import FestivalMissionCard from './FestivalMissionCard.jsx'
 import DiscoveryRadar from './DiscoveryRadar.jsx'
+import JourneyActionCard from './JourneyActionCard.jsx'
+import RecentDiscoveryCard from './RecentDiscoveryCard.jsx'
+import { getExplorerRank } from './FestivalDashboardData.js'
 import { formatFestivalDates } from '../../festivals/index.js'
 
 export default function FestivalDashboard({
@@ -8,14 +11,13 @@ export default function FestivalDashboard({
   collectedCount,
   totalCount,
   collectionPercent,
-  totalXp,
-  rank,
-  crewName,
+  collectionsCompleted = 0,
+  collectionsTotal = 0,
+  recentDiscovery,
   festivalName,
-  festivalEditionName,
   festivalYear,
   festivalThemeName,
-  festivalLocation,
+  festivalVenue,
   festivalStartDate,
   festivalEndDate,
   festivalId,
@@ -25,143 +27,165 @@ export default function FestivalDashboard({
   previousDiscovery,
   onRepeatPreviousDiscovery,
   onOpenPassport,
+  onOpenCollections,
+  onOpenMemories,
   onOpenDiscovery,
   onEditPassport,
   onSignOut,
   missionReady,
 }) {
+  const explorerRank = getExplorerRank(collectedCount)
+  const safePercent = Math.min(
+    Math.max(collectionPercent || 0, 0),
+    100
+  )
+  const editionLine = [festivalYear, festivalVenue]
+    .filter(Boolean)
+    .join(' • ')
+
   return (
     <section style={styles.dashboard}>
-      <div style={styles.header}>
+      <header style={styles.welcomeBar}>
         <div>
-          <p style={styles.eyebrow}>WELCOME BACK</p>
-          <h2 style={styles.name}>{displayName}</h2>
-          <p style={styles.identity}>
-            {country || 'Country not selected'} Passport
-          </p>
+          <span style={styles.overline}>FESTIVAL PASSPORT</span>
+          <strong style={styles.explorerName}>{displayName}</strong>
         </div>
+        <span style={styles.countryLabel}>
+          {country || 'Passport holder'}
+        </span>
+      </header>
 
-        <div style={styles.rankBadge}>
-          <strong>{rank || 1}</strong>
-          <span>RANK</span>
+      <section style={styles.festivalCard}>
+        <div style={styles.festivalGlow} />
+        <div style={styles.festivalContent}>
+          <span style={styles.sectionLabel}>CURRENT FESTIVAL</span>
+          <h1 style={styles.festivalName}>
+            {festivalName || 'Choose your next festival'}
+          </h1>
+          {editionLine && (
+            <strong style={styles.editionLine}>{editionLine}</strong>
+          )}
+          {festivalThemeName && (
+            <span style={styles.themeName}>{festivalThemeName}</span>
+          )}
+          {festivalStartDate && (
+            <span style={styles.festivalDate}>
+              {formatFestivalDates(festivalStartDate, festivalEndDate)}
+            </span>
+          )}
+
+          <div style={styles.festivalSummaryGrid}>
+            <SummaryItem label="Explorer Rank" value={explorerRank.name} />
+            <SummaryItem
+              label="Discoveries"
+              value={`${collectedCount} / ${totalCount}`}
+            />
+            <SummaryItem
+              label="Collections Completed"
+              value={`${collectionsCompleted} / ${collectionsTotal}`}
+            />
+            <SummaryItem
+              label="Recent Discovery"
+              value={recentDiscovery?.name || 'Awaiting discovery'}
+            />
+          </div>
+
+          <div style={styles.heroProgressBlock}>
+            <div style={styles.progressHeader}>
+              <span>Journey Progress</span>
+              <strong>{safePercent}%</strong>
+            </div>
+            <ProgressBar percent={safePercent} />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div style={styles.festivalCard}>
-        <span style={styles.cardLabel}>CURRENT FESTIVAL</span>
-        <strong style={styles.festivalName}>
-          {festivalName || 'Choose your next festival'}
-        </strong>
-        {festivalYear && (
-          <span style={styles.festivalMeta}>
-            {festivalYear}
-            {festivalEditionName && festivalEditionName !== festivalName
-              ? ` • ${festivalEditionName}`
-              : ''}
-          </span>
-        )}
-        {festivalThemeName && (
-          <span style={styles.festivalTheme}>{festivalThemeName}</span>
-        )}
-        {festivalLocation && (
-          <span style={styles.festivalDetail}>{festivalLocation}</span>
-        )}
-        {festivalStartDate && (
-          <span style={styles.festivalDetail}>
-            {formatFestivalDates(festivalStartDate, festivalEndDate)}
-          </span>
-        )}
-      </div>
-
-      <div style={styles.statGrid}>
-        <div style={styles.statCard}>
-          <strong>{collectedCount}</strong>
-          <span>STAMPS</span>
-        </div>
-
-        <div style={styles.statCard}>
-          <strong>{totalXp || 0}</strong>
-          <span>XP</span>
-        </div>
-
-        <div style={styles.statCard}>
-          <strong>{crewName || 'SOLO'}</strong>
-          <span>CREW</span>
-        </div>
-      </div>
-
-      <div style={styles.progressSection}>
-        <div style={styles.progressHeader}>
-          <span>Passport Progress</span>
-          <strong>
-            {collectedCount} / {totalCount}
-          </strong>
-        </div>
-
-        <div style={styles.progressTrack}>
-          <div
-            style={{
-              ...styles.progressFill,
-              width: `${Math.min(
-                Math.max(collectionPercent || 0, 0),
-                100
-              )}%`,
-            }}
+      <section style={styles.section}>
+        <SectionHeading
+          eyebrow="YOUR JOURNEY"
+          title="Choose your next path."
+        />
+        <div style={styles.journeyGrid}>
+          <JourneyActionCard
+            title="Continue Exploring"
+            subtitle="Find your next discovery."
+            onClick={() => onOpenDiscovery?.(nextDiscovery)}
+            disabled={!nextDiscovery || discoveryLoading}
+          />
+          <JourneyActionCard
+            title="My Passport"
+            subtitle="View discoveries and memories."
+            onClick={onOpenPassport}
+          />
+          <JourneyActionCard
+            title="Collections"
+            subtitle="Track every collection."
+            onClick={onOpenCollections}
+          />
+          <JourneyActionCard
+            title="Recent Memories"
+            subtitle="See your latest adventures."
+            onClick={onOpenMemories}
           />
         </div>
+      </section>
 
-        <small>{collectionPercent || 0}% discovered</small>
-      </div>
+      <section style={styles.section}>
+        <SectionHeading
+          eyebrow="RECENT DISCOVERY"
+          title="The latest chapter in your journey."
+        />
+        <RecentDiscoveryCard discovery={recentDiscovery} />
+      </section>
 
-      <div style={styles.objectiveCard}>
-        <span style={styles.cardLabel}>NEXT OBJECTIVE</span>
+      <section style={styles.detailGrid}>
+        <article style={styles.rankCard}>
+          <span style={styles.sectionLabel}>EXPLORER RANK</span>
+          <strong style={styles.rankTitle}>{explorerRank.name}</strong>
+          <p style={styles.supportingText}>
+            {explorerRank.nextName
+              ? `${explorerRank.nextAt - collectedCount} discoveries until ${explorerRank.nextName}.`
+              : 'The highest explorer rank has been reached.'}
+          </p>
+          <ProgressBar percent={explorerRank.progress} subdued />
+        </article>
 
-        {discoveryLoading ? (
-          <>
-            <strong style={styles.objectiveTitle}>
-              Finding a live target
-            </strong>
-            <p style={styles.objectiveText}>
-              Loading discovery data for the selected festival.
-            </p>
-          </>
-        ) : nextDiscovery ? (
-          <>
-            <strong style={styles.objectiveTitle}>
-              Discover {nextDiscovery.name}
-            </strong>
-            <p style={styles.objectiveText}>
-              {nextDiscovery.location ||
-                'Explore the festival to find your next stamp.'}
-            </p>
-          </>
-        ) : (
-          <>
-            <strong style={styles.objectiveTitle}>
-              Collection complete
-            </strong>
-            <p style={styles.objectiveText}>
-              You have discovered every currently available stamp.
-            </p>
-          </>
+        <article style={styles.progressCard}>
+          <span style={styles.sectionLabel}>JOURNEY PROGRESS</span>
+          <strong style={styles.progressTitle}>{safePercent}%</strong>
+          <ProgressBar percent={safePercent} />
+          <div style={styles.progressStats}>
+            <span>
+              <strong>{collectedCount}</strong> Discoveries
+            </span>
+            <span>
+              <strong>{collectionsCompleted}</strong> Collections
+            </span>
+          </div>
+        </article>
+      </section>
+
+      <section style={styles.section}>
+        <SectionHeading
+          eyebrow="DISCOVERY RADAR"
+          title="Continue into the festival."
+        />
+        <DiscoveryRadar
+          discovery={nextDiscovery}
+          loading={discoveryLoading}
+          onOpenDiscovery={onOpenDiscovery}
+        />
+
+        {developerMode && previousDiscovery && (
+          <button
+            type="button"
+            style={styles.developerButton}
+            onClick={onRepeatPreviousDiscovery}
+          >
+            REPEAT PREVIOUS DISCOVERY
+          </button>
         )}
-      </div>
-
-      <DiscoveryRadar
-        discovery={nextDiscovery}
-        loading={discoveryLoading}
-        onOpenDiscovery={onOpenDiscovery}
-      />
-
-      {developerMode && previousDiscovery && (
-        <button
-          type="button"
-          style={styles.developerButton}
-          onClick={onRepeatPreviousDiscovery}
-        >
-          REPEAT PREVIOUS DISCOVERY
-        </button>
-      )}
+      </section>
 
       <FestivalMissionCard
         collectedCount={collectedCount}
@@ -169,26 +193,17 @@ export default function FestivalDashboard({
         ready={missionReady}
       />
 
-      <div style={styles.actionGrid}>
+      <div style={styles.accountActions}>
         <button
           type="button"
-          style={styles.openButton}
-          onClick={onOpenPassport}
-        >
-          OPEN MY PASSPORT
-        </button>
-
-        <button
-          type="button"
-          style={styles.editButton}
+          style={styles.secondaryButton}
           onClick={onEditPassport}
         >
           EDIT PASSPORT
         </button>
-
         <button
           type="button"
-          style={styles.signOutButton}
+          style={styles.quietButton}
           onClick={onSignOut}
         >
           SIGN OUT
@@ -198,20 +213,237 @@ export default function FestivalDashboard({
   )
 }
 
+function SummaryItem({ label, value }) {
+  return (
+    <div style={styles.summaryItem}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function SectionHeading({ eyebrow, title }) {
+  return (
+    <div style={styles.sectionHeading}>
+      <span style={styles.sectionLabel}>{eyebrow}</span>
+      <h2 style={styles.sectionTitle}>{title}</h2>
+    </div>
+  )
+}
+
+function ProgressBar({ percent, subdued = false }) {
+  return (
+    <div style={styles.progressTrack}>
+      <div
+        style={{
+          ...styles.progressFill,
+          ...(subdued ? styles.progressFillSubdued : {}),
+          width: `${Math.min(Math.max(percent || 0, 0), 100)}%`,
+        }}
+      />
+    </div>
+  )
+}
+
 const styles = {
   dashboard: {
     width: '100%',
     boxSizing: 'border-box',
     margin: '18px 0',
-    padding: 18,
-    borderRadius: 22,
-    color: '#ffffff',
+    padding: 16,
+    borderRadius: 28,
+    color: '#f7fff9',
     background:
-      'linear-gradient(145deg, rgba(29,12,65,0.98), rgba(5,15,38,0.98))',
-    border: '1px solid rgba(141, 92, 246, 0.55)',
-    boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+      'radial-gradient(circle at 8% 0%, rgba(89,255,202,0.1), transparent 30%), linear-gradient(180deg, #07100f 0%, #080d12 52%, #05080c 100%)',
+    border: '1px solid rgba(120,255,214,0.16)',
+    boxShadow: '0 28px 80px rgba(0,0,0,0.45)',
   },
-
+  welcomeBar: {
+    padding: '4px 4px 18px',
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  overline: {
+    display: 'block',
+    color: '#78ffd6',
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: '0.2em',
+  },
+  explorerName: {
+    display: 'block',
+    marginTop: 6,
+    fontSize: 20,
+  },
+  countryLabel: {
+    color: 'rgba(235,255,247,0.55)',
+    fontSize: 11,
+  },
+  festivalCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 26,
+    background:
+      'linear-gradient(145deg, rgba(20,54,45,0.98), rgba(8,18,19,0.98) 58%, rgba(12,13,19,0.98))',
+    border: '1px solid rgba(120,255,214,0.28)',
+    boxShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.05), 0 24px 60px rgba(0,0,0,0.38)',
+  },
+  festivalGlow: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    top: -130,
+    right: -100,
+    borderRadius: '50%',
+    background: 'rgba(120,255,214,0.12)',
+    filter: 'blur(14px)',
+  },
+  festivalContent: {
+    position: 'relative',
+    padding: '26px 22px 22px',
+  },
+  sectionLabel: {
+    display: 'block',
+    color: '#78ffd6',
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: '0.2em',
+  },
+  festivalName: {
+    margin: '10px 0 4px',
+    fontSize: 'clamp(34px, 9vw, 54px)',
+    lineHeight: 0.95,
+    letterSpacing: '-0.055em',
+    textTransform: 'uppercase',
+  },
+  editionLine: {
+    display: 'block',
+    marginTop: 12,
+    fontSize: 15,
+    letterSpacing: '0.02em',
+  },
+  themeName: {
+    display: 'block',
+    marginTop: 7,
+    color: '#b5ffe9',
+    fontSize: 13,
+  },
+  festivalDate: {
+    display: 'block',
+    marginTop: 7,
+    color: 'rgba(240,255,248,0.68)',
+    fontSize: 13,
+  },
+  festivalSummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 10,
+    marginTop: 24,
+  },
+  summaryItem: {
+    minHeight: 66,
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    gap: 8,
+    borderRadius: 15,
+    background: 'rgba(255,255,255,0.045)',
+    border: '1px solid rgba(255,255,255,0.06)',
+  },
+  heroProgressBlock: {
+    marginTop: 18,
+  },
+  progressHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 9,
+    color: 'rgba(241,255,248,0.75)',
+    fontSize: 12,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 11,
+    overflow: 'hidden',
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.09)',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    background: 'linear-gradient(90deg, #63e6be, #b4ffdf)',
+    boxShadow: '0 0 20px rgba(120,255,214,0.42)',
+    transition: 'width 250ms ease',
+  },
+  progressFillSubdued: {
+    background: 'linear-gradient(90deg, #557b70, #78ffd6)',
+  },
+  section: {
+    marginTop: 34,
+  },
+  sectionHeading: {
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    margin: '7px 0 0',
+    fontSize: 24,
+    lineHeight: 1.05,
+    letterSpacing: '-0.035em',
+  },
+  journeyGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 12,
+  },
+  detailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 12,
+    marginTop: 34,
+  },
+  rankCard: {
+    minHeight: 190,
+    padding: 19,
+    borderRadius: 22,
+    background: 'linear-gradient(145deg, #14221f, #090f12)',
+    border: '1px solid rgba(120,255,214,0.18)',
+  },
+  progressCard: {
+    minHeight: 190,
+    padding: 19,
+    borderRadius: 22,
+    background: 'linear-gradient(145deg, #171c25, #090d12)',
+    border: '1px solid rgba(156,181,255,0.16)',
+  },
+  rankTitle: {
+    display: 'block',
+    marginTop: 17,
+    fontSize: 25,
+  },
+  progressTitle: {
+    display: 'block',
+    margin: '14px 0 16px',
+    fontSize: 36,
+    letterSpacing: '-0.05em',
+  },
+  supportingText: {
+    minHeight: 40,
+    margin: '8px 0 16px',
+    color: 'rgba(240,255,248,0.62)',
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
+  progressStats: {
+    marginTop: 18,
+    display: 'grid',
+    gap: 7,
+    color: 'rgba(240,255,248,0.62)',
+    fontSize: 12,
+  },
   developerButton: {
     width: '100%',
     marginTop: 12,
@@ -223,187 +455,28 @@ const styles = {
     fontWeight: 900,
     cursor: 'pointer',
   },
-
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-
-  eyebrow: {
-    margin: 0,
-    fontSize: 11,
-    letterSpacing: 2,
-    opacity: 0.7,
-  },
-
-  name: {
-    margin: '4px 0',
-    fontSize: 26,
-  },
-
-  identity: {
-    margin: 0,
-    opacity: 0.75,
-  },
-
-  rankBadge: {
-    minWidth: 64,
-    minHeight: 64,
-    borderRadius: 18,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    background: 'rgba(255,255,255,0.1)',
-    border: '1px solid rgba(255,255,255,0.15)',
-  },
-
-  festivalCard: {
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 16,
-    background: 'rgba(255,255,255,0.08)',
-  },
-
-  cardLabel: {
-    display: 'block',
-    fontSize: 10,
-    letterSpacing: 1.6,
-    opacity: 0.65,
-    marginBottom: 6,
-  },
-
-  festivalName: {
-    fontSize: 18,
-  },
-
-  festivalMeta: {
-    display: 'block',
-    marginTop: 5,
-    fontSize: 12,
-    opacity: 0.72,
-  },
-
-  festivalTheme: {
-    display: 'block',
-    marginTop: 4,
-    color: '#67e8f9',
-    fontSize: 12,
-    fontWeight: 900,
-  },
-
-  festivalDetail: {
-    display: 'block',
-    marginTop: 5,
-    fontSize: 12,
-    lineHeight: 1.35,
-    opacity: 0.82,
-  },
-
-  statGrid: {
+  accountActions: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 8,
-    marginTop: 12,
-  },
-
-  statCard: {
-    minHeight: 70,
-    borderRadius: 14,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    textAlign: 'center',
-    padding: 8,
-    background: 'rgba(255,255,255,0.07)',
-  },
-
-  progressSection: {
-    marginTop: 16,
-  },
-
-  progressHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 8,
-  },
-
-  progressTrack: {
-    width: '100%',
-    height: 10,
-    overflow: 'hidden',
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.12)',
-  },
-
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    background:
-      'linear-gradient(90deg, #00f5ff, #a855f7, #ff4fd8)',
-    transition: 'width 250ms ease',
-  },
-
-  objectiveCard: {
-    marginTop: 16,
-    padding: 15,
-    borderRadius: 16,
-    background: 'rgba(0,245,255,0.08)',
-    border: '1px solid rgba(0,245,255,0.25)',
-  },
-
-  objectiveTitle: {
-    display: 'block',
-    fontSize: 17,
-  },
-
-  objectiveText: {
-    margin: '6px 0 0',
-    lineHeight: 1.4,
-    opacity: 0.8,
-  },
-
-  actionGrid: {
-    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
     gap: 10,
-    marginTop: 16,
+    marginTop: 22,
   },
-
-  openButton: {
-    width: '100%',
-    padding: '14px 16px',
-    border: 0,
+  secondaryButton: {
+    padding: '12px 14px',
     borderRadius: 14,
-    fontWeight: 900,
-    cursor: 'pointer',
-    color: '#090512',
-    background:
-      'linear-gradient(90deg, #00f5ff, #c084fc, #ff4fd8)',
-  },
-
-  editButton: {
-    width: '100%',
-    padding: '12px 16px',
-    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#f4fff8',
+    background: 'rgba(255,255,255,0.05)',
     fontWeight: 800,
     cursor: 'pointer',
-    color: '#ffffff',
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.22)',
   },
-
-  signOutButton: {
-    width: '100%',
-    padding: '11px 16px',
+  quietButton: {
+    padding: '12px 14px',
     borderRadius: 14,
-    fontWeight: 800,
-    cursor: 'pointer',
-    color: '#ffffff',
+    border: '1px solid rgba(255,255,255,0.08)',
+    color: 'rgba(244,255,248,0.62)',
     background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.14)',
+    fontWeight: 800,
+    cursor: 'pointer',
   },
 }
