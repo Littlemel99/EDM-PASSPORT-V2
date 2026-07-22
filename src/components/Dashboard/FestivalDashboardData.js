@@ -30,3 +30,19 @@ export function getExplorerRank(totalDiscoveries = 0) {
     progress: Math.min(Math.max(progress, 0), 100),
   }
 }
+
+export function getDashboardCollectionsSummary(
+  collections = [],
+  collectedIds = []
+) {
+  const progress = calculateFestivalCollectionsProgress(
+    collections,
+    collectedIds
+  )
+
+  return {
+    completed: progress.completedCount,
+    total: progress.totalCollections,
+  }
+}
+import { calculateFestivalCollectionsProgress } from '../../collections/CollectionEngine.js'

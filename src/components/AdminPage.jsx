@@ -594,7 +594,7 @@ export default function AdminPage({
 
   return (
     <>
-      <p style={styles.pageNumber}>Admin Page</p>
+      <p style={styles.pageNumber}>Passport Page 15 • Admin</p>
       <h2 style={styles.bookTitle}>Event Window Controls</h2>
 
       <button style={adminTestMode ? styles.dangerButton : styles.mainButton} onClick={() => setAdminTestMode((value) => !value)}>

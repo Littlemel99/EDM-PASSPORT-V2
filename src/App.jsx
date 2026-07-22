@@ -85,6 +85,8 @@ import {
 
 import ProfilePage from './components/Profile/ProfilePage'
 import FestivalDashboard from './components/Dashboard/FestivalDashboard'
+import { getDashboardCollectionsSummary } from './components/Dashboard/FestivalDashboardData.js'
+import FestivalCollections from './components/Collections/FestivalCollections.jsx'
 import RewardCelebration from './components/Dashboard/RewardCelebration'
 import RewardsShowcase from './components/Rewards/RewardsShowcase'
 import ArtistCollections from './components/Artists/ArtistCollections'
@@ -97,6 +99,7 @@ import {
   cleanClaimUrl,
 } from './services/claimService'
 import { getDailyMissionClaimProgress } from './adventure/DailyMission'
+import { getFestivalCollections } from './collections/index.js'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
@@ -262,7 +265,7 @@ export default function App() {
   const festivalPersistenceRequestIdRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
-  const maxPage = isAdmin ? 13 : 12
+  const maxPage = isAdmin ? 14 : 13
   const allStamps = useMemo(() => {
     const masterDiscoveries = getFestivalDiscoveries()
     const festivalProfile = getFestivalProfile(
@@ -459,6 +462,14 @@ export default function App() {
     : null
   const activeFestivalProfile = getFestivalProfile(selectedFestivalId)
   const activeFestivalId = selectedFestivalId || activeFestival?.id || 'edc-las-vegas-2026'
+  const festivalCollections = useMemo(
+    () => getFestivalCollections(activeFestivalId),
+    [activeFestivalId]
+  )
+  const dashboardCollectionsSummary = useMemo(
+    () => getDashboardCollectionsSummary(festivalCollections, collectedIds),
+    [festivalCollections, collectedIds]
+  )
   const dashboardRecentDiscovery =
     lastClaimedDiscovery?.festivalId === activeFestivalId
       ? lastClaimedDiscovery
@@ -2049,12 +2060,9 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 totalCount={allStamps.length}
                 collectionPercent={collectionPercent}
                 collectionsCompleted={
-                  unlockedCompletionRewards.length +
-                  unlockedArtistCollections.length
+                  dashboardCollectionsSummary.completed
                 }
-                collectionsTotal={
-                  completionRewards.length + artistCollections.length
-                }
+                collectionsTotal={dashboardCollectionsSummary.total}
                 recentDiscovery={dashboardRecentDiscovery}
                 festivalName={
                   activeFestivalDisplay?.brandName ||
@@ -2083,7 +2091,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 }}
                 onOpenCollections={() => {
                   setBookOpen(true)
-                  setPageIndex(1)
+                  setPageIndex(13)
                 }}
                 onOpenMemories={() => {
                   setBookOpen(true)
@@ -2860,7 +2868,16 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 />
               )}
 
-              {pageIndex === 13 && isAdmin && (
+              {pageIndex === 13 && (
+                <FestivalCollections
+                  festivalName={activeFestivalDisplay?.brandName}
+                  collections={festivalCollections}
+                  discoveries={allStamps}
+                  collectedIds={collectedIds}
+                />
+              )}
+
+              {pageIndex === 14 && isAdmin && (
                 <AdminPage
                   styles={styles}
                   stamps={allStamps}

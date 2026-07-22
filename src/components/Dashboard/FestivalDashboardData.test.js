@@ -1,7 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { getExplorerRank } from './FestivalDashboardData.js'
+import { getFestivalCollections } from '../../collections/CollectionEngine.js'
+import {
+  getDashboardCollectionsSummary,
+  getExplorerRank,
+} from './FestivalDashboardData.js'
 
 test('explorer rank is calculated only from collected discovery count', () => {
   assert.equal(getExplorerRank(0).name, 'Explorer I')
@@ -26,4 +30,21 @@ test('explorer rank exposes progress toward the next count threshold', () => {
     nextAt: null,
     progress: 100,
   })
+})
+
+test('dashboard collection count is derived from festival collections', () => {
+  assert.deepEqual(
+    getDashboardCollectionsSummary(
+      getFestivalCollections('lost-lands-2026'),
+      ['lost-lands-thursday-pre-party']
+    ),
+    { completed: 1, total: 6 }
+  )
+  assert.deepEqual(
+    getDashboardCollectionsSummary(
+      getFestivalCollections('edc-las-vegas-2026'),
+      ['lost-lands-thursday-pre-party']
+    ),
+    { completed: 0, total: 0 }
+  )
 })
