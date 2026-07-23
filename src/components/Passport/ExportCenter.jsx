@@ -11,7 +11,7 @@ export default function ExportCenter({
 }) {
   return (
     <>
-      <p style={styles.pageNumber}>Passport Page 13</p>
+      <p style={styles.pageNumber}>EXPORT</p>
       <h2 style={styles.bookTitle}>Passport Export Center</h2>
       <p style={styles.bookText}>
         Download, print, or save your EDM Passport identity. These exports use your rave name and country passport cover.

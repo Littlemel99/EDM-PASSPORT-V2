@@ -87,10 +87,34 @@ import ProfilePage from './components/Profile/ProfilePage'
 import FestivalDashboard from './components/Dashboard/FestivalDashboard'
 import { getDashboardCollectionsSummary } from './components/Dashboard/FestivalDashboardData.js'
 import FestivalCollections from './components/Collections/FestivalCollections.jsx'
+import { DiscoveryCardGrid, FestivalAchievementShowcase, getAchievementProgress } from './components/DiscoveryCards/index.js'
 import RewardCelebration from './components/Dashboard/RewardCelebration'
 import RewardsShowcase from './components/Rewards/RewardsShowcase'
 import ArtistCollections from './components/Artists/ArtistCollections'
 import ExportCenter from './components/Passport/ExportCenter'
+import FestivalEditionPage from './components/Passport/FestivalEditionPage.jsx'
+import PassportCoverPage from './components/Passport/PassportCoverPage.jsx'
+import PassportJourneyPage from './components/Passport/PassportJourneyPage.jsx'
+import PassportMemoriesPage from './components/Passport/PassportMemoriesPage.jsx'
+import PassportNavigation from './components/Passport/PassportNavigation.jsx'
+import PassportProfileEditor from './components/Passport/PassportProfileEditor.jsx'
+import {
+  cancelPassportEditor,
+  completePassportEditor,
+  createPassportEditorSession,
+  getOpenPassportIntent,
+  getPassportEditorDestination,
+  getPassportPresentationMode,
+  updatePassportEditorDraft,
+} from './components/Passport/passportEntry.js'
+import {
+  DASHBOARD_PASSPORT_TARGETS,
+  PASSPORT_SECTION_PAGE_INDEX,
+  getAdjacentPassportSection,
+  getPassportSectionById,
+  getPassportSectionByPageIndex,
+  getVisiblePassportSections,
+} from './components/Passport/passportSections.js'
 import {
   getClaimIdFromUrl,
   savePendingClaim,
@@ -118,7 +142,9 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [country, setCountry] = useState(localStorage.getItem('edm-country') || '')
   const [raveName, setRaveName] = useState(localStorage.getItem('edm-rave-name') || '')
-  const [showProfileEditor, setShowProfileEditor] = useState(false)
+  const [passportEditorSession, setPassportEditorSession] = useState(null)
+  const isEditingPassport = Boolean(passportEditorSession)
+  const [profileSaveConfirmation, setProfileSaveConfirmation] = useState('')
   const {
     profile,
     setProfile,
@@ -172,6 +198,10 @@ export default function App() {
     selectedStamp,
     setSelectedStamp,
   } = usePassport()
+  const passportPresentationMode = getPassportPresentationMode({
+    isEditingPassport,
+    bookOpen,
+  })
 
   const [touchStartX, setTouchStartX] = useState(0)
   const [touchEndX, setTouchEndX] = useState(0)
@@ -265,7 +295,14 @@ export default function App() {
   const festivalPersistenceRequestIdRef = useRef(0)
 
   const isAdmin = user?.email === ADMIN_EMAIL
-  const maxPage = isAdmin ? 14 : 13
+  const visiblePassportSections = useMemo(
+    () => getVisiblePassportSections(isAdmin),
+    [isAdmin]
+  )
+  const activePassportSection = getPassportSectionByPageIndex(
+    visiblePassportSections,
+    pageIndex
+  )
   const allStamps = useMemo(() => {
     const masterDiscoveries = getFestivalDiscoveries()
     const festivalProfile = getFestivalProfile(
@@ -452,6 +489,21 @@ export default function App() {
     }
     return true
   })
+  const festivalAchievements = allStamps.filter(
+    (stamp) => stamp.claimable === false || stamp.sourceType === 'derived-achievement'
+  )
+  const festivalClaimableDiscoveries = allStamps.filter(
+    (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
+  )
+  const passportDiscoveries = filteredCollectionStamps.filter(
+    (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
+  )
+  const primaryFestivalAchievement = festivalAchievements[0] || null
+  const festivalAchievementProgress = getAchievementProgress(
+    primaryFestivalAchievement,
+    allStamps,
+    collectedIds
+  )
   const stats = getStats(collectedStamps, allStamps.length)
   const achievements = getAchievements(collectedStamps)
   const activeFamily = families.find((family) => family.id === activeFamilyId) || families[0] || null
@@ -1126,12 +1178,55 @@ export default function App() {
     )
   }
 
-  async function handleSaveRaveProfile() {
-    await saveCurrentProfile({
-      user,
-      raveName,
+  function beginPassportProfileEdit({ afterSaveSectionId = null } = {}) {
+    setProfileMessage('')
+    setProfileSaveConfirmation('')
+    setPassportEditorSession(createPassportEditorSession({
       country,
+      raveName,
+      bookOpen,
+      pageIndex,
+      afterSaveSectionId,
+    }))
+  }
+
+  function cancelPassportProfileEdit() {
+    if (!passportEditorSession) return
+    cancelPassportEditor(passportEditorSession)
+    const destination = getPassportEditorDestination(passportEditorSession, false)
+    setPassportEditorSession(null)
+    setBookOpen(destination.bookOpen)
+    if (destination.pageIndex !== null) setPageIndex(destination.pageIndex)
+  }
+
+  function openDashboardPassport() {
+    const intent = getOpenPassportIntent({ country, raveName })
+    if (intent === 'setup') {
+      beginPassportProfileEdit({ afterSaveSectionId: 'journey' })
+      return
+    }
+    setBookOpen(true)
+    openPassportSection('journey')
+  }
+
+  async function savePassportProfileEdit() {
+    if (!passportEditorSession) return
+    const { values } = completePassportEditor(passportEditorSession)
+    const savedProfile = await saveCurrentProfile({
+      user,
+      raveName: values.raveName,
+      country: values.country,
     })
+    if (!savedProfile) return
+
+    setCountry(values.country)
+    setRaveName(values.raveName.trim())
+    const destination = getPassportEditorDestination(passportEditorSession, true)
+    setPassportEditorSession(null)
+    setProfileSaveConfirmation('Passport profile saved.')
+    setBookOpen(destination.bookOpen)
+    if (destination.sectionId) openPassportSection(destination.sectionId)
+    else if (destination.pageIndex !== null) setPageIndex(destination.pageIndex)
   }
 
   async function signInWithGoogle() {
@@ -1282,7 +1377,8 @@ export default function App() {
   function viewCelebratedDiscovery(discovery) {
     setRewardCelebrations([])
     setBookOpen(true)
-    chooseStamp(discovery)
+    if (discovery?.id) setActiveId(discovery.id)
+    openPassportSection(DASHBOARD_PASSPORT_TARGETS.rewardDiscovery)
   }
 
   function repeatLastClaim(discovery) {
@@ -1400,11 +1496,11 @@ export default function App() {
   }
 
   function jumpToStampCollection() {
-    setPageIndex(1)
+    openPassportSection('discoveries')
   }
 
   function jumpToMemories() {
-    setPageIndex(10)
+    openPassportSection('memories')
   }
 
   async function handleSaveMemory() {
@@ -1924,14 +2020,32 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
   }
 
   function nextPage() {
-    setPageIndex((current) => Math.min(current + 1, maxPage))
+    if (!activePassportSection) return
+    const next = getAdjacentPassportSection(
+      visiblePassportSections,
+      activePassportSection.id,
+      'next'
+    )
+    if (next) setPageIndex(next.pageIndex)
   }
 
   function previousPage() {
-    setPageIndex((current) => Math.max(current - 1, 0))
+    if (!activePassportSection) return
+    const previous = getAdjacentPassportSection(
+      visiblePassportSections,
+      activePassportSection.id,
+      'previous'
+    )
+    if (previous) setPageIndex(previous.pageIndex)
+  }
+
+  function openPassportSection(sectionId) {
+    const section = getPassportSectionById(visiblePassportSections, sectionId)
+    if (section) setPageIndex(section.pageIndex)
   }
 
   function selectFestival(festivalId) {
+    const destinationSectionId = activePassportSection?.id || 'journey'
     setSelectedFestivalId(festivalId)
     setAdminFestivalId(festivalId)
     refreshFestivalPersistenceData(festivalId)
@@ -1939,7 +2053,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
     if (publicProfileId) {
       loadPublicPassportProfile(publicProfileId, festivalId)
     }
-    setPageIndex(1)
+    openPassportSection(destinationSectionId)
   }
 
   function backToFestivals() {
@@ -2026,7 +2140,19 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
   return (
     <main style={styles.screen}>
       <section style={styles.card}>
-        {!bookOpen ? (
+        {passportPresentationMode === 'editor' ? (
+          <PassportProfileEditor
+            session={passportEditorSession}
+            countries={countries}
+            saving={profileSaving}
+            message={profileMessage}
+            onChange={(changes) => setPassportEditorSession((current) =>
+              updatePassportEditorDraft(current, changes)
+            )}
+            onSave={savePassportProfileEdit}
+            onCancel={cancelPassportProfileEdit}
+          />
+        ) : passportPresentationMode === 'dashboard' ? (
           <>
             {!user ? (
               <>
@@ -2085,17 +2211,18 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     : null
                 }
                 onRepeatPreviousDiscovery={repeatPreviousDiscovery}
-                onOpenPassport={() => {
-                  setBookOpen(true)
-                  setPageIndex(9)
-                }}
+                onOpenPassport={openDashboardPassport}
                 onOpenCollections={() => {
                   setBookOpen(true)
-                  setPageIndex(13)
+                  openPassportSection(DASHBOARD_PASSPORT_TARGETS.collections)
                 }}
                 onOpenMemories={() => {
                   setBookOpen(true)
-                  setPageIndex(10)
+                  openPassportSection(DASHBOARD_PASSPORT_TARGETS.memories)
+                }}
+                onOpenRecentDiscovery={() => {
+                  setBookOpen(true)
+                  openPassportSection(DASHBOARD_PASSPORT_TARGETS.recentDiscovery)
                 }}
                 onOpenDiscovery={(discovery) => {
                   if (!discovery) return
@@ -2105,15 +2232,13 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   setBookOpen(true)
                   setPageIndex(2)
                 }}
-                onEditPassport={() => {
-                  setShowProfileEditor((current) => !current)
-                }}
+                onEditPassport={() => beginPassportProfileEdit()}
                 onSignOut={signOut}
                 missionReady={Boolean(profile)}
               />
             )}
 
-            {(!user || showProfileEditor) && (
+            {!user && (
               <div style={styles.profileEditorPanel}>
             <button
               style={styles.passportButton}
@@ -2134,7 +2259,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 }
 
                 setBookOpen(true)
-                setPageIndex(0)
+                openPassportSection('cover')
               }}
             >
               {country ? (
@@ -2160,18 +2285,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               placeholder="Choose your rave name"
             />
 
-            {!user ? (
-              <button style={styles.mainButton} onClick={signInWithGoogle}>LOGIN WITH GOOGLE</button>
-            ) : (
-              <div style={styles.loginBox}>
-                <p>Rave Profile</p>
-                <strong>{displayName}</strong>
-                <button style={styles.mainButton} onClick={handleSaveRaveProfile} disabled={profileSaving}>
-                  {profileSaving ? 'SAVING...' : 'SAVE RAVE PROFILE'}
-                </button>
-
-              </div>
-            )}
+            <button style={styles.mainButton} onClick={signInWithGoogle}>LOGIN WITH GOOGLE</button>
 
             {profileMessage && <p style={styles.successText}>{profileMessage}</p>}
 
@@ -2194,26 +2308,22 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 }
 
                 setBookOpen(true)
-                setPageIndex(0)
+                openPassportSection('cover')
               }}
             >
               OPEN PASSPORT
             </button>
 
-                {user && (
-                  <button
-                    type="button"
-                    style={styles.secondaryButton}
-                    onClick={() => setShowProfileEditor(false)}
-                  >
-                    DONE EDITING
-                  </button>
-                )}
               </div>
             )}
 
           </>        ) : (
           <>
+            <PassportNavigation
+              sections={visiblePassportSections}
+              activeSectionId={activePassportSection?.id}
+              onSelect={(section) => setPageIndex(section.pageIndex)}
+            />
             <div
               style={styles.bookPage}
               onTouchStart={handleTouchStart}
@@ -2317,31 +2427,8 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
               {pageIndex === 1 && (
                 <>
-                  <p style={styles.pageNumber}>Passport Page 2</p>
-                  <h2 style={styles.bookTitle}>
-                    {activeFestivalDisplay?.brandName || 'Festival'}
-                  </h2>
-                  {activeFestivalDisplay?.year && (
-                    <p style={styles.bookText}>{activeFestivalDisplay.year}</p>
-                  )}
-                  {activeFestivalDisplay?.themeName && (
-                    <p style={styles.bookText}>
-                      {activeFestivalDisplay.themeName}
-                    </p>
-                  )}
-                  {activeFestivalDisplay?.location && (
-                    <p style={styles.bookText}>
-                      {activeFestivalDisplay.location}
-                    </p>
-                  )}
-                  {activeFestivalDisplay?.startDate && (
-                    <p style={styles.bookText}>
-                      {formatFestivalDates(
-                        activeFestivalDisplay.startDate,
-                        activeFestivalDisplay.endDate
-                      )}
-                    </p>
-                  )}
+                  <p style={styles.pageNumber}>DISCOVERIES</p>
+                  <h2 style={styles.bookTitle}>Discovery Album</h2>
 
                   <div style={styles.progressCard}>
                     <strong>Collection Progress</strong>
@@ -2366,18 +2453,6 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     ))}
                   </div>
 
-                  <RewardsShowcase
-                    styles={styles}
-                    completionRewards={completionRewards}
-                    unlockedCompletionRewards={unlockedCompletionRewards}
-                  />
-
-                  <ArtistCollections
-                    styles={styles}
-                    artistCollections={artistCollections}
-                    unlockedArtistCollections={unlockedArtistCollections}
-                  />
-
                   <div style={styles.filterRow}>
                     {[
                       ['all', 'ALL'],
@@ -2397,33 +2472,16 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                     ))}
                   </div>
 
-                  <div style={styles.collectionGrid}>
-                    {filteredCollectionStamps.map((stamp) => {
-                      const collected = collectedIds.includes(stamp.id)
-                      const live = activeDrops.includes(stamp.id)
-                      const memoryCount = memories.filter((memory) => memory.stamp_id === stamp.id).length
-                      const hidden = isHiddenStamp(stamp) && !collected && !live
-                      const rarity = getStampRarity(stamp)
-                      const cardStyle = hidden
-                        ? styles.hiddenPreviewCard
-                        : { ...styles.previewCard, ...(styles.rarityBorders[rarity] || styles.rarityBorders.common) }
-
-                      return (
-                        <button key={stamp.id} style={cardStyle} onClick={() => chooseStamp(stamp)}>
-                          <span style={{ ...styles.rarityBadge, ...(styles.rarityBadges[rarity] || styles.rarityBadges.common) }}>
-                            {rarityLabels[rarity] || rarity.toUpperCase()}
-                          </span>
-                          <div style={hidden ? styles.hiddenStampSilhouette : styles.previewThumbWrap}>
-                            {hidden ? '???' : <Stamp stamp={stamp} collected={collected || live} />}
-                          </div>
-                          <strong>{hidden ? '??? Hidden Stamp' : collected ? stamp.name : live ? stamp.name : '??? Mystery Stamp'}</strong>
-                          <small>{collected ? 'COLLECTED' : live ? 'LIVE NOW' : hidden ? 'HIDDEN' : 'LOCKED'}</small>
-                          <small>{collected ? `${memoryCount} memories` : live ? 'Available now' : hidden ? `Hint: ${stamp.location || 'Explore the festival'}` : `Hint: ${stamp.location || 'Find this at the festival'}`}</small>
-                          <span style={styles.previewAction}>{collected || live ? 'VIEW' : hidden ? 'HINT' : 'DETAILS'}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <DiscoveryCardGrid
+                    discoveries={passportDiscoveries}
+                    collectedIds={collectedIds}
+                    onOpen={chooseStamp}
+                  />
+                  <FestivalAchievementShowcase
+                    achievements={festivalAchievements}
+                    discoveries={allStamps}
+                    collectedIds={collectedIds}
+                  />
                 </>
               )}
 
@@ -2588,6 +2646,18 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       </div>
                     ))}
                   </div>
+
+                  <RewardsShowcase
+                    styles={styles}
+                    completionRewards={completionRewards}
+                    unlockedCompletionRewards={unlockedCompletionRewards}
+                  />
+
+                  <ArtistCollections
+                    styles={styles}
+                    artistCollections={artistCollections}
+                    unlockedArtistCollections={unlockedArtistCollections}
+                  />
                 </>
               )}
 
@@ -2958,19 +3028,78 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   handleCreateAdminStamp={handleCreateAdminStamp}
                 />
               )}
+
+              {pageIndex === PASSPORT_SECTION_PAGE_INDEX.cover && (
+                <PassportCoverPage
+                  displayName={displayName}
+                  country={country}
+                  festivalName={activeFestivalDisplay?.brandName}
+                  year={activeFestivalDisplay?.year}
+                  passportImage={country ? getPassportImage(country) : null}
+                />
+              )}
+
+              {pageIndex === PASSPORT_SECTION_PAGE_INDEX.journey && (
+                <PassportJourneyPage
+                  festivalName={activeFestivalDisplay?.brandName}
+                  editionName={activeFestivalDisplay?.editionName}
+                  collectedCount={collectedStamps.length}
+                  totalCount={festivalClaimableDiscoveries.length}
+                  collectionPercent={collectionPercent}
+                  collectionsCompleted={dashboardCollectionsSummary.completed}
+                  collectionsTotal={dashboardCollectionsSummary.total}
+                  achievementProgress={festivalAchievementProgress}
+                  crewName={activeFamily?.name}
+                  recentDiscovery={dashboardRecentDiscovery}
+                />
+              )}
+
+              {pageIndex === PASSPORT_SECTION_PAGE_INDEX.memories && (
+                <PassportMemoriesPage
+                  memories={memories}
+                  discoveries={allStamps}
+                  activeDiscovery={activeStamp}
+                  note={memoryNote}
+                  onNoteChange={setMemoryNote}
+                  photoFile={memoryPhotoFile}
+                  onPhotoChange={setMemoryPhotoFile}
+                  onSave={handleSaveMemory}
+                  saving={memorySaving}
+                  message={memoryMessage}
+                  onPreview={setMemoryPreviewId}
+                  onCopyShare={copyMemoryCardShareText}
+                  previewId={memoryPreviewId}
+                  onClosePreview={() => setMemoryPreviewId('')}
+                  onDownload={downloadMemoryCardPage}
+                />
+              )}
+
+              {pageIndex === PASSPORT_SECTION_PAGE_INDEX.festival && (
+                <FestivalEditionPage
+                  display={activeFestivalDisplay}
+                  profile={activeFestivalProfile}
+                />
+              )}
             </div>
 
-            <div style={styles.pageControls}>
-              <button style={styles.secondaryButton} onClick={previousPage} disabled={pageIndex === 0}>← Previous</button>
-              <p style={styles.pageCounter}>{pageIndex + 1} / {maxPage + 1}</p>
-              <button style={styles.secondaryButton} onClick={nextPage} disabled={pageIndex === maxPage}>Next →</button>
-            </div>
+            {activePassportSection && (
+              <div style={styles.pageControls}>
+                <button style={styles.secondaryButton} onClick={previousPage} disabled={activePassportSection.id === visiblePassportSections[0].id}>← Previous</button>
+                <p style={styles.pageCounter}>{activePassportSection.label}</p>
+                <button style={styles.secondaryButton} onClick={nextPage} disabled={activePassportSection.id === visiblePassportSections.at(-1).id}>Next →</button>
+              </div>
+            )}
 
             <button style={styles.secondaryButton} onClick={() => setBookOpen(false)}>CLOSE PASSPORT</button>
+            <button style={styles.secondaryButton} onClick={() => beginPassportProfileEdit()}>EDIT PASSPORT PROFILE</button>
             {pageIndex !== 0 && <button style={styles.secondaryButton} onClick={backToFestivals}>← BACK TO FESTIVAL DIRECTORY</button>}
           </>
         )}
       </section>
+
+      {profileSaveConfirmation && !isEditingPassport && (
+        <p role="status" style={styles.profileSaveToast}>{profileSaveConfirmation}</p>
+      )}
 
       {selectedStamp && <StampModal stamp={selectedStamp} onClose={() => setSelectedStamp(null)} />}
       {rewardCelebrations[0] && (
@@ -2987,6 +3116,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 }
 
 const styles = {
+  profileSaveToast: { position: 'fixed', right: 18, bottom: 18, zIndex: 90, margin: 0, padding: '11px 15px', borderRadius: 12, color: '#171109', background: '#f1bd63', boxShadow: '0 12px 30px rgba(0,0,0,.35)', fontSize: 12, fontWeight: 900 },
   profileEditorPanel: {
     width: '100%',
     boxSizing: 'border-box',

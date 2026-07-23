@@ -20,7 +20,7 @@ export default function FestivalCollections({
   if (selectedCollection) {
     return (
       <>
-        <p style={styles.pageNumber}>Passport Page 14</p>
+        <p style={styles.pageNumber}>COLLECTIONS</p>
         <CollectionDetail
           collection={selectedCollection}
           discoveries={discoveries}
@@ -34,7 +34,7 @@ export default function FestivalCollections({
   if (!collections.length) {
     return (
       <>
-        <p style={styles.pageNumber}>Passport Page 14</p>
+        <p style={styles.pageNumber}>COLLECTIONS</p>
         <section style={styles.emptyState}>
           <span style={styles.eyebrow}>COLLECTIONS</span>
           <h2 style={styles.emptyTitle}>{festivalName || 'Festival Edition'}</h2>
@@ -53,7 +53,7 @@ export default function FestivalCollections({
 
   return (
     <>
-      <p style={styles.pageNumber}>Passport Page 14</p>
+      <p style={styles.pageNumber}>COLLECTIONS</p>
       <section style={styles.screen}>
         <header style={styles.hero}>
         <span style={styles.eyebrow}>COLLECTIBLE ALBUM</span>

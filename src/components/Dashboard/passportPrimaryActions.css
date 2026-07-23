@@ -1,0 +1,5 @@
+.passport-primary-actions { width: 100%; display: grid; gap: 7px; }
+.passport-primary-actions__open { width: 100%; min-height: 58px; padding: 15px 20px; border: 1px solid #f1bd63; border-radius: 16px; color: #171109; background: linear-gradient(135deg,#f1bd63,#d79b3d); box-shadow: 0 15px 32px rgba(215,155,61,.25); font: inherit; font-size: 14px; font-weight: 950; letter-spacing: .12em; cursor: pointer; }
+.passport-primary-actions__edit { justify-self: center; min-height: 38px; padding: 8px 12px; border: 0; color: rgba(239,255,246,.65); background: transparent; font: inherit; font-size: 9px; font-weight: 900; letter-spacing: .11em; cursor: pointer; }
+.passport-primary-actions__open:focus-visible,.passport-primary-actions__edit:focus-visible { outline: 3px solid #78ffd6; outline-offset: 3px; }
+@media (max-width: 520px) { .passport-primary-actions__open { min-height: 60px; } }

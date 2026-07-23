@@ -2,6 +2,7 @@ import FestivalMissionCard from './FestivalMissionCard.jsx'
 import DiscoveryRadar from './DiscoveryRadar.jsx'
 import JourneyActionCard from './JourneyActionCard.jsx'
 import RecentDiscoveryCard from './RecentDiscoveryCard.jsx'
+import PassportPrimaryActions from './PassportPrimaryActions.jsx'
 import { getExplorerRank } from './FestivalDashboardData.js'
 import { formatFestivalDates } from '../../festivals/index.js'
 
@@ -29,6 +30,7 @@ export default function FestivalDashboard({
   onOpenPassport,
   onOpenCollections,
   onOpenMemories,
+  onOpenRecentDiscovery,
   onOpenDiscovery,
   onEditPassport,
   onSignOut,
@@ -100,6 +102,11 @@ export default function FestivalDashboard({
         </div>
       </section>
 
+      <PassportPrimaryActions
+        onOpenPassport={onOpenPassport}
+        onEditPassport={onEditPassport}
+      />
+
       <section style={styles.section}>
         <SectionHeading
           eyebrow="YOUR JOURNEY"
@@ -111,11 +118,6 @@ export default function FestivalDashboard({
             subtitle="Find your next discovery."
             onClick={() => onOpenDiscovery?.(nextDiscovery)}
             disabled={!nextDiscovery || discoveryLoading}
-          />
-          <JourneyActionCard
-            title="My Passport"
-            subtitle="View discoveries and memories."
-            onClick={onOpenPassport}
           />
           <JourneyActionCard
             title="Collections"
@@ -135,7 +137,7 @@ export default function FestivalDashboard({
           eyebrow="RECENT DISCOVERY"
           title="The latest chapter in your journey."
         />
-        <RecentDiscoveryCard discovery={recentDiscovery} />
+        <RecentDiscoveryCard discovery={recentDiscovery} onOpen={onOpenRecentDiscovery} />
       </section>
 
       <section style={styles.detailGrid}>
@@ -194,13 +196,6 @@ export default function FestivalDashboard({
       />
 
       <div style={styles.accountActions}>
-        <button
-          type="button"
-          style={styles.secondaryButton}
-          onClick={onEditPassport}
-        >
-          EDIT PASSPORT
-        </button>
         <button
           type="button"
           style={styles.quietButton}
@@ -456,19 +451,9 @@ const styles = {
     cursor: 'pointer',
   },
   accountActions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 10,
+    display: 'flex',
+    justifyContent: 'flex-end',
     marginTop: 22,
-  },
-  secondaryButton: {
-    padding: '12px 14px',
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.15)',
-    color: '#f4fff8',
-    background: 'rgba(255,255,255,0.05)',
-    fontWeight: 800,
-    cursor: 'pointer',
   },
   quietButton: {
     padding: '12px 14px',
