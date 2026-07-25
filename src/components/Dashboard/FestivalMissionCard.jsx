@@ -10,6 +10,7 @@ import { resolveFestivalId } from '../../services/festivalPersistence.js'
 export default function FestivalMissionCard({
   collectedCount,
   festivalId,
+  userId,
   ready = false,
 }) {
   const [mission, setMission] = useState(null)
@@ -20,7 +21,7 @@ export default function FestivalMissionCard({
     if (!ready) return
 
     const today = getTodayKey()
-    const storedMission = loadStoredMission(festivalId)
+    const storedMission = loadStoredMission(festivalId, localStorage, userId)
 
     if (storedMission?.date === today) {
       setMission(storedMission)
@@ -36,8 +37,8 @@ export default function FestivalMissionCard({
       badge: null,
     }
 
-    setMission(saveStoredMission(newMission, festivalId))
-  }, [ready, collectedCount, festivalId])
+    setMission(saveStoredMission(newMission, festivalId, localStorage, userId))
+  }, [ready, collectedCount, festivalId, userId])
 
   const progress = useMemo(() => {
     if (!mission || !missionMatchesFestival) return 0
@@ -63,8 +64,8 @@ export default function FestivalMissionCard({
       badge: 'Daily Explorer',
     }
 
-    setMission(saveStoredMission(completedMission, festivalId))
-  }, [festivalId, mission, missionMatchesFestival, progress])
+    setMission(saveStoredMission(completedMission, festivalId, localStorage, userId))
+  }, [festivalId, mission, missionMatchesFestival, progress, userId])
 
   if (!ready || !mission || !missionMatchesFestival) {
     return (

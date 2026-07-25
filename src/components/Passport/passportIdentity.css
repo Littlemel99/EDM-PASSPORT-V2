@@ -1,0 +1,7 @@
+.passport-identity { width:100%; min-width:0; box-sizing:border-box; overflow:hidden; color:#f7f3e8; }
+.passport-identity__texture { position:absolute; inset:0; pointer-events:none; }
+.passport-identity__seal { width:82px; aspect-ratio:1; display:grid; place-items:center; border:1px solid currentColor; border-radius:50%; box-shadow:inset 0 0 0 7px rgba(255,255,255,.025),0 0 24px currentColor; opacity:.82; }
+.passport-identity__seal::before { content:''; width:42%; aspect-ratio:1; border:2px solid currentColor; transform:rotate(45deg); }
+.passport-identity__progress-fill { transition:width 220ms ease; }
+@media (max-width:420px) { .passport-identity__cover-grid,.passport-identity__identity-grid { grid-template-columns:1fr !important; } .passport-identity__seal { width:68px; } }
+@media (prefers-reduced-motion:reduce) { .passport-identity__progress-fill { transition:none; } }

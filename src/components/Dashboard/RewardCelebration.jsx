@@ -1,9 +1,15 @@
+import { FestivalContextBar } from '../Festival/index.js'
+
 export default function RewardCelebration({
   result,
   developerMode = false,
   onContinue,
   onRepeatLastClaim,
   onViewInPassport,
+  activeFestival,
+  activeFestivalProfile,
+  activeFestivalBrand,
+  activeFestivalDisplay,
 }) {
   if (!result?.discovery) return null
 
@@ -18,6 +24,12 @@ export default function RewardCelebration({
       style={styles.overlay}
     >
       <section style={styles.card}>
+        <FestivalContextBar
+          activeFestival={activeFestival}
+          activeFestivalProfile={activeFestivalProfile}
+          activeFestivalBrand={activeFestivalBrand}
+          activeFestivalDisplay={activeFestivalDisplay}
+        />
         <span style={styles.eyebrow}>DISCOVERY VERIFIED</span>
 
         <div style={styles.imageWrap}>
@@ -137,6 +149,7 @@ const styles = {
 
   eyebrow: {
     display: 'inline-block',
+    marginTop: 14,
     padding: '7px 11px',
     borderRadius: 999,
     color: '#110b00',

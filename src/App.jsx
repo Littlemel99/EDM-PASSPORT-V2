@@ -99,6 +99,10 @@ import PassportMemoriesPage from './components/Passport/PassportMemoriesPage.jsx
 import PassportNavigation from './components/Passport/PassportNavigation.jsx'
 import PassportProfileEditor from './components/Passport/PassportProfileEditor.jsx'
 import {
+  FestivalContextBar,
+  isDiscoveryOwnedByFestival,
+} from './components/Festival/index.js'
+import {
   cancelPassportEditor,
   completePassportEditor,
   createPassportEditorSession,
@@ -124,6 +128,11 @@ import {
 } from './services/claimService'
 import { getDailyMissionClaimProgress } from './adventure/DailyMission'
 import { getFestivalCollections } from './collections/index.js'
+import {
+  createAccountRequestGuard,
+  readUserStorage,
+  writeUserStorage,
+} from './auth/accountIsolation.js'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
 const ADMIN_EMAIL = 'fdruth@gmail.com'
 
@@ -140,14 +149,14 @@ function getFestivalYear(festival) {
 
 export default function App() {
   const [user, setUser] = useState(null)
-  const [country, setCountry] = useState(localStorage.getItem('edm-country') || '')
-  const [raveName, setRaveName] = useState(localStorage.getItem('edm-rave-name') || '')
+  const [authLoading, setAuthLoading] = useState(true)
+  const [country, setCountry] = useState('')
+  const [raveName, setRaveName] = useState('')
   const [passportEditorSession, setPassportEditorSession] = useState(null)
   const isEditingPassport = Boolean(passportEditorSession)
   const [profileSaveConfirmation, setProfileSaveConfirmation] = useState('')
   const {
     profile,
-    setProfile,
     profileMessage,
     setProfileMessage,
     profileSaving,
@@ -169,11 +178,13 @@ export default function App() {
     publicJoinLoading,
     setPublicJoinLoading,
     saveCurrentProfile,
+    beginPrivateProfileSession,
+    publishPrivateProfile,
     loadPublicPassportProfile,
     closePublicProfile,
   } = useProfile()
-  const [selectedFestivalId, setSelectedFestivalId] = useState(localStorage.getItem('edm-selected-festival') || '')
-  const [adminFestivalId, setAdminFestivalId] = useState(localStorage.getItem('edm-admin-festival') || localStorage.getItem('edm-selected-festival') || 'edc-las-vegas-2026')
+  const [selectedFestivalId, setSelectedFestivalId] = useState('')
+  const [adminFestivalId, setAdminFestivalId] = useState('edc-las-vegas-2026')
   const [managedFestivals, setManagedFestivals] = useState(() =>
     mergeFestivalCatalog([], fallbackFestivals)
   )
@@ -293,6 +304,7 @@ export default function App() {
   const gpsDropsRequestIdRef = useRef(0)
   const festivalDiscoveryRequestIdRef = useRef(0)
   const festivalPersistenceRequestIdRef = useRef(0)
+  const accountRequestGuardRef = useRef(createAccountRequestGuard())
 
   const isAdmin = user?.email === ADMIN_EMAIL
   const visiblePassportSections = useMemo(
@@ -495,6 +507,9 @@ export default function App() {
   const festivalClaimableDiscoveries = allStamps.filter(
     (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
   )
+  const collectedClaimableDiscoveries = festivalClaimableDiscoveries.filter(
+    (stamp) => collectedIds.includes(stamp.id)
+  )
   const passportDiscoveries = filteredCollectionStamps.filter(
     (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
   )
@@ -532,6 +547,19 @@ export default function App() {
     profile: activeFestivalProfile,
     brand: activeFestivalBrand,
   })
+  const celebratedFestivalId =
+    rewardCelebrations[0]?.discovery?.festivalId || activeFestivalId
+  const celebratedFestival = managedFestivals.find(
+    (festival) => festival.id === celebratedFestivalId
+  ) || null
+  const celebratedFestivalProfile = getFestivalProfile(celebratedFestivalId)
+  const celebratedFestivalBrand =
+    getFestivalBrandForEdition(celebratedFestivalId)
+  const celebratedFestivalDisplay = getFestivalEditionDisplayMetadata({
+    edition: celebratedFestival,
+    profile: celebratedFestivalProfile,
+    brand: celebratedFestivalBrand,
+  })
   const adminFestival = managedFestivals.find((festival) => festival.id === adminFestivalId) || null
   const adminDropFestivalId = adminFestival?.id || adminFestivalId || activeFestivalId
   const nextDiscovery = festivalDiscoveryLoading
@@ -560,20 +588,24 @@ export default function App() {
   }
 
   useEffect(() => {
-    localStorage.setItem('edm-country', country)
-  }, [country])
+    if (!user?.id || !selectedFestivalId) return
+    writeUserStorage(
+      localStorage,
+      'selected-festival',
+      user.id,
+      selectedFestivalId
+    )
+  }, [selectedFestivalId, user?.id])
 
   useEffect(() => {
-    localStorage.setItem('edm-rave-name', raveName)
-  }, [raveName])
-
-  useEffect(() => {
-    localStorage.setItem('edm-selected-festival', selectedFestivalId)
-  }, [selectedFestivalId])
-
-  useEffect(() => {
-    localStorage.setItem('edm-admin-festival', adminFestivalId)
-  }, [adminFestivalId])
+    if (!user?.id || !adminFestivalId) return
+    writeUserStorage(
+      localStorage,
+      'admin-festival',
+      user.id,
+      adminFestivalId
+    )
+  }, [adminFestivalId, user?.id])
 
   useEffect(() => {
     localStorage.setItem('edm-auto-collect', autoCollectEnabled ? 'true' : 'false')
@@ -624,16 +656,17 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      const currentUser = data.session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) await refreshUserData(currentUser)
+    localStorage.removeItem('edm-country')
+    localStorage.removeItem('edm-rave-name')
+    localStorage.removeItem('edm-selected-festival')
+    localStorage.removeItem('edm-admin-festival')
+
+    supabase.auth.getSession().then(({ data }) => {
+      handleAuthenticatedUser(data.session?.user ?? null, 'initial-session')
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) await refreshUserData(currentUser)
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      handleAuthenticatedUser(session?.user ?? null, event)
     })
 
     return () => listener.subscription.unsubscribe()
@@ -832,9 +865,94 @@ export default function App() {
     }
   }
 
+  function clearAuthenticatedUserState(nextFestivalId = '') {
+    festivalPersistenceRequestIdRef.current += 1
+    liveDropsRequestIdRef.current += 1
+    gpsDropsRequestIdRef.current += 1
+    festivalDiscoveryRequestIdRef.current += 1
+
+    setCountry('')
+    setRaveName('')
+    setPassportEditorSession(null)
+    setProfileSaveConfirmation('')
+    setCollectedIds(getDefaultCollectedIds(nextFestivalId))
+    collectedIdsRef.current = getDefaultCollectedIds(nextFestivalId)
+    setMemories([])
+    setMemoryNote('')
+    setMemoryPhotoFile(null)
+    setMemoryMessage('')
+    setMemoryPreviewId('')
+    setFamilies([])
+    setActiveFamilyId('')
+    setFamilyInput('')
+    setJoinCode('')
+    setFamilyMessage('')
+    setFestivalAttendance([])
+    setRewardCelebrations([])
+    setLastClaimedDiscovery(null)
+    setAdminTestMode(false)
+    setAdminMessage('')
+    setClaimMessage('')
+    setLocation(null)
+    setLocationError('')
+    setSelectedStamp(null)
+    setActiveId('world-party-parade')
+    setBookOpen(false)
+    setPageIndex(PASSPORT_SECTION_PAGE_INDEX.cover)
+    setSelectedFestivalId(nextFestivalId)
+    setAdminFestivalId(nextFestivalId || 'edc-las-vegas-2026')
+  }
+
+  async function handleAuthenticatedUser(currentUser, source = 'auth-change') {
+    if (import.meta.env?.DEV) {
+      console.info('[auth:session]', {
+        source,
+        authenticatedUserId: currentUser?.id || null,
+        authenticatedEmail: currentUser?.email || null,
+      })
+    }
+    const request = accountRequestGuardRef.current.begin(currentUser?.id)
+    beginPrivateProfileSession(currentUser?.id || null)
+    setAuthLoading(Boolean(currentUser))
+
+    if (!currentUser) {
+      clearAuthenticatedUserState('')
+      if (publicProfileId) closePublicProfile()
+      setUser(null)
+      setAuthLoading(false)
+      return
+    }
+
+    const festivalId = readUserStorage(
+      localStorage,
+      'selected-festival',
+      currentUser.id,
+      'edc-las-vegas-2026'
+    )
+    clearAuthenticatedUserState(festivalId)
+    setAdminFestivalId(
+      readUserStorage(
+        localStorage,
+        'admin-festival',
+        currentUser.id,
+        festivalId
+      )
+    )
+    setUser(currentUser)
+
+    try {
+      await refreshUserData(currentUser, festivalId, request)
+    } finally {
+      if (accountRequestGuardRef.current.isCurrent(request)) {
+        setAuthLoading(false)
+      }
+    }
+  }
+
   async function refreshFestivalPersistenceData(
     festivalId,
-    currentUser = user
+    currentUser = user,
+    accountRequest = null
   ) {
     const requestId = ++festivalPersistenceRequestIdRef.current
     const defaults = getDefaultCollectedIds(festivalId)
@@ -851,6 +969,10 @@ export default function App() {
     ])
 
     if (requestId !== festivalPersistenceRequestIdRef.current) return
+    const ownsRequest = accountRequest
+      ? accountRequestGuardRef.current.isCurrent(accountRequest)
+      : accountRequestGuardRef.current.getUserId() === currentUser.id
+    if (!ownsRequest) return
 
     setCollectedIds(nextCollectedIds)
     collectedIdsRef.current = nextCollectedIds
@@ -859,26 +981,51 @@ export default function App() {
 
   async function refreshUserData(
     currentUser = user,
-    festivalId = activeFestivalId
+    festivalId = activeFestivalId,
+    accountRequest = null
   ) {
     if (!currentUser) return
+    const ownsRequest = () => accountRequest
+      ? accountRequestGuardRef.current.isCurrent(accountRequest)
+      : accountRequestGuardRef.current.getUserId() === currentUser.id
+    if (!ownsRequest()) return
 
-    await refreshFestivalPersistenceData(festivalId, currentUser)
+    await refreshFestivalPersistenceData(
+      festivalId,
+      currentUser,
+      accountRequest
+    )
+    if (!ownsRequest()) return
 
     try {
-      setAdminCreatedStamps(await loadAdminStamps())
+      const nextAdminStamps = await loadAdminStamps()
+      if (ownsRequest()) {
+        setAdminCreatedStamps(nextAdminStamps)
+      }
     } catch (error) {
       console.error('Admin stamp load error:', error)
     }
 
-    const savedProfile = await loadProfile(currentUser)
-    if (savedProfile) {
-      setProfile(savedProfile)
+    let savedProfile
+    try {
+      savedProfile = await loadProfile(currentUser)
+    } catch (error) {
+      if (ownsRequest()) {
+        setProfileMessage(
+          error.message || 'Could not load your passport profile.'
+        )
+      }
+      return
+    }
+    if (!ownsRequest()) return
+    if (savedProfile?.id === currentUser.id) {
+      publishPrivateProfile(savedProfile, currentUser.id)
       if (savedProfile.rave_name) setRaveName(savedProfile.rave_name)
       if (savedProfile.country) setCountry(savedProfile.country)
     }
 
     const savedFamilies = await loadFamilies(currentUser)
+    if (!ownsRequest()) return
     setFamilies(savedFamilies)
 
     if (savedFamilies.length && !activeFamilyId) {
@@ -1234,13 +1381,16 @@ export default function App() {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account',
+        },
       },
     })
   }
 
   async function signOut() {
+    handleAuthenticatedUser(null, 'sign-out-requested')
     await supabase.auth.signOut()
-    setUser(null)
   }
 
   function requestLocation() {
@@ -1364,7 +1514,9 @@ export default function App() {
         missionProgress: getDailyMissionClaimProgress(
           previousProgress.collectedCount,
           progress.collectedCount,
-          discovery.festivalId || activeFestivalId
+          discovery.festivalId || activeFestivalId,
+          localStorage,
+          user?.id || ''
         ),
       },
     ])
@@ -1376,6 +1528,10 @@ export default function App() {
 
   function viewCelebratedDiscovery(discovery) {
     setRewardCelebrations([])
+    if (!isDiscoveryOwnedByFestival(discovery, activeFestivalId)) {
+      setBookOpen(false)
+      return
+    }
     setBookOpen(true)
     if (discovery?.id) setActiveId(discovery.id)
     openPassportSection(DASHBOARD_PASSPORT_TARGETS.rewardDiscovery)
@@ -2046,14 +2202,23 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
   function selectFestival(festivalId) {
     const destinationSectionId = activePassportSection?.id || 'journey'
+    const hiddenOperationalPageOpen = bookOpen && !activePassportSection
     setSelectedFestivalId(festivalId)
     setAdminFestivalId(festivalId)
+    setSelectedStamp(null)
+    setRewardCelebrations([])
     refreshFestivalPersistenceData(festivalId)
     refreshFestivalDiscoveryData(festivalId)
     if (publicProfileId) {
       loadPublicPassportProfile(publicProfileId, festivalId)
     }
-    openPassportSection(destinationSectionId)
+    if (hiddenOperationalPageOpen) {
+      setActiveId('')
+      setBookOpen(false)
+      setPageIndex(PASSPORT_SECTION_PAGE_INDEX.journey)
+    } else {
+      openPassportSection(destinationSectionId)
+    }
   }
 
   function backToFestivals() {
@@ -2085,6 +2250,17 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
     setTouchStartX(0)
     setTouchEndX(0)
+  }
+
+  if (authLoading) {
+    return (
+      <main style={styles.screen}>
+        <section style={styles.card}>
+          <h1 style={styles.title}>EDM Passport</h1>
+          <p style={styles.successText}>Loading your passport...</p>
+        </section>
+      </main>
+    )
   }
 
   if (publicProfileId) {
@@ -2122,7 +2298,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
       <PublicProfile
         user={{ id: publicProfile.id }}
         displayName={publicProfile.rave_name || 'Passport Holder'}
-        country={publicProfile.country || country}
+        country={publicProfile.country || ''}
         collectedIds={publicProfileCollectedIds}
         crew={publicOwnerFamily}
         scannerUser={user}
@@ -2151,6 +2327,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             )}
             onSave={savePassportProfileEdit}
             onCancel={cancelPassportProfileEdit}
+            activeFestival={activeFestival}
+            activeFestivalProfile={activeFestivalProfile}
+            activeFestivalBrand={activeFestivalBrand}
+            activeFestivalDisplay={activeFestivalDisplay}
           />
         ) : passportPresentationMode === 'dashboard' ? (
           <>
@@ -2226,6 +2406,12 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 }}
                 onOpenDiscovery={(discovery) => {
                   if (!discovery) return
+                  if (
+                    !isDiscoveryOwnedByFestival(
+                      discovery,
+                      activeFestivalId
+                    )
+                  ) return
 
                   setActiveId(discovery.id)
                   setSelectedStamp(null)
@@ -2235,6 +2421,11 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 onEditPassport={() => beginPassportProfileEdit()}
                 onSignOut={signOut}
                 missionReady={Boolean(profile)}
+                missionUserId={user.id}
+                activeFestival={activeFestival}
+                activeFestivalProfile={activeFestivalProfile}
+                activeFestivalBrand={activeFestivalBrand}
+                activeFestivalDisplay={activeFestivalDisplay}
               />
             )}
 
@@ -2319,6 +2510,12 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
           </>        ) : (
           <>
+            <FestivalContextBar
+              activeFestival={activeFestival}
+              activeFestivalProfile={activeFestivalProfile}
+              activeFestivalBrand={activeFestivalBrand}
+              activeFestivalDisplay={activeFestivalDisplay}
+            />
             <PassportNavigation
               sections={visiblePassportSections}
               activeSectionId={activePassportSection?.id}
@@ -3033,22 +3230,25 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 <PassportCoverPage
                   displayName={displayName}
                   country={country}
-                  festivalName={activeFestivalDisplay?.brandName}
-                  year={activeFestivalDisplay?.year}
-                  passportImage={country ? getPassportImage(country) : null}
+                  edition={activeFestivalProfile || activeFestival || { id: activeFestivalId }}
+                  brand={activeFestivalBrand}
+                  display={activeFestivalDisplay}
+                  collectedCount={collectedClaimableDiscoveries.length}
+                  totalCount={festivalClaimableDiscoveries.length}
                 />
               )}
 
               {pageIndex === PASSPORT_SECTION_PAGE_INDEX.journey && (
                 <PassportJourneyPage
-                  festivalName={activeFestivalDisplay?.brandName}
-                  editionName={activeFestivalDisplay?.editionName}
-                  collectedCount={collectedStamps.length}
-                  totalCount={festivalClaimableDiscoveries.length}
-                  collectionPercent={collectionPercent}
-                  collectionsCompleted={dashboardCollectionsSummary.completed}
-                  collectionsTotal={dashboardCollectionsSummary.total}
+                  edition={activeFestivalProfile || activeFestival || { id: activeFestivalId }}
+                  brand={activeFestivalBrand}
+                  display={activeFestivalDisplay}
+                  discoveries={allStamps}
+                  collectedIds={collectedIds}
+                  collections={festivalCollections}
+                  memories={memories}
                   achievementProgress={festivalAchievementProgress}
+                  achievement={primaryFestivalAchievement}
                   crewName={activeFamily?.name}
                   recentDiscovery={dashboardRecentDiscovery}
                 />
@@ -3109,6 +3309,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
           onContinue={closeRewardCelebration}
           onRepeatLastClaim={repeatLastClaim}
           onViewInPassport={viewCelebratedDiscovery}
+          activeFestival={celebratedFestival}
+          activeFestivalProfile={celebratedFestivalProfile}
+          activeFestivalBrand={celebratedFestivalBrand}
+          activeFestivalDisplay={celebratedFestivalDisplay}
         />
       )}
     </main>

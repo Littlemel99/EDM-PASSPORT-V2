@@ -5,6 +5,7 @@ import RecentDiscoveryCard from './RecentDiscoveryCard.jsx'
 import PassportPrimaryActions from './PassportPrimaryActions.jsx'
 import { getExplorerRank } from './FestivalDashboardData.js'
 import { formatFestivalDates } from '../../festivals/index.js'
+import { FestivalContextBar } from '../Festival/index.js'
 
 export default function FestivalDashboard({
   displayName,
@@ -35,6 +36,11 @@ export default function FestivalDashboard({
   onEditPassport,
   onSignOut,
   missionReady,
+  missionUserId,
+  activeFestival,
+  activeFestivalProfile,
+  activeFestivalBrand,
+  activeFestivalDisplay,
 }) {
   const explorerRank = getExplorerRank(collectedCount)
   const safePercent = Math.min(
@@ -47,6 +53,48 @@ export default function FestivalDashboard({
 
   return (
     <section style={styles.dashboard}>
+      <FestivalContextBar
+        activeFestival={activeFestival}
+        activeFestivalProfile={activeFestivalProfile}
+        activeFestivalBrand={activeFestivalBrand}
+        activeFestivalDisplay={activeFestivalDisplay}
+        variant="dashboard"
+      />
+
+      <PassportPrimaryActions
+        onOpenPassport={onOpenPassport}
+        onEditPassport={onEditPassport}
+      />
+
+      <section style={styles.section}>
+        <SectionHeading
+          eyebrow="DISCOVERY RADAR"
+          title="Continue into the festival."
+        />
+        <DiscoveryRadar
+          discovery={nextDiscovery}
+          loading={discoveryLoading}
+          onOpenDiscovery={onOpenDiscovery}
+        />
+
+        {developerMode && previousDiscovery && (
+          <button
+            type="button"
+            style={styles.developerButton}
+            onClick={onRepeatPreviousDiscovery}
+          >
+            REPEAT PREVIOUS DISCOVERY
+          </button>
+        )}
+      </section>
+
+      <FestivalMissionCard
+        collectedCount={collectedCount}
+        festivalId={festivalId}
+        userId={missionUserId}
+        ready={missionReady}
+      />
+
       <header style={styles.welcomeBar}>
         <div>
           <span style={styles.overline}>FESTIVAL PASSPORT</span>
@@ -101,11 +149,6 @@ export default function FestivalDashboard({
           </div>
         </div>
       </section>
-
-      <PassportPrimaryActions
-        onOpenPassport={onOpenPassport}
-        onEditPassport={onEditPassport}
-      />
 
       <section style={styles.section}>
         <SectionHeading
@@ -166,34 +209,6 @@ export default function FestivalDashboard({
           </div>
         </article>
       </section>
-
-      <section style={styles.section}>
-        <SectionHeading
-          eyebrow="DISCOVERY RADAR"
-          title="Continue into the festival."
-        />
-        <DiscoveryRadar
-          discovery={nextDiscovery}
-          loading={discoveryLoading}
-          onOpenDiscovery={onOpenDiscovery}
-        />
-
-        {developerMode && previousDiscovery && (
-          <button
-            type="button"
-            style={styles.developerButton}
-            onClick={onRepeatPreviousDiscovery}
-          >
-            REPEAT PREVIOUS DISCOVERY
-          </button>
-        )}
-      </section>
-
-      <FestivalMissionCard
-        collectedCount={collectedCount}
-        festivalId={festivalId}
-        ready={missionReady}
-      />
 
       <div style={styles.accountActions}>
         <button

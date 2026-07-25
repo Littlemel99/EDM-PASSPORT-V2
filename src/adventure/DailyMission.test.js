@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  getMissionStorageKey,
   MISSION_STORAGE_KEY,
   loadStoredMission,
   saveStoredMission,
@@ -55,4 +56,28 @@ test('legacy unscoped daily mission migrates only to EDC', () => {
     target: 3,
     festivalId: 'edc-las-vegas-2026',
   })
+})
+
+test('authenticated daily mission keys are isolated by user and festival', () => {
+  assert.notEqual(
+    getMissionStorageKey('lost-lands-2026', 'user-a'),
+    getMissionStorageKey('lost-lands-2026', 'user-b')
+  )
+  assert.notEqual(
+    getMissionStorageKey('lost-lands-2026', 'user-a'),
+    getMissionStorageKey('edc-las-vegas-2026', 'user-a')
+  )
+})
+
+test('authenticated users never inherit the legacy shared mission', () => {
+  const storage = createMemoryStorage()
+  storage.setItem(
+    MISSION_STORAGE_KEY,
+    JSON.stringify({ date: '2026-07-20', target: 3 })
+  )
+
+  assert.equal(
+    loadStoredMission('edc-las-vegas-2026', storage, 'user-b'),
+    null
+  )
 })

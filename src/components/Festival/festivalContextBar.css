@@ -1,0 +1,76 @@
+.festival-context {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  overflow: hidden;
+  border: 1px solid var(--festival-context-border);
+  border-radius: 16px;
+  color: #f8f5eb;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28), 0 0 18px var(--festival-context-glow);
+}
+
+.festival-context--dashboard {
+  padding: 17px 18px;
+  border-radius: 21px;
+}
+
+.festival-context__copy {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0,auto) auto;
+  align-items: baseline;
+  column-gap: 10px;
+}
+
+.festival-context__eyebrow {
+  grid-column: 1 / -1;
+  color: var(--festival-context-accent);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .18em;
+}
+
+.festival-context__name {
+  min-width: 0;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.05;
+}
+
+.festival-context--dashboard .festival-context__name {
+  font-size: clamp(22px,7vw,32px);
+}
+
+.festival-context__year {
+  color: var(--festival-context-accent);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.festival-context__location {
+  max-width: 48%;
+  color: rgba(255,255,255,.68);
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 420px) {
+  .festival-context {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .festival-context__location {
+    max-width: 100%;
+    text-align: left;
+  }
+}

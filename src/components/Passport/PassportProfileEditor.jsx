@@ -1,7 +1,27 @@
-export default function PassportProfileEditor({ session, countries, saving, message, onChange, onSave, onCancel }) {
+import { FestivalContextBar } from '../Festival/index.js'
+
+export default function PassportProfileEditor({
+  session,
+  countries,
+  saving,
+  message,
+  onChange,
+  onSave,
+  onCancel,
+  activeFestival,
+  activeFestivalProfile,
+  activeFestivalBrand,
+  activeFestivalDisplay,
+}) {
   return (
     <section style={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="passport-editor-title">
       <div style={styles.editor}>
+        <FestivalContextBar
+          activeFestival={activeFestival}
+          activeFestivalProfile={activeFestivalProfile}
+          activeFestivalBrand={activeFestivalBrand}
+          activeFestivalDisplay={activeFestivalDisplay}
+        />
         <span style={styles.eyebrow}>PASSPORT IDENTITY</span>
         <h2 id="passport-editor-title" style={styles.title}>EDIT PASSPORT PROFILE</h2>
         {session.afterSaveSectionId && (

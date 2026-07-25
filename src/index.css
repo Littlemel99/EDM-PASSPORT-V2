@@ -17,3 +17,13 @@ body {
 button, input, select, textarea {
   font-family: inherit;
 }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #f1bd63;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(241, 189, 99, 0.18);
+}

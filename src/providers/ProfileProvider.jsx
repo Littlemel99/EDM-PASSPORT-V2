@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import {
@@ -23,6 +24,8 @@ export function ProfileProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [profileMessage, setProfileMessage] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
+  const profileOwnerIdRef = useRef(null)
+  const publicProfileRequestRef = useRef(0)
 
   const [publicProfileId, setPublicProfileId] = useState('')
   const [publicProfile, setPublicProfile] = useState(null)
@@ -62,6 +65,8 @@ export function ProfileProvider({ children }) {
         return null
       }
 
+      const requestedUserId = user.id
+
       try {
         setProfileSaving(true)
         setProfileMessage('Saving rave profile...')
@@ -71,24 +76,44 @@ export function ProfileProvider({ children }) {
           country,
         })
 
+        if (profileOwnerIdRef.current !== requestedUserId) return null
         setProfile(savedProfile)
         setProfileMessage('Rave profile saved.')
         return savedProfile
       } catch (error) {
-        setProfileMessage(
-          error.message || 'Rave profile save failed.'
-        )
+        if (profileOwnerIdRef.current === requestedUserId) {
+          setProfileMessage(
+            error.message || 'Rave profile save failed.'
+          )
+        }
         return null
       } finally {
-        setProfileSaving(false)
+        if (profileOwnerIdRef.current === requestedUserId) {
+          setProfileSaving(false)
+        }
       }
     },
     []
   )
 
+  const beginPrivateProfileSession = useCallback((userId = null) => {
+    profileOwnerIdRef.current = userId
+    setProfile(null)
+    setProfileMessage('')
+    setProfileSaving(false)
+  }, [])
+
+  const publishPrivateProfile = useCallback((nextProfile, userId) => {
+    if (profileOwnerIdRef.current !== userId) return false
+    if (nextProfile?.id && nextProfile.id !== userId) return false
+    setProfile(nextProfile || null)
+    return true
+  }, [])
+
   const loadPublicPassportProfile = useCallback(
     async (profileId, festivalId) => {
       if (!profileId) return
+      const requestId = ++publicProfileRequestRef.current
 
       try {
         setPublicProfileLoading(true)
@@ -97,6 +122,7 @@ export function ProfileProvider({ children }) {
         )
 
         const foundProfile = await loadPublicProfile(profileId)
+        if (requestId !== publicProfileRequestRef.current) return
 
         if (!foundProfile) {
           setPublicProfile(null)
@@ -108,16 +134,19 @@ export function ProfileProvider({ children }) {
           return
         }
 
+        const [ownerFamily, collectedIds] = await Promise.all([
+          loadPrimaryFamilyByOwner(profileId),
+          loadCollectedIdsByUserId(profileId, festivalId),
+        ])
+        if (requestId !== publicProfileRequestRef.current) return
+
         setPublicProfile(foundProfile)
-        setPublicOwnerFamily(
-          await loadPrimaryFamilyByOwner(profileId)
-        )
-        setPublicProfileCollectedIds(
-          await loadCollectedIdsByUserId(profileId, festivalId)
-        )
+        setPublicOwnerFamily(ownerFamily)
+        setPublicProfileCollectedIds(collectedIds)
         setPublicProfileMessage('')
         setPublicSmartMessage('')
       } catch (error) {
+        if (requestId !== publicProfileRequestRef.current) return
         setPublicProfile(null)
         setPublicOwnerFamily(null)
         setPublicProfileMessage(
@@ -125,19 +154,24 @@ export function ProfileProvider({ children }) {
             'Could not load this EDM Passport profile.'
         )
       } finally {
-        setPublicProfileLoading(false)
+        if (requestId === publicProfileRequestRef.current) {
+          setPublicProfileLoading(false)
+        }
       }
     },
     []
   )
 
   const closePublicProfile = useCallback(() => {
+    publicProfileRequestRef.current += 1
     const cleanUrl =
       window.location.origin + window.location.pathname
 
     window.history.replaceState({}, '', cleanUrl)
     setPublicProfileId('')
     setPublicProfile(null)
+    setPublicProfileCollectedIds([])
+    setPublicProfileLoading(false)
     setPublicOwnerFamily(null)
     setPublicProfileMessage('')
     setPublicSmartMessage('')
@@ -168,6 +202,8 @@ export function ProfileProvider({ children }) {
       publicJoinLoading,
       setPublicJoinLoading,
       saveCurrentProfile,
+      beginPrivateProfileSession,
+      publishPrivateProfile,
       loadPublicPassportProfile,
       closePublicProfile,
     }),
@@ -184,6 +220,8 @@ export function ProfileProvider({ children }) {
       publicSmartMessage,
       publicJoinLoading,
       saveCurrentProfile,
+      beginPrivateProfileSession,
+      publishPrivateProfile,
       loadPublicPassportProfile,
       closePublicProfile,
     ]
