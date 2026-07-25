@@ -20,6 +20,33 @@ test('normal top-level navigation is Festivals, Dashboard, Passport', () => {
   )
 })
 
+test('top navigation labels never change without an Active Journey', () => {
+  const component = readFileSync(
+    new URL(
+      '../components/Navigation/TopLevelNavigation.jsx',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  assert.match(component, /destination\.label/)
+  assert.doesNotMatch(component, /SELECT A FESTIVAL/)
+  assert.doesNotMatch(component, /disabled=/)
+})
+
+test('top navigation remains touch-safe and compact at narrow widths', () => {
+  const css = readFileSync(
+    new URL(
+      '../components/Navigation/topLevelNavigation.css',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  assert.match(css, /min-height: 44px/)
+  assert.match(css, /min-width: 0/)
+  assert.match(css, /@media \(max-width: 360px\)/)
+  assert.match(css, /focus-visible/)
+})
+
 test('Dashboard and Passport require a selected festival', () => {
   assert.equal(canOpenEditionDestination('festivals', ''), true)
   assert.equal(canOpenEditionDestination('dashboard', ''), false)
@@ -84,4 +111,38 @@ test('completed journeys are not silently reopened as live dashboards', () => {
   assert.match(app, /setJourneyCompletionPending/)
   assert.match(app, /<JourneyComplete/)
   assert.match(app, /clearPersistedActiveJourney/)
+})
+
+test('no-journey Dashboard and Passport open selection placeholders', () => {
+  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8')
+  assert.match(
+    app,
+    /Select a festival to begin your journey\./
+  )
+  assert.match(
+    app,
+    /Select a festival to view its passport\./
+  )
+  const navigationStart = app.indexOf('function navigateTopLevel')
+  const navigationEnd = app.indexOf(
+    'function backToFestivals',
+    navigationStart
+  )
+  const navigation = app.slice(navigationStart, navigationEnd)
+  assert.match(navigation, /setTopLevelDestination\(destination\)/)
+  assert.match(navigation, /setSelectedFestivalId\(''\)/)
+})
+
+test('account transitions reset session-only Directory expansion state', () => {
+  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8')
+  const clearStart = app.indexOf('function clearAuthenticatedUserState')
+  const authStart = app.indexOf(
+    'function hydrateActiveJourneyCache',
+    clearStart
+  )
+  const clear = app.slice(clearStart, authStart)
+  assert.match(clear, /setDirectoryExpandedSections/)
+  assert.match(clear, /upcoming: false/)
+  assert.match(clear, /completed: false/)
+  assert.match(clear, /unavailable: false/)
 })

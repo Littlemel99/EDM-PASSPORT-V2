@@ -86,3 +86,13 @@ test('Dashboard is limited to Mission Control cards', () => {
   assert.doesNotMatch(source, /YOUR JOURNEY/)
   assert.doesNotMatch(source, /JOURNEY PROGRESS/)
 })
+
+test('Dashboard welcomes the returning explorer by rave name', () => {
+  const source = readFileSync(
+    new URL('./FestivalDashboard.jsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /Welcome back,/)
+  assert.match(source, /raveName \|\| 'Explorer'/)
+  assert.doesNotMatch(source, /email/i)
+})

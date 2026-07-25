@@ -7,6 +7,7 @@ import {
 import { PageIdentity } from '../Festival/index.js'
 
 export default function FestivalDashboard({
+  raveName,
   collectedCount,
   totalCount,
   collectionPercent,
@@ -52,6 +53,11 @@ export default function FestivalDashboard({
         activeFestivalDisplay={activeFestivalDisplay}
         variant="dashboard"
       />
+
+      <header style={styles.welcome}>
+        <span>Welcome back,</span>
+        <strong>{raveName || 'Explorer'}</strong>
+      </header>
 
       <section style={styles.missionHeader} aria-label="Journey status">
         <StatusItem
@@ -202,6 +208,15 @@ const styles = {
     gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
     gap: 8,
     marginTop: 10,
+  },
+  welcome: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 3,
+    marginTop: 10,
+    padding: '0 3px',
+    color: 'rgba(255,255,255,.68)',
+    fontSize: 12,
   },
   statusItem: {
     minWidth: 0,

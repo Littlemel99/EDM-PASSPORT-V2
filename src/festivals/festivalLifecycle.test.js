@@ -87,4 +87,5 @@ test('directory grouping and lifecycle actions are deterministic', () => {
   assert.equal(getFestivalLifecycleAction('live'), 'ENTER FESTIVAL')
   assert.equal(getFestivalLifecycleAction('upcoming'), 'VIEW FESTIVAL')
   assert.equal(getFestivalLifecycleAction('completed'), 'VIEW RECAP')
+  assert.equal(getFestivalLifecycleAction('unavailable'), 'VIEW FESTIVAL')
 })

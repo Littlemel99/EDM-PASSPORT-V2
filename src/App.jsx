@@ -218,6 +218,7 @@ export default function App() {
     useState({
       upcoming: false,
       completed: false,
+      unavailable: false,
     })
   const [topLevelDestination, setTopLevelDestination] = useState(
     getAuthenticatedLandingDestination
@@ -1023,6 +1024,11 @@ export default function App() {
     setActiveJourneyFestivalId('')
     setJourneyCompletionPending(false)
     setActiveJourneyCacheReady(false)
+    setDirectoryExpandedSections({
+      upcoming: false,
+      completed: false,
+      unavailable: false,
+    })
     setAdminFestivalId(nextFestivalId || 'edc-las-vegas-2026')
   }
 
@@ -1564,6 +1570,16 @@ export default function App() {
   async function signOut() {
     handleAuthenticatedUser(null, 'sign-out-requested')
     await supabase.auth.signOut()
+  }
+
+  async function switchAccount() {
+    await signOut()
+    await signInWithGoogle()
+  }
+
+  function openAccountProfile() {
+    setBookOpen(true)
+    setPageIndex(11)
   }
 
   function requestLocation() {
@@ -2544,7 +2560,8 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
     }
     if (!activeJourneyFestivalId) {
       setBookOpen(false)
-      setTopLevelDestination('festivals')
+      setSelectedFestivalId('')
+      setTopLevelDestination(destination)
       return
     }
     if (selectedFestivalId !== activeJourneyFestivalId) {
@@ -2670,6 +2687,16 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             }
             activeFestivalEditionId={activeJourneyFestivalId}
             onNavigate={navigateTopLevel}
+            raveName={profile?.rave_name || raveName}
+            avatarUrl={
+              profile?.avatar_url ||
+              user?.user_metadata?.avatar_url ||
+              user?.user_metadata?.picture ||
+              ''
+            }
+            onOpenProfile={openAccountProfile}
+            onEditPassport={() => beginPassportProfileEdit()}
+            onSwitchAccount={switchAccount}
             onSignOut={signOut}
           />
         )}
@@ -2709,8 +2736,18 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 alt="EDM Passport"
                 style={{
                   ...styles.logo,
-                  width: 110,
-                  marginBottom: 8,
+                  width:
+                    topLevelDestination === 'festivals'
+                      ? 70
+                      : 110,
+                  height:
+                    topLevelDestination === 'festivals'
+                      ? 70
+                      : 110,
+                  marginBottom:
+                    topLevelDestination === 'festivals'
+                      ? 2
+                      : 8,
                 }}
               />
             )}
@@ -2758,6 +2795,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               activeFestivalLifecycle === 'live' &&
               activeFestivalProfile && (
               <FestivalDashboard
+                raveName={profile?.rave_name || raveName}
                 displayName={displayName}
                 country={country}
                 collectedCount={collectedClaimableDiscoveries.length}
@@ -2881,6 +2919,23 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               <section style={styles.linkCard}>
                 <strong>
                   Select a festival to begin your journey.
+                </strong>
+                <button
+                  type="button"
+                  style={styles.mainButton}
+                  onClick={() => navigateTopLevel('festivals')}
+                >
+                  SELECT A FESTIVAL
+                </button>
+              </section>
+            )}
+
+            {user &&
+              topLevelDestination === 'passport' &&
+              !activeJourneyFestivalId && (
+              <section style={styles.linkCard}>
+                <strong>
+                  Select a festival to view its passport.
                 </strong>
                 <button
                   type="button"

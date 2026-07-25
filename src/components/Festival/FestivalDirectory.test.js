@@ -8,18 +8,23 @@ const source = readFileSync(
 )
 
 test('Festival Directory renders lifecycle groups and one-click edition actions', () => {
-  assert.match(source, /LIVE NOW/)
-  assert.match(source, /UPCOMING/)
-  assert.match(source, /ATTENDED/)
+  assert.match(source, /getFestivalDirectorySections/)
   assert.match(source, /getFestivalLifecycleAction/)
   assert.match(source, /onSelectFestival\?\.\(festival\.id\)/)
 })
 
-test('Upcoming and Attended groups are collapsible session UI', () => {
+test('secondary lifecycle groups use accessible disclosure controls', () => {
+  assert.match(source, /<button[\s\S]*type="button"[\s\S]*aria-expanded=\{expanded\}/)
   assert.match(source, /aria-expanded=\{expanded\}/)
+  assert.match(source, /aria-controls=\{panelId\}/)
   assert.match(source, /onToggleSection/)
-  assert.match(source, /lifecycle === 'upcoming'/)
-  assert.match(source, /lifecycle === 'completed'/)
+  assert.match(source, /expanded \? '▾' : '▸'/)
+})
+
+test('native disclosure buttons support keyboard activation', () => {
+  assert.match(source, /type="button"/)
+  assert.match(source, /onClick=\{\(\) => onToggleSection\?\.\(lifecycle\)\}/)
+  assert.match(source, /minHeight: 44/)
 })
 
 test('Festival Directory renders brand, year, location, dates, and available progress', () => {
@@ -33,4 +38,15 @@ test('Festival Directory renders brand, year, location, dates, and available pro
 test('Festival Directory cards support narrow layouts without fixed overflow', () => {
   assert.match(source, /minmax\(min\(100%,240px\),1fr\)/)
   assert.match(source, /overflowWrap: 'anywhere'/)
+})
+
+test('redundant no-journey sentence is absent from Directory UI', () => {
+  const navigation = readFileSync(
+    new URL('../Navigation/TopLevelNavigation.jsx', import.meta.url),
+    'utf8'
+  )
+  assert.doesNotMatch(
+    `${source}\n${navigation}`,
+    /Select a festival to begin your journey\. Select a festival to view its passport\./
+  )
 })
