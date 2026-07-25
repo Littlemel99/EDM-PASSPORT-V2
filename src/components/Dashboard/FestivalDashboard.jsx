@@ -1,40 +1,33 @@
 import FestivalMissionCard from './FestivalMissionCard.jsx'
 import DiscoveryRadar from './DiscoveryRadar.jsx'
-import JourneyActionCard from './JourneyActionCard.jsx'
-import RecentDiscoveryCard from './RecentDiscoveryCard.jsx'
-import PassportPrimaryActions from './PassportPrimaryActions.jsx'
-import { getExplorerRank } from './FestivalDashboardData.js'
-import { formatFestivalDates } from '../../festivals/index.js'
-import { FestivalContextBar } from '../Festival/index.js'
+import {
+  getExplorerRank,
+  getJourneyDay,
+} from './FestivalDashboardData.js'
+import { PageIdentity } from '../Festival/index.js'
 
 export default function FestivalDashboard({
-  displayName,
-  country,
   collectedCount,
   totalCount,
   collectionPercent,
   collectionsCompleted = 0,
   collectionsTotal = 0,
-  recentDiscovery,
-  festivalName,
-  festivalYear,
-  festivalThemeName,
-  festivalVenue,
   festivalStartDate,
-  festivalEndDate,
   festivalId,
+  lifecycle = 'live',
   nextDiscovery,
   discoveryLoading,
+  radarEmptyReason,
   developerMode = false,
   previousDiscovery,
+  crewName,
+  memoriesCount = 0,
   onRepeatPreviousDiscovery,
   onOpenPassport,
-  onOpenCollections,
   onOpenMemories,
-  onOpenRecentDiscovery,
   onOpenDiscovery,
   onEditPassport,
-  onSignOut,
+  onChangeFestival,
   missionReady,
   missionUserId,
   activeFestival,
@@ -43,17 +36,16 @@ export default function FestivalDashboard({
   activeFestivalDisplay,
 }) {
   const explorerRank = getExplorerRank(collectedCount)
+  const journeyDay = getJourneyDay(festivalStartDate)
   const safePercent = Math.min(
     Math.max(collectionPercent || 0, 0),
     100
   )
-  const editionLine = [festivalYear, festivalVenue]
-    .filter(Boolean)
-    .join(' • ')
 
   return (
     <section style={styles.dashboard}>
-      <FestivalContextBar
+      <PageIdentity
+        pageName="DASHBOARD"
         activeFestival={activeFestival}
         activeFestivalProfile={activeFestivalProfile}
         activeFestivalBrand={activeFestivalBrand}
@@ -61,22 +53,29 @@ export default function FestivalDashboard({
         variant="dashboard"
       />
 
-      <PassportPrimaryActions
-        onOpenPassport={onOpenPassport}
-        onEditPassport={onEditPassport}
-      />
-
-      <section style={styles.section}>
-        <SectionHeading
-          eyebrow="DISCOVERY RADAR"
-          title="Continue into the festival."
+      <section style={styles.missionHeader} aria-label="Journey status">
+        <StatusItem
+          label="JOURNEY DAY"
+          value={
+            journeyDay === null
+              ? 'Unavailable'
+              : journeyDay === 0
+                ? 'Not started'
+                : `Day ${journeyDay}`
+          }
         />
+        <StatusItem label="EXPLORER RANK" value={explorerRank.name} />
+        <StatusItem label="LIFECYCLE" value={lifecycle.toUpperCase()} />
+      </section>
+
+      <section style={styles.targetSection}>
+        <h2 style={styles.targetTitle}>NEXT TARGET</h2>
         <DiscoveryRadar
           discovery={nextDiscovery}
           loading={discoveryLoading}
+          emptyReason={radarEmptyReason}
           onOpenDiscovery={onOpenDiscovery}
         />
-
         {developerMode && previousDiscovery && (
           <button
             type="button"
@@ -88,169 +87,97 @@ export default function FestivalDashboard({
         )}
       </section>
 
-      <FestivalMissionCard
-        collectedCount={collectedCount}
-        festivalId={festivalId}
-        userId={missionUserId}
-        ready={missionReady}
-      />
-
-      <header style={styles.welcomeBar}>
-        <div>
-          <span style={styles.overline}>FESTIVAL PASSPORT</span>
-          <strong style={styles.explorerName}>{displayName}</strong>
-        </div>
-        <span style={styles.countryLabel}>
-          {country || 'Passport holder'}
-        </span>
-      </header>
-
-      <section style={styles.festivalCard}>
-        <div style={styles.festivalGlow} />
-        <div style={styles.festivalContent}>
-          <span style={styles.sectionLabel}>CURRENT FESTIVAL</span>
-          <h1 style={styles.festivalName}>
-            {festivalName || 'Choose your next festival'}
-          </h1>
-          {editionLine && (
-            <strong style={styles.editionLine}>{editionLine}</strong>
-          )}
-          {festivalThemeName && (
-            <span style={styles.themeName}>{festivalThemeName}</span>
-          )}
-          {festivalStartDate && (
-            <span style={styles.festivalDate}>
-              {formatFestivalDates(festivalStartDate, festivalEndDate)}
-            </span>
-          )}
-
-          <div style={styles.festivalSummaryGrid}>
-            <SummaryItem label="Explorer Rank" value={explorerRank.name} />
-            <SummaryItem
-              label="Discoveries"
-              value={`${collectedCount} / ${totalCount}`}
-            />
-            <SummaryItem
-              label="Collections Completed"
-              value={`${collectionsCompleted} / ${collectionsTotal}`}
-            />
-            <SummaryItem
-              label="Recent Discovery"
-              value={recentDiscovery?.name || 'Awaiting discovery'}
-            />
-          </div>
-
-          <div style={styles.heroProgressBlock}>
-            <div style={styles.progressHeader}>
-              <span>Journey Progress</span>
-              <strong>{safePercent}%</strong>
-            </div>
-            <ProgressBar percent={safePercent} />
-          </div>
-        </div>
-      </section>
-
-      <section style={styles.section}>
-        <SectionHeading
-          eyebrow="YOUR JOURNEY"
-          title="Choose your next path."
-        />
-        <div style={styles.journeyGrid}>
-          <JourneyActionCard
-            title="Continue Exploring"
-            subtitle="Find your next discovery."
-            onClick={() => onOpenDiscovery?.(nextDiscovery)}
-            disabled={!nextDiscovery || discoveryLoading}
-          />
-          <JourneyActionCard
-            title="Collections"
-            subtitle="Track every collection."
-            onClick={onOpenCollections}
-          />
-          <JourneyActionCard
-            title="Recent Memories"
-            subtitle="See your latest adventures."
-            onClick={onOpenMemories}
-          />
-        </div>
-      </section>
-
-      <section style={styles.section}>
-        <SectionHeading
-          eyebrow="RECENT DISCOVERY"
-          title="The latest chapter in your journey."
-        />
-        <RecentDiscoveryCard discovery={recentDiscovery} onOpen={onOpenRecentDiscovery} />
-      </section>
-
-      <section style={styles.detailGrid}>
-        <article style={styles.rankCard}>
-          <span style={styles.sectionLabel}>EXPLORER RANK</span>
-          <strong style={styles.rankTitle}>{explorerRank.name}</strong>
-          <p style={styles.supportingText}>
-            {explorerRank.nextName
-              ? `${explorerRank.nextAt - collectedCount} discoveries until ${explorerRank.nextName}.`
-              : 'The highest explorer rank has been reached.'}
-          </p>
-          <ProgressBar percent={explorerRank.progress} subdued />
-        </article>
-
-        <article style={styles.progressCard}>
-          <span style={styles.sectionLabel}>JOURNEY PROGRESS</span>
-          <strong style={styles.progressTitle}>{safePercent}%</strong>
+      <section style={styles.cardGrid} aria-label="Mission control">
+        <article style={styles.card}>
+          <span style={styles.label}>PROGRESS</span>
+          <strong style={styles.cardValue}>{safePercent}%</strong>
           <ProgressBar percent={safePercent} />
-          <div style={styles.progressStats}>
-            <span>
-              <strong>{collectedCount}</strong> Discoveries
-            </span>
-            <span>
-              <strong>{collectionsCompleted}</strong> Collections
-            </span>
-          </div>
+          <p style={styles.cardText}>
+            {collectedCount} / {totalCount} discoveries ·{' '}
+            {collectionsCompleted} / {collectionsTotal} collections
+          </p>
+        </article>
+
+        <FestivalMissionCard
+          collectedCount={collectedCount}
+          festivalId={festivalId}
+          userId={missionUserId}
+          ready={missionReady}
+        />
+
+        <article style={styles.card}>
+          <span style={styles.label}>CREW</span>
+          <strong style={styles.cardTitle}>
+            {crewName || 'Solo Explorer'}
+          </strong>
+          <p style={styles.cardText}>
+            Your active festival crew.
+          </p>
+        </article>
+
+        <article style={styles.card}>
+          <span style={styles.label}>PASSPORT</span>
+          <strong style={styles.cardTitle}>Your permanent record</strong>
+          <button
+            type="button"
+            style={styles.primaryButton}
+            aria-label="Open festival passport"
+            onClick={onOpenPassport}
+          >
+            OPEN PASSPORT
+          </button>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={onEditPassport}
+          >
+            EDIT PASSPORT PROFILE
+          </button>
+        </article>
+
+        <article style={styles.card}>
+          <span style={styles.label}>MEMORIES</span>
+          <strong style={styles.cardTitle}>
+            {memoriesCount} saved
+          </strong>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={onOpenMemories}
+          >
+            VIEW MEMORIES
+          </button>
+        </article>
+
+        <article style={styles.card}>
+          <span style={styles.label}>CHANGE FESTIVAL</span>
+          <strong style={styles.cardTitle}>Choose another journey</strong>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={onChangeFestival}
+          >
+            CHANGE FESTIVAL
+          </button>
         </article>
       </section>
-
-      <div style={styles.accountActions}>
-        <button
-          type="button"
-          style={styles.quietButton}
-          onClick={onSignOut}
-        >
-          SIGN OUT
-        </button>
-      </div>
     </section>
   )
 }
 
-function SummaryItem({ label, value }) {
+function StatusItem({ label, value }) {
   return (
-    <div style={styles.summaryItem}>
+    <div style={styles.statusItem}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
   )
 }
 
-function SectionHeading({ eyebrow, title }) {
+function ProgressBar({ percent }) {
   return (
-    <div style={styles.sectionHeading}>
-      <span style={styles.sectionLabel}>{eyebrow}</span>
-      <h2 style={styles.sectionTitle}>{title}</h2>
-    </div>
-  )
-}
-
-function ProgressBar({ percent, subdued = false }) {
-  return (
-    <div style={styles.progressTrack}>
-      <div
-        style={{
-          ...styles.progressFill,
-          ...(subdued ? styles.progressFillSubdued : {}),
-          width: `${Math.min(Math.max(percent || 0, 0), 100)}%`,
-        }}
-      />
+    <div style={styles.progressTrack} aria-label={`${percent}% complete`}>
+      <div style={{ ...styles.progressFill, width: `${percent}%` }} />
     </div>
   )
 }
@@ -258,225 +185,113 @@ function ProgressBar({ percent, subdued = false }) {
 const styles = {
   dashboard: {
     width: '100%',
+    minWidth: 0,
     boxSizing: 'border-box',
     margin: '18px 0',
     padding: 16,
     borderRadius: 28,
     color: '#f7fff9',
     background:
-      'radial-gradient(circle at 8% 0%, rgba(89,255,202,0.1), transparent 30%), linear-gradient(180deg, #07100f 0%, #080d12 52%, #05080c 100%)',
-    border: '1px solid rgba(120,255,214,0.16)',
-    boxShadow: '0 28px 80px rgba(0,0,0,0.45)',
+      'radial-gradient(circle at 8% 0%, rgba(89,255,202,.1), transparent 30%), linear-gradient(180deg,#07100f,#080d12 52%,#05080c)',
+    border: '1px solid rgba(120,255,214,.16)',
+    boxShadow: '0 28px 80px rgba(0,0,0,.45)',
   },
-  welcomeBar: {
-    padding: '4px 4px 18px',
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  overline: {
-    display: 'block',
-    color: '#78ffd6',
-    fontSize: 9,
-    fontWeight: 900,
-    letterSpacing: '0.2em',
-  },
-  explorerName: {
-    display: 'block',
-    marginTop: 6,
-    fontSize: 20,
-  },
-  countryLabel: {
-    color: 'rgba(235,255,247,0.55)',
-    fontSize: 11,
-  },
-  festivalCard: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: 26,
-    background:
-      'linear-gradient(145deg, rgba(20,54,45,0.98), rgba(8,18,19,0.98) 58%, rgba(12,13,19,0.98))',
-    border: '1px solid rgba(120,255,214,0.28)',
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.05), 0 24px 60px rgba(0,0,0,0.38)',
-  },
-  festivalGlow: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    top: -130,
-    right: -100,
-    borderRadius: '50%',
-    background: 'rgba(120,255,214,0.12)',
-    filter: 'blur(14px)',
-  },
-  festivalContent: {
-    position: 'relative',
-    padding: '26px 22px 22px',
-  },
-  sectionLabel: {
-    display: 'block',
-    color: '#78ffd6',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.2em',
-  },
-  festivalName: {
-    margin: '10px 0 4px',
-    fontSize: 'clamp(34px, 9vw, 54px)',
-    lineHeight: 0.95,
-    letterSpacing: '-0.055em',
-    textTransform: 'uppercase',
-  },
-  editionLine: {
-    display: 'block',
-    marginTop: 12,
-    fontSize: 15,
-    letterSpacing: '0.02em',
-  },
-  themeName: {
-    display: 'block',
-    marginTop: 7,
-    color: '#b5ffe9',
-    fontSize: 13,
-  },
-  festivalDate: {
-    display: 'block',
-    marginTop: 7,
-    color: 'rgba(240,255,248,0.68)',
-    fontSize: 13,
-  },
-  festivalSummaryGrid: {
+  missionHeader: {
+    minWidth: 0,
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 10,
-    marginTop: 24,
-  },
-  summaryItem: {
-    minHeight: 66,
-    padding: 12,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
+    gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
     gap: 8,
-    borderRadius: 15,
-    background: 'rgba(255,255,255,0.045)',
-    border: '1px solid rgba(255,255,255,0.06)',
+    marginTop: 10,
   },
-  heroProgressBlock: {
+  statusItem: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 6,
+    padding: 11,
+    borderRadius: 13,
+    background: 'rgba(255,255,255,.045)',
+    border: '1px solid rgba(255,255,255,.08)',
+    fontSize: 10,
+    overflowWrap: 'anywhere',
+  },
+  targetSection: { minWidth: 0, marginTop: 18 },
+  targetTitle: {
+    margin: 0,
+    color: '#f1bd63',
+    fontSize: 12,
+    fontWeight: 950,
+    letterSpacing: '.18em',
+  },
+  cardGrid: {
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
+    gap: 11,
     marginTop: 18,
   },
-  progressHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 9,
-    color: 'rgba(241,255,248,0.75)',
+  card: {
+    minWidth: 0,
+    display: 'grid',
+    alignContent: 'start',
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    background: 'linear-gradient(145deg,#14211d,#090e0d)',
+    border: '1px solid rgba(120,255,214,.14)',
+  },
+  label: {
+    color: '#78ffd6',
+    fontSize: 10,
+    fontWeight: 950,
+    letterSpacing: '.16em',
+  },
+  cardValue: { fontSize: 32 },
+  cardTitle: { fontSize: 18, overflowWrap: 'anywhere' },
+  cardText: {
+    margin: 0,
+    color: 'rgba(255,255,255,.64)',
     fontSize: 12,
+    lineHeight: 1.45,
   },
   progressTrack: {
     width: '100%',
-    height: 11,
+    height: 10,
     overflow: 'hidden',
     borderRadius: 999,
-    background: 'rgba(255,255,255,0.09)',
+    background: 'rgba(255,255,255,.1)',
   },
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    background: 'linear-gradient(90deg, #63e6be, #b4ffdf)',
-    boxShadow: '0 0 20px rgba(120,255,214,0.42)',
-    transition: 'width 250ms ease',
+    background: 'linear-gradient(90deg,#63e6be,#f1bd63)',
   },
-  progressFillSubdued: {
-    background: 'linear-gradient(90deg, #557b70, #78ffd6)',
-  },
-  section: {
-    marginTop: 34,
-  },
-  sectionHeading: {
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    margin: '7px 0 0',
-    fontSize: 24,
-    lineHeight: 1.05,
-    letterSpacing: '-0.035em',
-  },
-  journeyGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 12,
-  },
-  detailGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 12,
-    marginTop: 34,
-  },
-  rankCard: {
-    minHeight: 190,
-    padding: 19,
-    borderRadius: 22,
-    background: 'linear-gradient(145deg, #14221f, #090f12)',
-    border: '1px solid rgba(120,255,214,0.18)',
-  },
-  progressCard: {
-    minHeight: 190,
-    padding: 19,
-    borderRadius: 22,
-    background: 'linear-gradient(145deg, #171c25, #090d12)',
-    border: '1px solid rgba(156,181,255,0.16)',
-  },
-  rankTitle: {
-    display: 'block',
-    marginTop: 17,
-    fontSize: 25,
-  },
-  progressTitle: {
-    display: 'block',
-    margin: '14px 0 16px',
-    fontSize: 36,
-    letterSpacing: '-0.05em',
-  },
-  supportingText: {
-    minHeight: 40,
-    margin: '8px 0 16px',
-    color: 'rgba(240,255,248,0.62)',
-    fontSize: 12,
-    lineHeight: 1.45,
-  },
-  progressStats: {
-    marginTop: 18,
-    display: 'grid',
-    gap: 7,
-    color: 'rgba(240,255,248,0.62)',
-    fontSize: 12,
-  },
-  developerButton: {
-    width: '100%',
-    marginTop: 12,
-    padding: '11px 14px',
+  primaryButton: {
+    minHeight: 44,
+    border: 0,
     borderRadius: 12,
-    border: '1px dashed rgba(255,196,0,0.65)',
-    color: '#ffd666',
-    background: 'rgba(255,196,0,0.08)',
+    color: '#151007',
+    background: '#f1bd63',
+    fontWeight: 950,
+    cursor: 'pointer',
+  },
+  secondaryButton: {
+    minHeight: 44,
+    border: '1px solid rgba(255,255,255,.17)',
+    borderRadius: 12,
+    color: '#fff',
+    background: 'transparent',
     fontWeight: 900,
     cursor: 'pointer',
   },
-  accountActions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    marginTop: 22,
-  },
-  quietButton: {
-    padding: '12px 14px',
-    borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: 'rgba(244,255,248,0.62)',
-    background: 'transparent',
-    fontWeight: 800,
+  developerButton: {
+    width: '100%',
+    minHeight: 42,
+    marginTop: 10,
+    borderRadius: 12,
+    border: '1px dashed rgba(255,196,0,.65)',
+    color: '#ffd666',
+    background: 'rgba(255,196,0,.08)',
+    fontWeight: 900,
     cursor: 'pointer',
   },
 }

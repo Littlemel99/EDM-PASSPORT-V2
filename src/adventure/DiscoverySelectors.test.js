@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { selectNextFestivalDiscovery } from './DiscoverySelectors.js'
+import {
+  diagnoseFestivalDiscoverySelection,
+  selectNextFestivalDiscovery,
+} from './DiscoverySelectors.js'
 import {
   getFestivalDiscoveries,
   getFestivalProfile,
@@ -291,6 +295,212 @@ test('achievement-only Lost Lands discovery is excluded from Radar', () => {
   )
 
   assert.equal(result, null)
+})
+
+test('Lost Lands diagnostics separate remaining claimable discoveries from achievement', () => {
+  const profile = getFestivalProfile('lost-lands-2026')
+  const discoveries = getFestivalDiscoveries().filter(
+    (discovery) => discovery.festivalId === 'lost-lands-2026'
+  )
+  const collectedIds = profile.discoveryIds.slice(0, 7)
+  const diagnostics = diagnoseFestivalDiscoverySelection({
+    discoveries,
+    collectedIds,
+    festivalId: 'lost-lands-2026',
+    festivalDiscoveryIds: profile.discoveryIds,
+    now: NOW,
+  })
+
+  assert.deepEqual(
+    diagnostics.remainingDiscoveries.map((discovery) => discovery.id),
+    [
+      'lost-lands-sacred-code',
+      'lost-lands-camping-arrival',
+      'lost-lands-prehistoric-explorer',
+    ]
+  )
+  assert.deepEqual(
+    diagnostics.eligibleDiscoveries.map((discovery) => discovery.id),
+    ['lost-lands-sacred-code', 'lost-lands-camping-arrival']
+  )
+  assert.deepEqual(
+    diagnostics.rejectedDiscoveries.filter(
+      (discovery) => discovery.reason === 'achievement-only'
+    ),
+    [{
+      id: 'lost-lands-prehistoric-explorer',
+      name: 'Prehistoric Explorer',
+      reason: 'achievement-only',
+    }]
+  )
+  assert.equal(
+    diagnostics.selectedTarget?.id,
+    'lost-lands-sacred-code'
+  )
+})
+
+test('diagnostics explain when all claimable discoveries are collected', () => {
+  const profile = getFestivalProfile('lost-lands-2026')
+  const discoveries = getFestivalDiscoveries().filter(
+    (discovery) => discovery.festivalId === 'lost-lands-2026'
+  )
+  const claimableIds = discoveries
+    .filter((discovery) => discovery.claimable !== false)
+    .map((discovery) => discovery.id)
+  const diagnostics = diagnoseFestivalDiscoverySelection({
+    discoveries,
+    collectedIds: claimableIds,
+    festivalId: 'lost-lands-2026',
+    festivalDiscoveryIds: profile.discoveryIds,
+    now: NOW,
+  })
+
+  assert.equal(diagnostics.selectedTarget, null)
+  assert.equal(
+    diagnostics.emptyReason,
+    'All claimable discoveries collected'
+  )
+})
+
+test('Radar loading lifecycle settles even when drop services reject', () => {
+  const app = new URL('../App.jsx', import.meta.url)
+  const source = readFileSync(app, 'utf8')
+  assert.match(source, /Promise\.allSettled/)
+  assert.match(source, /setFestivalDiscoveryLoading\(false\)/)
+  assert.match(source, /radarSelectionDiagnostics\.selectedTarget/)
+})
+
+test('two eligible Lost Lands discoveries always produce a target', () => {
+  const profile = getFestivalProfile('lost-lands-2026')
+  const discoveries = getFestivalDiscoveries().filter(
+    (discovery) => discovery.festivalId === 'lost-lands-2026'
+  )
+  const eligibleIds = [
+    'lost-lands-sacred-code',
+    'lost-lands-camping-arrival',
+  ]
+  const collectedIds = profile.discoveryIds.filter(
+    (id) =>
+      !eligibleIds.includes(id) &&
+      id !== 'lost-lands-prehistoric-explorer'
+  )
+  const diagnostics = diagnoseFestivalDiscoverySelection({
+    discoveries,
+    collectedIds,
+    festivalId: 'lost-lands-2026',
+    festivalDiscoveryIds: profile.discoveryIds,
+    now: NOW,
+  })
+
+  assert.equal(diagnostics.eligibleDiscoveries.length, 2)
+  assert.ok(diagnostics.selectedTarget)
+  assert.ok(eligibleIds.includes(diagnostics.selectedTarget.id))
+})
+
+test('one eligible EDC discovery always produces a target', () => {
+  const profile = getFestivalProfile('edc-las-vegas-2026')
+  const discoveries = getFestivalDiscoveries().filter(
+    (discovery) => discovery.festivalId === 'edc-las-vegas-2026'
+  )
+  const eligibleId = profile.discoveryIds.find((id) =>
+    discoveries.some(
+      (discovery) =>
+        discovery.id === id && discovery.claimable !== false
+    )
+  )
+  const collectedIds = profile.discoveryIds.filter(
+    (id) => id !== eligibleId
+  )
+  const diagnostics = diagnoseFestivalDiscoverySelection({
+    discoveries,
+    collectedIds,
+    festivalId: 'edc-las-vegas-2026',
+    festivalDiscoveryIds: profile.discoveryIds,
+    now: NOW,
+  })
+
+  assert.equal(diagnostics.eligibleDiscoveries.length, 1)
+  assert.equal(diagnostics.selectedTarget?.id, eligibleId)
+})
+
+test('failed live and GPS inputs cannot remove the catalog fallback', () => {
+  const profile = getFestivalProfile('lost-lands-2026')
+  const discoveries = getFestivalDiscoveries().filter(
+    (discovery) => discovery.festivalId === 'lost-lands-2026'
+  )
+  const options = {
+    discoveries,
+    collectedIds: [],
+    festivalId: 'lost-lands-2026',
+    festivalDiscoveryIds: profile.discoveryIds,
+    activeDropIds: [],
+    activeDropWindows: {},
+    gpsDrops: [],
+    nearbyGpsDrops: [],
+    now: NOW,
+  }
+
+  assert.equal(
+    selectNextFestivalDiscovery(options)?.id,
+    'lost-lands-prehistoric-stage'
+  )
+  assert.equal(
+    selectNextFestivalDiscovery({
+      ...options,
+      activeDropIds: ['failed-live-drop'],
+    })?.id,
+    'lost-lands-prehistoric-stage'
+  )
+  assert.equal(
+    selectNextFestivalDiscovery({
+      ...options,
+      gpsDrops: [{
+        stamp_id: 'failed-gps-drop',
+        festival_id: 'lost-lands-2026',
+      }],
+    })?.id,
+    'lost-lands-prehistoric-stage'
+  )
+})
+
+test('catalog target advances after a successful claim', () => {
+  const first = selectProfileDiscovery('lost-lands-2026')
+  const second = selectProfileDiscovery(
+    'lost-lands-2026',
+    [first.id]
+  )
+
+  assert.equal(first.id, 'lost-lands-prehistoric-stage')
+  assert.equal(second.id, 'lost-lands-crater')
+})
+
+test('App never overwrites a valid catalog target with loading null', () => {
+  const source = readFileSync(
+    new URL('../App.jsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(
+    source,
+    /const nextDiscovery = radarSelectionDiagnostics\.selectedTarget/
+  )
+  assert.doesNotMatch(
+    source,
+    /festivalDiscoveryLoading\s*\?\s*null\s*:\s*radarSelectionDiagnostics\.selectedTarget/
+  )
+  assert.match(source, /refreshFestivalDiscoveryData\(festivalId\)/)
+})
+
+test('zero eligible discoveries use claimable-complete messaging', () => {
+  const radar = readFileSync(
+    new URL('../components/Dashboard/DiscoveryRadar.jsx', import.meta.url),
+    'utf8'
+  )
+  const selector = readFileSync(
+    new URL('./DiscoverySelectors.js', import.meta.url),
+    'utf8'
+  )
+  assert.match(radar, /All current discoveries collected/)
+  assert.match(selector, /All claimable discoveries collected/)
 })
 
 test('switching festival profiles changes the constrained catalog', () => {

@@ -15,7 +15,7 @@ const NORMAL_SECTIONS = Object.freeze([
   Object.freeze({ id: 'discoveries', label: 'Discoveries', pageIndex: PASSPORT_SECTION_PAGE_INDEX.discoveries }),
   Object.freeze({ id: 'collections', label: 'Collections', pageIndex: PASSPORT_SECTION_PAGE_INDEX.collections }),
   Object.freeze({ id: 'memories', label: 'Memories', pageIndex: PASSPORT_SECTION_PAGE_INDEX.memories }),
-  Object.freeze({ id: 'festival', label: 'Festival', pageIndex: PASSPORT_SECTION_PAGE_INDEX.festival }),
+  Object.freeze({ id: 'festival', label: 'Guide', pageIndex: PASSPORT_SECTION_PAGE_INDEX.festival }),
   Object.freeze({ id: 'export', label: 'Export', pageIndex: PASSPORT_SECTION_PAGE_INDEX.export }),
 ])
 

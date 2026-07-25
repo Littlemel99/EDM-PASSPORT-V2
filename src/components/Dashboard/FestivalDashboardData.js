@@ -45,4 +45,33 @@ export function getDashboardCollectionsSummary(
     total: progress.totalCollections,
   }
 }
+
+function parseLocalDate(value) {
+  const match = String(value || '').match(
+    /^(\d{4})-(\d{2})-(\d{2})/
+  )
+  if (!match) return null
+  const [, year, month, day] = match
+  const date = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day)
+  )
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function getJourneyDay(startDate, now = new Date()) {
+  const start = parseLocalDate(startDate)
+  const current = now instanceof Date ? now : new Date(now)
+  if (!start || Number.isNaN(current.getTime())) return null
+  const elapsed = Math.floor(
+    (new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate()
+    ) - start) /
+      86400000
+  )
+  return elapsed >= 0 ? elapsed + 1 : 0
+}
 import { calculateFestivalCollectionsProgress } from '../../collections/CollectionEngine.js'

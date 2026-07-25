@@ -5,12 +5,17 @@ import {
   getNextCollectionTarget,
 } from '../../collections/CollectionEngine.js'
 import CollectionDetail from './CollectionDetail.jsx'
+import { PageIdentity } from '../Festival/index.js'
 
 export default function FestivalCollections({
   festivalName,
   collections,
   discoveries,
   collectedIds,
+  activeFestival,
+  activeFestivalProfile,
+  activeFestivalBrand,
+  activeFestivalDisplay,
 }) {
   const [selectedCollectionId, setSelectedCollectionId] = useState(null)
   const selectedCollection = collections.find(
@@ -20,7 +25,13 @@ export default function FestivalCollections({
   if (selectedCollection) {
     return (
       <>
-        <p style={styles.pageNumber}>COLLECTIONS</p>
+        <PageIdentity
+          pageName="COLLECTION"
+          activeFestival={activeFestival}
+          activeFestivalProfile={activeFestivalProfile}
+          activeFestivalBrand={activeFestivalBrand}
+          activeFestivalDisplay={activeFestivalDisplay}
+        />
         <CollectionDetail
           collection={selectedCollection}
           discoveries={discoveries}
@@ -34,7 +45,13 @@ export default function FestivalCollections({
   if (!collections.length) {
     return (
       <>
-        <p style={styles.pageNumber}>COLLECTIONS</p>
+        <PageIdentity
+          pageName="COLLECTIONS"
+          activeFestival={activeFestival}
+          activeFestivalProfile={activeFestivalProfile}
+          activeFestivalBrand={activeFestivalBrand}
+          activeFestivalDisplay={activeFestivalDisplay}
+        />
         <section style={styles.emptyState}>
           <span style={styles.eyebrow}>COLLECTIONS</span>
           <h2 style={styles.emptyTitle}>{festivalName || 'Festival Edition'}</h2>
@@ -53,7 +70,13 @@ export default function FestivalCollections({
 
   return (
     <>
-      <p style={styles.pageNumber}>COLLECTIONS</p>
+      <PageIdentity
+        pageName="COLLECTIONS"
+        activeFestival={activeFestival}
+        activeFestivalProfile={activeFestivalProfile}
+        activeFestivalBrand={activeFestivalBrand}
+        activeFestivalDisplay={activeFestivalDisplay}
+      />
       <section style={styles.screen}>
         <header style={styles.hero}>
         <span style={styles.eyebrow}>COLLECTIBLE ALBUM</span>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import DiscoveryClaim from './DiscoveryClaim.jsx'
+import { getDiscoveryRadarDisplay } from './DiscoveryRadarData.js'
 
 const scanStates = [
   {
@@ -23,6 +24,7 @@ const scanStates = [
 export default function DiscoveryRadar({
   discovery,
   loading = false,
+  emptyReason = null,
   onOpenDiscovery,
 }) {
   const [radarOpen, setRadarOpen] = useState(false)
@@ -68,13 +70,15 @@ export default function DiscoveryRadar({
         <span style={styles.label}>DISCOVERY RADAR</span>
         <strong>
           {loading
-            ? 'No live target yet'
-            : 'All available discoveries collected'}
+            ? 'Loading festival discoveries'
+            : emptyReason || 'All current discoveries collected'}
         </strong>
         <p style={styles.text}>
           {loading
             ? 'Loading live and GPS drops for the selected festival.'
-            : 'New targets will appear here when they become available.'}
+            : emptyReason === 'Waiting for configured discoveries'
+              ? 'Configured discoveries are not available in the current catalog.'
+              : 'New targets will appear when this edition adds more claimable discoveries.'}
         </p>
       </section>
     )
@@ -82,15 +86,11 @@ export default function DiscoveryRadar({
 
   const scanState = scanStates[scanStep]
   const targetLocked = scanStep === scanStates.length - 1
-  const rarity = String(
-    discovery.rarity || 'common'
-  ).toUpperCase()
+  const display = getDiscoveryRadarDisplay(discovery)
 
   return (
     <>
       <section style={styles.launchCard}>
-        <span style={styles.label}>DISCOVERY RADAR</span>
-
         <div style={styles.launchHeader}>
           <div>
             <h2 style={styles.launchTitle}>
@@ -107,11 +107,11 @@ export default function DiscoveryRadar({
 
         <div style={styles.targetPreview}>
           <span style={styles.label}>CURRENT TARGET</span>
-          <strong>{discovery.name}</strong>
-          <small>
-            {discovery.location ||
-              'Explore the active festival area'}
-          </small>
+          <strong>{display.title}</strong>
+          <small>{display.location}</small>
+          <span style={styles.previewMetadata}>
+            {display.metadata}
+          </span>
         </div>
 
         <button
@@ -180,16 +180,11 @@ export default function DiscoveryRadar({
               <span style={styles.label}>TARGET</span>
 
               <strong style={styles.discoveryName}>
-                {discovery.name}
+                {display.title}
               </strong>
 
               <div style={styles.metaRow}>
-                <span>{rarity}</span>
-                <span>•</span>
-                <span>
-                  {discovery.category ||
-                    'Festival Discovery'}
-                </span>
+                <span>{display.metadata}</span>
               </div>
             </div>
 
@@ -197,8 +192,7 @@ export default function DiscoveryRadar({
               <span style={styles.label}>LOCATION HINT</span>
 
               <strong>
-                {discovery.location ||
-                  'Explore the active festival area.'}
+                {display.location}
               </strong>
 
               <p style={styles.text}>
@@ -260,7 +254,17 @@ export default function DiscoveryRadar({
 
       {claimOpen && (
         <DiscoveryClaim
-          discovery={discovery}
+          discovery={
+            display.restricted
+              ? {
+                  ...discovery,
+                  name: display.title,
+                  location: display.location,
+                  image: null,
+                  rarity: 'restricted',
+                }
+              : discovery
+          }
           onVerifyClaim={handleVerifyClaim}
           onNotNow={handleNotNow}
         />
@@ -271,8 +275,8 @@ export default function DiscoveryRadar({
 
 const styles = {
   launchCard: {
-    marginTop: 16,
-    padding: 18,
+    marginTop: 8,
+    padding: 16,
     borderRadius: 18,
     color: '#ffffff',
     background:
@@ -315,13 +319,21 @@ const styles = {
   },
 
   targetPreview: {
-    margin: '16px 0',
+    margin: '13px 0',
     padding: 13,
     display: 'flex',
     flexDirection: 'column',
     gap: 4,
     borderRadius: 14,
     background: 'rgba(255,255,255,.06)',
+  },
+
+  previewMetadata: {
+    marginTop: 5,
+    color: 'rgba(255,255,255,.68)',
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: '.04em',
   },
 
   overlay: {

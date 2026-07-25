@@ -1,10 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { getFestivalCollections } from '../../collections/CollectionEngine.js'
 import {
   getDashboardCollectionsSummary,
   getExplorerRank,
+  getJourneyDay,
 } from './FestivalDashboardData.js'
 
 test('explorer rank is calculated only from collected discovery count', () => {
@@ -47,4 +49,40 @@ test('dashboard collection count is derived from festival collections', () => {
     ),
     { completed: 0, total: 0 }
   )
+})
+
+test('Journey Day is derived from the edition start date', () => {
+  assert.equal(
+    getJourneyDay('2026-09-18', new Date(2026, 8, 18, 12)),
+    1
+  )
+  assert.equal(
+    getJourneyDay('2026-09-18', new Date(2026, 8, 20, 12)),
+    3
+  )
+  assert.equal(
+    getJourneyDay('2026-09-18', new Date(2026, 8, 17, 12)),
+    0
+  )
+  assert.equal(getJourneyDay(null), null)
+})
+
+test('Dashboard is limited to Mission Control cards', () => {
+  const source = readFileSync(
+    new URL('./FestivalDashboard.jsx', import.meta.url),
+    'utf8'
+  )
+  for (const label of [
+    'PROGRESS',
+    'CREW',
+    'PASSPORT',
+    'MEMORIES',
+    'CHANGE FESTIVAL',
+  ]) {
+    assert.match(source, new RegExp(label.replace("'", "\\'")))
+  }
+  assert.match(source, /<FestivalMissionCard/)
+  assert.doesNotMatch(source, /RECENT DISCOVERY/)
+  assert.doesNotMatch(source, /YOUR JOURNEY/)
+  assert.doesNotMatch(source, /JOURNEY PROGRESS/)
 })

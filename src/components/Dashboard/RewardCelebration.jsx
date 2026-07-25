@@ -1,7 +1,26 @@
-import { FestivalContextBar } from '../Festival/index.js'
+import { PageIdentity } from '../Festival/index.js'
+import {
+  getDiscoveryCategoryArtwork,
+  getDiscoveryRarityTheme,
+} from '../DiscoveryCards/discoveryCardTheme.js'
+import { getFestivalContextBarData } from '../Festival/FestivalContextBarData.js'
+import { resolveRewardRevealData } from './rewardRevealData.js'
+import './rewardReveal.css'
+
+function ProgressChange({ label, before, after, total }) {
+  return (
+    <div className="reward-reveal__progress-row">
+      <span>{label}</span>
+      <strong>
+        {before} → {after} / {total}
+      </strong>
+    </div>
+  )
+}
 
 export default function RewardCelebration({
   result,
+  currentUserId = null,
   developerMode = false,
   onContinue,
   onRepeatLastClaim,
@@ -13,102 +32,171 @@ export default function RewardCelebration({
 }) {
   if (!result?.discovery) return null
 
-  const { discovery, missionProgress } = result
-  const rarity = String(discovery.rarity || 'common').toUpperCase()
+  const festivalContext = getFestivalContextBarData({
+    activeFestival,
+    activeFestivalProfile,
+    activeFestivalBrand,
+    activeFestivalDisplay,
+  })
+  const reveal = resolveRewardRevealData(result, {
+    festivalContext,
+    currentUserId,
+  })
+  if (!reveal) return null
+
+  const { discovery } = reveal
+  const rarityTheme = getDiscoveryRarityTheme(discovery.rarity)
+  const artwork = getDiscoveryCategoryArtwork(discovery.category)
+  const duplicate = reveal.duplicate
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Reward celebration for ${discovery.name}`}
-      style={styles.overlay}
+      aria-label={`${reveal.state === 'NEW_DISCOVERY' ? 'Discovery unlocked' : 'Already discovered'}: ${discovery.name}`}
+      className="reward-reveal__overlay"
     >
-      <section style={styles.card}>
-        <FestivalContextBar
+      <section
+        className={`reward-reveal__card ${duplicate ? 'reward-reveal__card--duplicate' : 'reward-reveal__card--new'}`}
+        style={{
+          '--reveal-accent': rarityTheme.accent,
+          '--reveal-border': rarityTheme.border,
+          '--reveal-glow': rarityTheme.glow,
+        }}
+      >
+        <PageIdentity
+          pageName="DISCOVERY REWARD"
           activeFestival={activeFestival}
           activeFestivalProfile={activeFestivalProfile}
           activeFestivalBrand={activeFestivalBrand}
           activeFestivalDisplay={activeFestivalDisplay}
+          variant="reward"
         />
-        <span style={styles.eyebrow}>DISCOVERY VERIFIED</span>
 
-        <div style={styles.imageWrap}>
+        <p className="reward-reveal__eyebrow">
+          {duplicate ? 'ALREADY DISCOVERED' : 'DISCOVERY UNLOCKED'}
+        </p>
+
+        <div
+          className={`reward-reveal__art reward-reveal__art--${artwork.motif}`}
+          style={{ background: artwork.background }}
+        >
           {discovery.image ? (
-            <img
-              src={discovery.image}
-              alt={discovery.name}
-              style={styles.image}
-            />
+            <img src={discovery.image} alt={discovery.name} />
           ) : (
-            <span style={styles.fallback} aria-hidden="true">
-              {discovery.fallback || '✨'}
-            </span>
+            <div className="reward-reveal__relic" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
           )}
         </div>
 
-        <h2 style={styles.title}>{discovery.name}</h2>
-        <span style={styles.rarity}>{rarity}</span>
+        <h2 className="reward-reveal__title">{discovery.name}</h2>
+        <div className="reward-reveal__metadata">
+          <span>{reveal.rarity}</span>
+          <span>{reveal.category}</span>
+        </div>
+        <p className="reward-reveal__story">{reveal.story}</p>
 
-        <div style={styles.statGrid}>
-          <div style={styles.statCard}>
-            <strong>+{result.xpEarned}</strong>
-            <span>XP EARNED</span>
-          </div>
-
-          <div style={styles.statCard}>
-            <strong>{result.collectionCount}</strong>
-            <span>COLLECTED</span>
-          </div>
-
-          <div style={styles.statCard}>
-            <strong>{result.collectionPercent}%</strong>
-            <span>COMPLETE</span>
-          </div>
+        <div className="reward-reveal__xp" aria-label={`${reveal.xpEarned} XP earned`}>
+          <strong>{duplicate ? '0' : `+${reveal.xpEarned}`}</strong>
+          <span>XP EARNED</span>
         </div>
 
-        {!result.isNew && (
-          <p style={styles.ownedMessage}>
-            Already in your passport. No duplicate XP or mission progress was
-            awarded.
-          </p>
+        {duplicate ? (
+          <div className="reward-reveal__unchanged" role="status">
+            <strong>No progress added</strong>
+            <span>Collection unchanged</span>
+            <span>Daily Mission unchanged</span>
+            <span>Achievement unchanged</span>
+          </div>
+        ) : (
+          <div className="reward-reveal__progress" aria-label="Claim progress changes">
+            <ProgressChange
+              label="Discoveries"
+              before={reveal.discoveryProgress.before}
+              after={reveal.discoveryProgress.after}
+              total={reveal.discoveryProgress.total}
+            />
+
+            {reveal.collectionChanges.map((change) => (
+              <ProgressChange
+                key={change.collectionId}
+                label={change.name}
+                before={change.before}
+                after={change.after}
+                total={change.total}
+              />
+            ))}
+
+            {reveal.missionChange && (
+              <ProgressChange
+                label="Daily Mission"
+                before={reveal.missionChange.before}
+                after={reveal.missionChange.after}
+                total={reveal.missionChange.target}
+              />
+            )}
+
+            {reveal.achievementChange && (
+              <ProgressChange
+                label={reveal.achievementChange.achievement?.name || 'Achievement'}
+                before={reveal.achievementChange.before}
+                after={reveal.achievementChange.after}
+                total={reveal.achievementChange.total}
+              />
+            )}
+          </div>
         )}
 
-        {missionProgress && (
-          <div style={styles.missionCard}>
-            <span style={styles.label}>DAILY MISSION</span>
+        {reveal.completedCollections.length > 0 && (
+          <aside className="reward-reveal__milestone" aria-label="Completed collections">
+            <span>COLLECTION COMPLETE</span>
+            {reveal.completedCollections.map((collection) => (
+              <strong key={collection.collectionId}>{collection.name}</strong>
+            ))}
+            <small>
+              {reveal.completedCollectionCount} / {reveal.totalCollections} collections completed
+            </small>
+          </aside>
+        )}
+
+        {reveal.achievementChange?.unlockedNow && (
+          <aside className="reward-reveal__milestone reward-reveal__milestone--achievement">
+            <span>ACHIEVEMENT UNLOCKED</span>
             <strong>
-              {missionProgress.progress} / {missionProgress.target}
+              {reveal.achievementChange.achievement?.name || 'Prehistoric Explorer'}
             </strong>
-          </div>
-        )}
-
-        {missionProgress?.rewardUnlocked && (
-          <div style={styles.rewardCard}>
-            <span style={styles.label}>BADGE UNLOCKED</span>
-            <strong>{missionProgress.rewardUnlocked}</strong>
-          </div>
+            <small>
+              {reveal.achievementChange.after} / {reveal.achievementChange.total}
+            </small>
+            <p>Unlocked through discovery progression.</p>
+          </aside>
         )}
 
         <button
           type="button"
-          style={styles.primaryButton}
+          className="reward-reveal__primary"
           onClick={onContinue}
         >
-          CONTINUE
+          {reveal.primaryActionLabel}
         </button>
 
-        <button
-          type="button"
-          style={styles.secondaryButton}
-          onClick={() => onViewInPassport?.(discovery)}
-        >
-          VIEW IN PASSPORT
-        </button>
+        {reveal.secondaryActionLabel && (
+          <button
+            type="button"
+            className="reward-reveal__secondary"
+            onClick={() => onViewInPassport?.(discovery)}
+          >
+            {reveal.secondaryActionLabel}
+          </button>
+        )}
 
         {developerMode && (
           <button
             type="button"
-            style={styles.developerButton}
+            className="reward-reveal__developer"
             onClick={() => onRepeatLastClaim?.(discovery)}
           >
             REPEAT PREVIOUS DISCOVERY
@@ -117,173 +205,4 @@ export default function RewardCelebration({
       </section>
     </div>
   )
-}
-
-const styles = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 10001,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxSizing: 'border-box',
-    padding: 16,
-    overflowY: 'auto',
-    background: 'rgba(0,0,0,.94)',
-    backdropFilter: 'blur(10px)',
-  },
-
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    boxSizing: 'border-box',
-    padding: 20,
-    borderRadius: 24,
-    color: '#ffffff',
-    textAlign: 'center',
-    background: 'linear-gradient(180deg, #100326, #07192a)',
-    border: '1px solid rgba(250,204,21,.58)',
-    boxShadow: '0 25px 90px rgba(0,0,0,.7)',
-  },
-
-  eyebrow: {
-    display: 'inline-block',
-    marginTop: 14,
-    padding: '7px 11px',
-    borderRadius: 999,
-    color: '#110b00',
-    fontSize: 11,
-    fontWeight: 900,
-    letterSpacing: 1.5,
-    background: '#facc15',
-  },
-
-  imageWrap: {
-    width: 190,
-    height: 190,
-    margin: '18px auto 14px',
-    display: 'grid',
-    placeItems: 'center',
-    overflow: 'hidden',
-    borderRadius: 24,
-    background: 'rgba(255,255,255,.07)',
-    border: '1px solid rgba(255,255,255,.16)',
-  },
-
-  image: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
-  },
-
-  fallback: {
-    fontSize: 80,
-  },
-
-  title: {
-    margin: 0,
-    fontSize: 26,
-  },
-
-  rarity: {
-    display: 'inline-block',
-    marginTop: 8,
-    color: '#00f5ff',
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: 1.5,
-  },
-
-  statGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 8,
-    marginTop: 18,
-  },
-
-  statCard: {
-    minHeight: 72,
-    padding: 8,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: 14,
-    background: 'rgba(255,255,255,.07)',
-    fontSize: 11,
-  },
-
-  ownedMessage: {
-    margin: '14px 0 0',
-    padding: 12,
-    borderRadius: 13,
-    lineHeight: 1.45,
-    background: 'rgba(255,255,255,.06)',
-  },
-
-  missionCard: {
-    marginTop: 12,
-    padding: 13,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderRadius: 14,
-    background: 'rgba(0,245,255,.07)',
-    border: '1px solid rgba(0,245,255,.25)',
-  },
-
-  rewardCard: {
-    marginTop: 12,
-    padding: 13,
-    borderRadius: 14,
-    textAlign: 'left',
-    background: 'rgba(114,255,143,.09)',
-    border: '1px solid rgba(114,255,143,.3)',
-  },
-
-  label: {
-    display: 'block',
-    fontSize: 10,
-    letterSpacing: 1.5,
-    opacity: 0.7,
-  },
-
-  primaryButton: {
-    width: '100%',
-    marginTop: 16,
-    padding: '14px 16px',
-    border: 0,
-    borderRadius: 14,
-    cursor: 'pointer',
-    color: '#100b00',
-    fontWeight: 900,
-    background: 'linear-gradient(90deg, #facc15, #72ff8f)',
-  },
-
-  secondaryButton: {
-    width: '100%',
-    marginTop: 10,
-    padding: '12px 16px',
-    borderRadius: 14,
-    cursor: 'pointer',
-    color: '#ffffff',
-    fontWeight: 800,
-    background: 'transparent',
-    border: '1px solid rgba(255,255,255,.2)',
-  },
-
-  developerButton: {
-    width: '100%',
-    marginTop: 10,
-    padding: '12px 16px',
-    borderRadius: 14,
-    cursor: 'pointer',
-    color: '#facc15',
-    fontWeight: 900,
-    background: 'rgba(250,204,21,.06)',
-    border: '1px dashed rgba(250,204,21,.55)',
-  },
 }

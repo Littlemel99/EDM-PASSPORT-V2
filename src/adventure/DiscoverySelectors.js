@@ -233,3 +233,108 @@ export function selectNextFestivalDiscovery({
     ) || null
   )
 }
+
+export function diagnoseFestivalDiscoverySelection(options = {}) {
+  const {
+    discoveries = [],
+    collectedIds = [],
+    festivalId = '',
+    festivalDiscoveryIds,
+  } = options
+  const discoveryById = new Map(
+    discoveries
+      .filter((discovery) => discovery?.id)
+      .map((discovery) => [discovery.id, discovery])
+  )
+  const collectedSet = toCollectedSet(collectedIds)
+  const candidateIds =
+    Array.isArray(festivalDiscoveryIds) &&
+    festivalDiscoveryIds.length > 0
+      ? [...new Set(festivalDiscoveryIds)]
+      : discoveries
+          .filter(
+            (discovery) =>
+              discovery?.id &&
+              (!festivalId || getFestivalId(discovery) === festivalId)
+          )
+          .map((discovery) => discovery.id)
+  const remainingDiscoveries = []
+  const eligibleDiscoveries = []
+  const rejectedDiscoveries = []
+
+  candidateIds.forEach((discoveryId) => {
+    const discovery = discoveryById.get(discoveryId)
+    let reason = null
+
+    if (!discovery) reason = 'unknown-discovery-id'
+    else if (collectedSet.has(discoveryId)) reason = 'already-collected'
+    else {
+      remainingDiscoveries.push(discovery)
+      if (
+        festivalId &&
+        getFestivalId(discovery) &&
+        getFestivalId(discovery) !== festivalId
+      ) {
+        reason = 'different-festival'
+      } else if (
+        discovery.claimable === false ||
+        discovery.sourceType === 'derived-achievement'
+      ) {
+        reason = 'achievement-only'
+      }
+    }
+
+    if (reason) {
+      rejectedDiscoveries.push({
+        id: discoveryId,
+        name: discovery?.name || null,
+        reason,
+      })
+    } else if (discovery) {
+      eligibleDiscoveries.push(discovery)
+    }
+  })
+
+  const selectedTarget = selectNextFestivalDiscovery(options)
+  let emptyReason = null
+
+  if (!selectedTarget) {
+    if (
+      eligibleDiscoveries.length === 0 &&
+      remainingDiscoveries.length === 0
+    ) {
+      emptyReason = 'All current discoveries collected'
+    } else if (
+      eligibleDiscoveries.length === 0 &&
+      remainingDiscoveries.every(
+        (discovery) =>
+          discovery.claimable === false ||
+          discovery.sourceType === 'derived-achievement'
+      )
+    ) {
+      emptyReason = 'All claimable discoveries collected'
+    } else if (
+      rejectedDiscoveries.some(
+        (discovery) => discovery.reason === 'unknown-discovery-id'
+      )
+    ) {
+      emptyReason = 'Waiting for configured discoveries'
+    } else {
+      emptyReason = 'Discovery target unavailable'
+    }
+  }
+
+  return {
+    remainingDiscoveries: remainingDiscoveries.map(
+      (discovery) => ({ ...discovery })
+    ),
+    eligibleDiscoveries: eligibleDiscoveries.map(
+      (discovery) => ({ ...discovery })
+    ),
+    rejectedDiscoveries: rejectedDiscoveries.map(
+      (discovery) => ({ ...discovery })
+    ),
+    selectedTarget: selectedTarget ? { ...selectedTarget } : null,
+    emptyReason,
+  }
+}

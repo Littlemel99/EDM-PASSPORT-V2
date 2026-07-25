@@ -21,6 +21,7 @@ export {
 } from './AdventureEngine'
 
 export {
+  diagnoseFestivalDiscoverySelection,
   getDiscoveredHiddenCount,
   getDiscoveriesByCategory,
   getHiddenDiscoveries,

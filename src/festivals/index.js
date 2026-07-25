@@ -26,3 +26,9 @@ export {
   formatFestivalDates,
   getFestivalEditionDisplayMetadata,
 } from './festivalEditionDisplay.js'
+export {
+  FESTIVAL_LIFECYCLES,
+  getFestivalLifecycleAction,
+  groupFestivalsByLifecycle,
+  resolveFestivalLifecycle,
+} from './festivalLifecycle.js'

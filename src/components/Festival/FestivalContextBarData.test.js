@@ -68,12 +68,11 @@ test('location is optional and safe when missing', () => {
   assert.equal(context.venueLocation, null)
 })
 
-test('Dashboard context appears before Open Passport and Radar', () => {
+test('Dashboard page identity precedes mission status, Radar, and mission cards', () => {
   const dashboard = source('../Dashboard/FestivalDashboard.jsx')
-  assert.ok(dashboard.indexOf('<FestivalContextBar') < dashboard.indexOf('<PassportPrimaryActions'))
-  assert.ok(dashboard.indexOf('<PassportPrimaryActions') < dashboard.indexOf('<DiscoveryRadar'))
+  assert.ok(dashboard.indexOf('<PageIdentity') < dashboard.indexOf('aria-label="Journey status"'))
+  assert.ok(dashboard.indexOf('aria-label="Journey status"') < dashboard.indexOf('<DiscoveryRadar'))
   assert.ok(dashboard.indexOf('<DiscoveryRadar') < dashboard.indexOf('<FestivalMissionCard'))
-  assert.ok(dashboard.indexOf('<FestivalMissionCard') < dashboard.indexOf('<header style={styles.welcomeBar}'))
 })
 
 test('Passport shell has one persistent compact context bar', () => {
@@ -103,7 +102,7 @@ test('claim page displays the owning active festival shell context', () => {
 
 test('Reward Celebration displays the discovery festival edition', () => {
   const reward = source('../Dashboard/RewardCelebration.jsx')
-  assert.match(reward, /<FestivalContextBar/)
+  assert.match(reward, /<PageIdentity/)
   const app = source('../../App.jsx')
   assert.match(app, /rewardCelebrations\[0\]\?\.discovery\?\.festivalId/)
 })
