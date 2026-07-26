@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react'
 import {
+  loadProfile,
   loadPublicProfile,
   saveProfile,
 } from '../services/profileService'
@@ -71,11 +72,18 @@ export function ProfileProvider({ children }) {
         setProfileSaving(true)
         setProfileMessage('Saving rave profile...')
 
-        const savedProfile = await saveProfile(user, {
+        await saveProfile(user, {
           raveName: String(raveName).trim(),
           country,
         })
 
+        if (profileOwnerIdRef.current !== requestedUserId) return null
+        const savedProfile = await loadProfile(user)
+        if (!savedProfile) {
+          throw new Error(
+            'Passport profile was saved but could not be reloaded.'
+          )
+        }
         if (profileOwnerIdRef.current !== requestedUserId) return null
         setProfile(savedProfile)
         setProfileMessage('Rave profile saved.')

@@ -15,6 +15,17 @@ export function getActiveJourneyFestivalId(storage, userId) {
   )
 }
 
+export function restoreActiveJourneyFestivalId(storage, userId) {
+  try {
+    return getActiveJourneyFestivalId(storage, userId)
+  } catch (error) {
+    throw new Error(
+      `Active Journey restore failed: ${error.message || 'browser storage is unavailable.'}`,
+      { cause: error }
+    )
+  }
+}
+
 export function setActiveJourneyFestivalId(
   storage,
   userId,
@@ -44,4 +55,24 @@ export function getActiveJourneyLandingDestination(
   activeFestivalEditionId
 ) {
   return activeFestivalEditionId ? 'dashboard' : 'festivals'
+}
+
+export function resolveActiveJourneyStartup(storage, userId) {
+  const authenticatedUserId = String(userId || '').trim()
+  if (!authenticatedUserId) {
+    throw new Error(
+      'Authenticated user UUID is required for Active Journey restore.'
+    )
+  }
+
+  const festivalId = restoreActiveJourneyFestivalId(
+    storage,
+    authenticatedUserId
+  )
+
+  return Object.freeze({
+    authenticatedUserId,
+    festivalId,
+    destination: getActiveJourneyLandingDestination(festivalId),
+  })
 }

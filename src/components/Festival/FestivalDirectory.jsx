@@ -15,6 +15,7 @@ export default function FestivalDirectory({
   now,
   selectedFestivalId,
   progressByFestival = {},
+  attendedFestivalIds = [],
   expandedSections = {},
   onToggleSection,
   onSelectFestival,
@@ -22,7 +23,8 @@ export default function FestivalDirectory({
   const groups = groupFestivalsByLifecycle(festivals, now)
   const sections = getFestivalDirectorySections(
     groups,
-    expandedSections
+    expandedSections,
+    attendedFestivalIds
   )
 
   return (
@@ -44,7 +46,7 @@ export default function FestivalDirectory({
           collapsible,
           expanded,
         } = section
-        if (!editions.length) return null
+        if (!editions.length && lifecycle !== 'completed') return null
         const panelId = `festival-directory-${lifecycle}`
 
         return (

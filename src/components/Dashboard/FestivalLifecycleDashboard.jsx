@@ -1,4 +1,7 @@
-import { getExplorerRank } from './FestivalDashboardData.js'
+import {
+  getExplorerRank,
+  getFestivalCountdown,
+} from './FestivalDashboardData.js'
 import { PageIdentity } from '../Festival/index.js'
 import { formatFestivalDates } from '../../festivals/index.js'
 
@@ -23,36 +26,32 @@ export default function FestivalLifecycleDashboard({
 }) {
   const rank = getExplorerRank(collectedCount)
   const upcoming = lifecycle === 'upcoming'
-  const preview = lifecycle !== 'completed'
+  const completed = lifecycle === 'completed'
+  const unavailable = !upcoming && !completed
+  const countdown = getFestivalCountdown(
+    activeFestivalDisplay?.startDate
+  )
+  const festivalName =
+    activeFestivalDisplay?.brandName ||
+    activeFestivalProfile?.name ||
+    'Festival journey'
 
   return (
     <section style={styles.page}>
       <PageIdentity
-        pageName={preview ? 'FESTIVAL PREVIEW' : 'FESTIVAL RECAP'}
+        pageName="MISSION CONTROL"
         activeFestival={activeFestival}
         activeFestivalProfile={activeFestivalProfile}
         activeFestivalBrand={activeFestivalBrand}
         activeFestivalDisplay={activeFestivalDisplay}
         variant="dashboard"
       />
-      <button
-        type="button"
-        style={styles.changeFestival}
-        onClick={onChangeFestival}
-      >
-        CHANGE FESTIVAL
-      </button>
 
-      {preview ? (
+      {upcoming && (
         <section style={styles.hero}>
-          <span style={styles.eyebrow}>
-            {upcoming ? 'COMING SOON' : 'EDITION INFORMATION'}
-          </span>
-          <h2 style={styles.title}>
-            {upcoming
-              ? 'This festival has not started yet.'
-              : 'Live festival activity is unavailable.'}
-          </h2>
+          <span style={styles.eyebrow}>UPCOMING</span>
+          <h2 style={styles.title}>YOUR JOURNEY IS READY</h2>
+          <strong style={styles.festivalName}>{festivalName}</strong>
           <p style={styles.metadata}>
             {activeFestivalDisplay?.location || 'Location unavailable'}
           </p>
@@ -64,29 +63,37 @@ export default function FestivalLifecycleDashboard({
               )}
             </p>
           )}
+          <p style={styles.statusCopy}>
+            {countdown
+              ? `This festival begins in ${countdown}.`
+              : 'Festival details are still being prepared.'}
+          </p>
           <div style={styles.metrics}>
-            <Metric label="Configured Discoveries" value={totalCount} />
-            <Metric label="Configured Collections" value={collectionsTotal} />
+            <Metric label="Discoveries Available" value={totalCount} />
+            <Metric label="Collections Available" value={collectionsTotal} />
           </div>
           <button type="button" style={styles.primary} onClick={onOpenPassport}>
-            OPEN PASSPORT
+            VIEW PASSPORT
           </button>
-          <button type="button" style={styles.secondary} onClick={onReturnToFestivals}>
-            RETURN TO FESTIVALS
+          <button type="button" style={styles.secondary} onClick={onChangeFestival}>
+            CHANGE FESTIVAL
           </button>
         </section>
-      ) : (
+      )}
+
+      {completed && (
         <>
           <section style={styles.hero}>
-            <span style={styles.eyebrow}>FESTIVAL COMPLETE</span>
-            <h2 style={styles.title}>Your edition recap</h2>
+            <span style={styles.eyebrow}>ATTENDED</span>
+            <h2 style={styles.title}>JOURNEY COMPLETE</h2>
+            <strong style={styles.festivalName}>{festivalName}</strong>
             <div style={styles.metrics}>
-              <Metric label="Discoveries" value={`${collectedCount} / ${totalCount}`} />
-              <Metric label="Collections" value={`${collectionsCompleted} / ${collectionsTotal}`} />
-              <Metric label="Achievements" value={achievementsEarned} />
+              <Metric label="Discoveries Found" value={`${collectedCount} / ${totalCount}`} />
+              <Metric label="Collections Completed" value={`${collectionsCompleted} / ${collectionsTotal}`} />
+              <Metric label="Achievements Earned" value={achievementsEarned} />
               <Metric label="Explorer Rank" value={rank.name} />
               <Metric label="XP" value={totalXp} />
-              <Metric label="Memories" value={memories.length} />
+              <Metric label="Memories Saved" value={memories.length} />
             </div>
             <p style={styles.metadata}>
               Crew: {crewName || 'Solo Explorer'}
@@ -104,6 +111,40 @@ export default function FestivalLifecycleDashboard({
           </div>
         </>
       )}
+
+      {unavailable && (
+        <section style={styles.hero}>
+          <span style={styles.eyebrow}>EDITION INFORMATION</span>
+          <h2 style={styles.title}>FESTIVAL DETAILS COMING SOON</h2>
+          <strong style={styles.festivalName}>{festivalName}</strong>
+          {activeFestivalDisplay?.location && (
+            <p style={styles.metadata}>
+              {activeFestivalDisplay.location}
+            </p>
+          )}
+          {activeFestivalDisplay?.startDate && (
+            <p style={styles.metadata}>
+              {formatFestivalDates(
+                activeFestivalDisplay.startDate,
+                activeFestivalDisplay.endDate
+              )}
+            </p>
+          )}
+          <div style={styles.metrics}>
+            <Metric label="Discoveries Available" value={totalCount} />
+            <Metric label="Collections Available" value={collectionsTotal} />
+          </div>
+          <button type="button" style={styles.primary} onClick={onOpenPassport}>
+            VIEW PASSPORT
+          </button>
+          <button type="button" style={styles.secondary} onClick={onReturnToFestivals}>
+            RETURN TO FESTIVALS
+          </button>
+          <button type="button" style={styles.secondary} onClick={onChangeFestival}>
+            CHANGE FESTIVAL
+          </button>
+        </section>
+      )}
     </section>
   )
 }
@@ -117,6 +158,8 @@ const styles = {
   hero: { minWidth: 0, display: 'grid', gap: 10, padding: 20, borderRadius: 20, background: 'linear-gradient(145deg,#15241e,#090d0c)', border: '1px solid rgba(241,189,99,.2)' },
   eyebrow: { color: '#f1bd63', fontSize: 10, fontWeight: 950, letterSpacing: '.18em' },
   title: { margin: 0, fontSize: 'clamp(27px,8vw,40px)', overflowWrap: 'anywhere' },
+  festivalName: { color: '#fff', fontSize: 18, overflowWrap: 'anywhere' },
+  statusCopy: { margin: '4px 0', color: '#f1bd63', fontSize: 15, fontWeight: 850, lineHeight: 1.45 },
   metadata: { margin: 0, color: 'rgba(255,255,255,.68)', lineHeight: 1.5 },
   metrics: { minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 9, marginTop: 8 },
   metric: { minWidth: 0, display: 'grid', gap: 5, padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.05)' },

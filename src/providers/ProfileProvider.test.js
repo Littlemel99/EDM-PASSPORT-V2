@@ -31,6 +31,16 @@ test('stale profile save responses cannot publish messages or state', () => {
   )
 })
 
+test('profile save is reloaded before it is published', () => {
+  const saveIndex = source.indexOf('await saveProfile(user')
+  const reloadIndex = source.indexOf('await loadProfile(user)', saveIndex)
+  const publishIndex = source.indexOf('setProfile(savedProfile)', reloadIndex)
+
+  assert.ok(saveIndex >= 0)
+  assert.ok(reloadIndex > saveIndex)
+  assert.ok(publishIndex > reloadIndex)
+})
+
 test('closing a public profile invalidates its pending request and cached row', () => {
   assert.match(source, /publicProfileRequestRef\.current \+= 1/)
   assert.match(source, /setPublicProfile\(null\)/)

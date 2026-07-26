@@ -12,7 +12,7 @@ function cloneDiscovery(discovery) {
   }
 }
 
-export function getFestivalDiscoveries() {
+export function getFestivalDiscoveries(festivalId = '') {
   const discoveries = [
     ...stamps.map((stamp) => ({
       ...stamp,
@@ -23,6 +23,10 @@ export function getFestivalDiscoveries() {
   const seen = new Set()
 
   return discoveries
+    .filter(
+      (discovery) =>
+        !festivalId || discovery.festivalId === festivalId
+    )
     .filter((discovery) => {
       if (!discovery.id || seen.has(discovery.id)) return false
       seen.add(discovery.id)

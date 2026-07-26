@@ -1,3 +1,5 @@
+import { getFestivalJourneyDay } from '../../festivals/festivalLifecycle.js'
+
 const EXPLORER_RANKS = [
   { name: 'Explorer I', minimum: 0 },
   { name: 'Explorer II', minimum: 3 },
@@ -60,18 +62,52 @@ function parseLocalDate(value) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function getJourneyDay(startDate, now = new Date()) {
+export function getJourneyDay(
+  startDate,
+  now = new Date(),
+  timezone = null
+) {
+  return getFestivalJourneyDay(startDate, now, timezone)
+}
+
+export function getMissionControlLocation({
+  discovery,
+  venue,
+  location,
+} = {}) {
+  return (
+    String(discovery?.location || '').trim() ||
+    String(venue || '').trim() ||
+    String(location || '').trim() ||
+    'Festival grounds'
+  )
+}
+
+export function formatMissionControlTime(
+  now = new Date(),
+  locale = undefined
+) {
+  const date = now instanceof Date ? now : new Date(now)
+  if (Number.isNaN(date.getTime())) return 'Time unavailable'
+
+  return new Intl.DateTimeFormat(locale, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+}
+
+export function getFestivalCountdown(startDate, now = new Date()) {
   const start = parseLocalDate(startDate)
   const current = now instanceof Date ? now : new Date(now)
   if (!start || Number.isNaN(current.getTime())) return null
-  const elapsed = Math.floor(
-    (new Date(
-      current.getFullYear(),
-      current.getMonth(),
-      current.getDate()
-    ) - start) /
-      86400000
+
+  const currentDay = new Date(
+    current.getFullYear(),
+    current.getMonth(),
+    current.getDate()
   )
-  return elapsed >= 0 ? elapsed + 1 : 0
+  const days = Math.ceil((start - currentDay) / 86400000)
+  if (days <= 0) return 'today'
+  return `${days} ${days === 1 ? 'day' : 'days'}`
 }
 import { calculateFestivalCollectionsProgress } from '../../collections/CollectionEngine.js'

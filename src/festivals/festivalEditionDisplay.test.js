@@ -66,3 +66,19 @@ test('missing edition theme remains null for passport UI', () => {
   const metadata = getMetadata('lost-lands-2026')
   assert.equal(metadata.themeName, null)
 })
+
+test('fallback edition derives year and timezone for Tomorrowland identity', () => {
+  const metadata = getFestivalEditionDisplayMetadata({
+    edition: {
+      id: 'tomorrowland-2026',
+      name: 'Tomorrowland 2026',
+      location: 'Boom, Belgium',
+      startDate: '2026-07-17',
+      endDate: '2026-07-26',
+      timezone: 'Europe/Brussels',
+    },
+  })
+
+  assert.equal(metadata.year, 2026)
+  assert.equal(metadata.location, 'Boom, Belgium')
+})

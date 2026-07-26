@@ -138,6 +138,7 @@ test('festival discovery fallback works', () => {
 
 test('generic first-uncollected fallback works', () => {
   const result = select({
+    festivalId: '',
     discoveries: [
       { id: 'gamma', name: 'Gamma', festivalId: 'festival-b' },
       { id: 'delta', name: 'Delta' },
@@ -200,7 +201,7 @@ test('unknown configured discovery IDs are ignored safely', () => {
   assert.equal(result?.id, 'beta')
 })
 
-test('empty festival discovery IDs preserve generic fallback', () => {
+test('empty festival discovery IDs never cross festival catalogs', () => {
   const result = select({
     discoveries: [
       { id: 'gamma', name: 'Gamma', festivalId: 'festival-b' },
@@ -209,7 +210,19 @@ test('empty festival discovery IDs preserve generic fallback', () => {
     festivalDiscoveryIds: [],
   })
 
-  assert.equal(result?.id, 'gamma')
+  assert.equal(result, null)
+})
+
+test('empty festival discovery IDs preserve a matching festival fallback', () => {
+  const result = select({
+    discoveries: [
+      { id: 'gamma', name: 'Gamma', festivalId: 'festival-b' },
+      { id: 'delta', name: 'Delta', festivalId: FESTIVAL_ID },
+    ],
+    festivalDiscoveryIds: [],
+  })
+
+  assert.equal(result?.id, 'delta')
 })
 
 test('configured festival returns null when its discoveries are collected', () => {

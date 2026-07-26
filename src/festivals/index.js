@@ -28,6 +28,8 @@ export {
 } from './festivalEditionDisplay.js'
 export {
   FESTIVAL_LIFECYCLES,
+  getFestivalCalendarDate,
+  getFestivalJourneyDay,
   getFestivalLifecycleAction,
   groupFestivalsByLifecycle,
   resolveFestivalLifecycle,

@@ -1,10 +1,11 @@
 import AdminPage from './components/AdminPage.jsx'
+import AdminConsole from './components/Admin/AdminConsole.jsx'
 import FamilyPage from './components/FamilyPage'
 import TimelinePage from './components/TimelinePage'
 import RecapPage from './components/RecapPage'
 import PublicProfile from './components/PublicProfile'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { supabase, supabaseUrl } from './lib/supabase'
 import { usePassport } from './providers/PassportProvider.jsx'
 import { useCrew } from './providers/CrewProvider.jsx'
 import { useProfile } from './providers/ProfileProvider.jsx'
@@ -67,6 +68,7 @@ import {
   loadProfile,
   loadPublicProfile,
   getProfileDisplayName,
+  saveProfile,
 } from './services/profileService'
 
 import {
@@ -83,6 +85,7 @@ import {
   saveFestivalAttendance,
   loadFestivalDemandSummary,
 } from './services/festivalAttendanceService'
+import { loadUserFestivalHistoryIds } from './services/festivalHistoryService.js'
 
 import ProfilePage from './components/Profile/ProfilePage'
 import FestivalDashboard from './components/Dashboard/FestivalDashboard'
@@ -109,13 +112,30 @@ import {
   isDiscoveryOwnedByFestival,
 } from './components/Festival/index.js'
 import TopLevelNavigation from './components/Navigation/TopLevelNavigation.jsx'
+import AccountChip from './components/Navigation/AccountChip.jsx'
+import {
+  resolveAccountChipRaveName,
+} from './components/Navigation/accountChipIdentity.js'
 import {
   getAuthenticatedLandingDestination,
 } from './navigation/topLevelNavigation.js'
 import {
+  AUTHENTICATED_WELCOME_DESTINATIONS,
+  isAuthenticatedProfileComplete,
+} from './auth/authenticatedWelcome.js'
+import {
+  clearOnboardingDraft,
+  initializeAuthenticatedPassport,
+  readOnboardingDraft,
+  writeOnboardingDraft,
+} from './auth/authenticatedOnboarding.js'
+import {
+  isDevIncompleteProfileEnabled,
+} from './auth/devIncompleteProfile.js'
+import {
   clearActiveJourneyFestivalId as clearPersistedActiveJourney,
-  getActiveJourneyFestivalId,
   getActiveJourneyLandingDestination,
+  resolveActiveJourneyStartup,
   setActiveJourneyFestivalId as persistActiveJourney,
 } from './navigation/activeJourney.js'
 import {
@@ -156,9 +176,23 @@ import {
   readUserStorage,
   writeUserStorage,
 } from './auth/accountIsolation.js'
-import { getOAuthRedirectUrl } from './auth/oauthRedirect.js'
+import {
+  canAccessAdminConsole,
+  isAdminLocation,
+} from './admin/adminAuthorization.js'
+import {
+  authorizationUrlMatchesRedirect,
+  beginOAuthAttempt,
+  clearOAuthBrowserState,
+  clearPendingOAuthAttempt,
+  createOAuthRequestLock,
+  getOAuthCallbackError,
+  getOAuthErrorClearedUrl,
+  getOAuthRedirectUrl,
+  getSupabaseProjectRef,
+  isLocalOAuthHost,
+} from './auth/oauthRedirect.js'
 const APP_URL = 'https://edm-passport-v2.vercel.app'
-const ADMIN_EMAIL = 'fdruth@gmail.com'
 
 function getActiveStampFromList(stampList, id) {
   return stampList.find((stamp) => stamp.id === id) || stampList[0]
@@ -172,8 +206,23 @@ function getFestivalYear(festival) {
 }
 
 export default function App() {
+  const adminLocationRequested = isAdminLocation(window.location)
+  const devIncompleteProfileOverride =
+    import.meta.env.DEV &&
+    isDevIncompleteProfileEnabled({
+      isDev: import.meta.env.DEV,
+      hostname: window.location.hostname,
+      search: window.location.search,
+    })
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [oauthRedirecting, setOauthRedirecting] = useState(false)
+  const [oauthCallbackError, setOauthCallbackError] = useState(() =>
+    getOAuthCallbackError(window.location.search)
+  )
+  const oauthRequestLockRef = useRef(createOAuthRequestLock())
+  const [authenticatedProfileStatus, setAuthenticatedProfileStatus] =
+    useState('loading')
   const [country, setCountry] = useState('')
   const [raveName, setRaveName] = useState('')
   const [passportEditorSession, setPassportEditorSession] = useState(null)
@@ -223,6 +272,7 @@ export default function App() {
   const [topLevelDestination, setTopLevelDestination] = useState(
     getAuthenticatedLandingDestination
   )
+  const [adminHomeRequestToken, setAdminHomeRequestToken] = useState(0)
   const [adminFestivalId, setAdminFestivalId] = useState('edc-las-vegas-2026')
   const [managedFestivals, setManagedFestivals] = useState(() =>
     mergeFestivalCatalog([], fallbackFestivals)
@@ -236,8 +286,11 @@ export default function App() {
   const [festivalMapUrl, setFestivalMapUrl] = useState('')
   const [festivalAdminMessage, setFestivalAdminMessage] = useState('')
   const [festivalAttendance, setFestivalAttendance] = useState([])
+  const [festivalHistoryIds, setFestivalHistoryIds] = useState([])
   const [festivalDemandSummary, setFestivalDemandSummary] = useState([])
   const [festivalAttendanceMessage, setFestivalAttendanceMessage] = useState('')
+  const [festivalSelectionError, setFestivalSelectionError] = useState('')
+  const [festivalSelectionRetryId, setFestivalSelectionRetryId] = useState('')
   const {
     activeId,
     setActiveId,
@@ -344,8 +397,26 @@ export default function App() {
   const festivalDiscoveryRequestIdRef = useRef(0)
   const festivalPersistenceRequestIdRef = useRef(0)
   const accountRequestGuardRef = useRef(createAccountRequestGuard())
+  const authenticatedStartupWatchdogRef = useRef(null)
+  const festivalSelectionWatchdogRef = useRef(null)
+  const isLocalOAuthTest =
+    import.meta.env.DEV && isLocalOAuthHost(window.location.hostname)
 
-  const isAdmin = user?.email === ADMIN_EMAIL
+  useEffect(() => {
+    if (!oauthCallbackError) return
+    clearPendingOAuthAttempt(localStorage)
+    window.history.replaceState(
+      {},
+      '',
+      getOAuthErrorClearedUrl(window.location.href)
+    )
+  }, [oauthCallbackError])
+
+  useEffect(() => {
+    if (user) clearPendingOAuthAttempt(localStorage)
+  }, [user])
+
+  const isAdmin = canAccessAdminConsole(user)
   const visiblePassportSections = useMemo(
     () => getVisiblePassportSections(isAdmin),
     [isAdmin]
@@ -355,14 +426,15 @@ export default function App() {
     pageIndex
   )
   const allStamps = useMemo(() => {
-    const masterDiscoveries = getFestivalDiscoveries()
+    const resolvedFestivalId = selectedFestivalId || ''
+    const masterDiscoveries = getFestivalDiscoveries(
+      resolvedFestivalId
+    )
     const festivalProfile = getFestivalProfile(
-      selectedFestivalId || 'edc-las-vegas-2026'
+      resolvedFestivalId
     )
     const configuredIds = festivalProfile?.discoveryIds || []
     const configuredIdSet = new Set(configuredIds)
-    const resolvedFestivalId =
-      selectedFestivalId || 'edc-las-vegas-2026'
     const festivalDiscoveries = configuredIds.length
       ? masterDiscoveries.filter((discovery) =>
           configuredIdSet.has(discovery.id)
@@ -380,14 +452,14 @@ export default function App() {
     ]
 
     return normalizeDiscoveries(mergedStamps, {
-      festivalId: selectedFestivalId || 'edc-las-vegas-2026',
+      festivalId: resolvedFestivalId,
     })
   }, [adminCreatedStamps, selectedFestivalId])
   const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
-  const activeClaimIsAchievement = activeStamp.claimable === false
+  const activeClaimIsAchievement = activeStamp?.claimable === false
   const activeClaimIsUnconfigured =
-    Array.isArray(activeStamp.claimMethods) &&
+    Array.isArray(activeStamp?.claimMethods) &&
     activeStamp.claimMethods.length === 0 &&
     !pendingClaimId &&
     !adminTestMode
@@ -570,6 +642,10 @@ export default function App() {
   const activeFamily = families.find((family) => family.id === activeFamilyId) || families[0] || null
   const activeFamilyUrl = activeFamily?.code ? `${APP_URL}?joincrew=${encodeURIComponent(activeFamily.code)}` : ''
   const displayName = getProfileDisplayName(profile, user, raveName)
+  const accountChipRaveName = resolveAccountChipRaveName({
+    profile,
+    authenticatedUserId: user?.id,
+  })
   const activeFestival = selectedFestivalId
     ? managedFestivals.find((festival) => festival.id === selectedFestivalId) || null
     : null
@@ -778,15 +854,42 @@ export default function App() {
     localStorage.removeItem('edm-selected-festival')
     localStorage.removeItem('edm-admin-festival')
 
-    supabase.auth.getSession().then(({ data }) => {
-      handleAuthenticatedUser(data.session?.user ?? null, 'initial-session')
-    })
-
+    let authenticatedAuthEventReceived = false
+    let disposed = false
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        authenticatedAuthEventReceived = true
+      }
+      if (event === 'INITIAL_SESSION' && !session?.user) return
       handleAuthenticatedUser(session?.user ?? null, event)
     })
 
-    return () => listener.subscription.unsubscribe()
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (disposed || authenticatedAuthEventReceived) return
+        if (error) {
+          setProfileMessage(
+            error.message || 'Could not restore your signed-in session.'
+          )
+        }
+        handleAuthenticatedUser(
+          data.session?.user ?? null,
+          'initial-session'
+        )
+      })
+      .catch((error) => {
+        if (disposed || authenticatedAuthEventReceived) return
+        setProfileMessage(
+          error.message || 'Could not restore your signed-in session.'
+        )
+        handleAuthenticatedUser(null, 'initial-session-error')
+      })
+
+    return () => {
+      disposed = true
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
 
@@ -990,6 +1093,7 @@ export default function App() {
 
     setCountry('')
     setRaveName('')
+    setAuthenticatedProfileStatus('loading')
     setPassportEditorSession(null)
     setProfileSaveConfirmation('')
     const resetCollectedIds = nextFestivalId
@@ -1008,6 +1112,7 @@ export default function App() {
     setJoinCode('')
     setFamilyMessage('')
     setFestivalAttendance([])
+    setFestivalHistoryIds([])
     setRewardCelebrations([])
     setLastClaimedDiscovery(null)
     setAdminTestMode(false)
@@ -1032,7 +1137,11 @@ export default function App() {
     setAdminFestivalId(nextFestivalId || 'edc-las-vegas-2026')
   }
 
-  function hydrateActiveJourneyCache(currentUser, festivalId) {
+  function hydrateActiveJourneyCache(
+    currentUser,
+    festivalId,
+    { preserveProfileReadiness = false } = {}
+  ) {
     const cached = readActiveJourneyCache(
       localStorage,
       currentUser?.id,
@@ -1046,8 +1155,15 @@ export default function App() {
     setMemories(cached?.memories || [])
     setFamilies(cached?.families || [])
     setActiveFamilyId(cached?.activeFamilyId || '')
-    setRaveName(cached?.raveName || '')
-    setCountry(cached?.country || '')
+    if (!preserveProfileReadiness) {
+      setRaveName(cached?.raveName || '')
+      setCountry(cached?.country || '')
+      setAuthenticatedProfileStatus(
+        isAuthenticatedProfileComplete(cached || {})
+          ? 'complete'
+          : 'loading'
+      )
+    }
     setActiveJourneyCacheReady(Boolean(festivalId))
   }
 
@@ -1060,6 +1176,16 @@ export default function App() {
       })
     }
     const request = accountRequestGuardRef.current.begin(currentUser?.id)
+    if (authenticatedStartupWatchdogRef.current) {
+      window.clearTimeout(authenticatedStartupWatchdogRef.current)
+      authenticatedStartupWatchdogRef.current = null
+    }
+    if (festivalSelectionWatchdogRef.current) {
+      window.clearTimeout(festivalSelectionWatchdogRef.current)
+      festivalSelectionWatchdogRef.current = null
+    }
+    setFestivalSelectionError('')
+    setFestivalSelectionRetryId('')
     beginPrivateProfileSession(currentUser?.id || null)
     setAuthLoading(Boolean(currentUser))
 
@@ -1071,16 +1197,67 @@ export default function App() {
       return
     }
 
-    const festivalId = getActiveJourneyFestivalId(
-      localStorage,
-      currentUser.id
-    )
+    if (import.meta.env?.DEV) {
+      console.info('[startup] AUTH_READY', {
+        userId: currentUser.id,
+        source,
+      })
+      console.info('[startup] ACTIVE_JOURNEY_RESTORE_START', {
+        userId: currentUser.id,
+      })
+    }
+    let activeJourneyStartup
+    try {
+      activeJourneyStartup = resolveActiveJourneyStartup(
+        localStorage,
+        currentUser.id
+      )
+    } catch (error) {
+      clearAuthenticatedUserState('')
+      setUser(currentUser)
+      setAuthLoading(false)
+      setProfileMessage(error.message)
+      setAuthenticatedProfileStatus('error')
+      return
+    }
+    const { festivalId, destination: startupDestination } =
+      activeJourneyStartup
+    if (import.meta.env?.DEV) {
+      console.info('[startup] ACTIVE_JOURNEY_RESTORE_RESULT', {
+        userId: currentUser.id,
+        festivalId: festivalId || null,
+      })
+    }
     clearAuthenticatedUserState(festivalId)
     hydrateActiveJourneyCache(currentUser, festivalId)
+    if (devIncompleteProfileOverride) {
+      console.info('[onboarding] DEV_INCOMPLETE_PROFILE_OVERRIDE', {
+        userId: currentUser.id,
+      })
+      setCountry('')
+      setRaveName('')
+      setAuthenticatedProfileStatus('incomplete')
+      setBookOpen(false)
+      setPassportEditorSession(
+        createPassportEditorSession({
+          country: '',
+          raveName: '',
+          bookOpen: false,
+          pageIndex: PASSPORT_SECTION_PAGE_INDEX.cover,
+          authenticatedWelcome: true,
+        })
+      )
+    }
     setActiveJourneyFestivalId(festivalId)
-    setTopLevelDestination(
-      getActiveJourneyLandingDestination(festivalId)
-    )
+    setTopLevelDestination(startupDestination)
+    if (import.meta.env?.DEV) {
+      console.info(
+        festivalId
+          ? '[startup] DASHBOARD_NAVIGATE'
+          : '[startup] DIRECTORY_NAVIGATE',
+        { userId: currentUser.id, festivalId: festivalId || null }
+      )
+    }
     if (festivalId) {
       const journeyFestival =
         managedFestivals.find((festival) => festival.id === festivalId) ||
@@ -1103,7 +1280,23 @@ export default function App() {
     setUser(currentUser)
     setAuthLoading(false)
 
-    refreshUserData(currentUser, festivalId, request).catch((error) => {
+    if (devIncompleteProfileOverride) return
+
+    authenticatedStartupWatchdogRef.current = window.setTimeout(() => {
+      if (!accountRequestGuardRef.current.isCurrent(request)) return
+      setProfileMessage(
+        'Authenticated startup timed out. Please check your connection and try again.'
+      )
+      setAuthenticatedProfileStatus('error')
+      authenticatedStartupWatchdogRef.current = null
+    }, 12000)
+
+    refreshUserData(
+      currentUser,
+      festivalId,
+      request,
+      startupDestination
+    ).catch((error) => {
       if (accountRequestGuardRef.current.isCurrent(request)) {
         console.error('Background journey refresh failed:', error)
       }
@@ -1146,7 +1339,8 @@ export default function App() {
   async function refreshUserData(
     currentUser = user,
     festivalId = activeFestivalId,
-    accountRequest = null
+    accountRequest = null,
+    startupDestination = getActiveJourneyLandingDestination(festivalId)
   ) {
     if (!currentUser) return
     const ownsRequest = () => accountRequest
@@ -1154,14 +1348,144 @@ export default function App() {
       : accountRequestGuardRef.current.getUserId() === currentUser.id
     if (!ownsRequest()) return
 
-    if (festivalId) {
-      await refreshFestivalPersistenceData(
-        festivalId,
-        currentUser,
-        accountRequest,
-        true
+    let onboarding
+    try {
+      onboarding = await initializeAuthenticatedPassport({
+        user: currentUser,
+        activeFestivalEditionId: festivalId,
+        load: loadProfile,
+        create: (authenticatedUser, draft) =>
+          saveProfile(authenticatedUser, draft),
+        draft: readOnboardingDraft(sessionStorage),
+        onStep: (step, details) => {
+          if (import.meta.env?.DEV) {
+            console.info(`[onboarding] ${step}`, details)
+          }
+        },
+      })
+    } catch (error) {
+      if (ownsRequest()) {
+        if (authenticatedStartupWatchdogRef.current) {
+          window.clearTimeout(authenticatedStartupWatchdogRef.current)
+          authenticatedStartupWatchdogRef.current = null
+        }
+        setProfileMessage(
+          error.message || 'Could not load your passport profile.'
+        )
+        setAuthenticatedProfileStatus('error')
+      }
+      return
+    }
+    if (!ownsRequest()) return
+    const savedProfile = onboarding.profile
+    if (import.meta.env?.DEV) {
+      console.info('[startup] PROFILE_LOADED', {
+        userId: currentUser.id,
+        profileId: savedProfile?.id || null,
+      })
+      console.info('[startup] PROFILE_COMPLETE', {
+        userId: currentUser.id,
+        complete: isAuthenticatedProfileComplete(savedProfile || {}),
+      })
+    }
+    if (savedProfile?.id === currentUser.id) {
+      publishPrivateProfile(savedProfile, currentUser.id)
+      if (savedProfile.rave_name) setRaveName(savedProfile.rave_name)
+      if (savedProfile.country) setCountry(savedProfile.country)
+      clearOnboardingDraft(sessionStorage)
+    }
+
+    const welcomeDestination = onboarding.destination
+    if (
+      welcomeDestination ===
+      AUTHENTICATED_WELCOME_DESTINATIONS.setup
+    ) {
+      setAuthenticatedProfileStatus('incomplete')
+      setBookOpen(false)
+      setPassportEditorSession((current) =>
+        current ||
+        createPassportEditorSession({
+          country: savedProfile?.country || '',
+          raveName: savedProfile?.rave_name || '',
+          bookOpen: false,
+          pageIndex: PASSPORT_SECTION_PAGE_INDEX.cover,
+          authenticatedWelcome: true,
+        })
       )
+    } else {
+      const restoredStartup = resolveActiveJourneyStartup(
+        localStorage,
+        currentUser.id
+      )
+      const restoredFestivalId = restoredStartup.festivalId
+      if (restoredFestivalId !== festivalId) {
+        festivalId = restoredFestivalId
+        setActiveJourneyFestivalId(restoredFestivalId)
+        setSelectedFestivalId(restoredFestivalId)
+        hydrateActiveJourneyCache(currentUser, restoredFestivalId, {
+          preserveProfileReadiness: true,
+        })
+        if (restoredFestivalId) {
+          const restoredFestival =
+            managedFestivals.find(
+              (festival) => festival.id === restoredFestivalId
+            ) || getFestivalProfile(restoredFestivalId)
+          setJourneyCompletionPending(
+            resolveFestivalLifecycle(restoredFestival || {}) ===
+              'completed'
+          )
+          Promise.resolve()
+            .then(() =>
+              refreshFestivalDiscoveryData(restoredFestivalId)
+            )
+            .catch((error) => {
+              console.error(
+                'Background restored journey discovery refresh failed:',
+                error
+              )
+            })
+        }
+      }
+      setAuthenticatedProfileStatus('complete')
+      setTopLevelDestination(
+        adminLocationRequested
+          ? canAccessAdminConsole(currentUser)
+            ? 'admin'
+            : 'admin-denied'
+          : restoredStartup.destination
+      )
+    }
+    if (authenticatedStartupWatchdogRef.current) {
+      window.clearTimeout(authenticatedStartupWatchdogRef.current)
+      authenticatedStartupWatchdogRef.current = null
+    }
+
+    if (festivalId) {
+      try {
+        await refreshFestivalPersistenceData(
+          festivalId,
+          currentUser,
+          accountRequest,
+          true
+        )
+      } catch (error) {
+        if (ownsRequest()) {
+          console.error('Festival persistence refresh failed:', error)
+        }
+      }
       if (!ownsRequest()) return
+    }
+
+    try {
+      const nextFestivalHistoryIds =
+        await loadUserFestivalHistoryIds(currentUser.id)
+      if (!ownsRequest()) return
+      setFestivalHistoryIds(nextFestivalHistoryIds)
+    } catch (error) {
+      if (ownsRequest()) {
+        console.error('Festival history load error:', error)
+        setFestivalHistoryIds([])
+      }
     }
 
     try {
@@ -1171,24 +1495,6 @@ export default function App() {
       }
     } catch (error) {
       console.error('Admin stamp load error:', error)
-    }
-
-    let savedProfile
-    try {
-      savedProfile = await loadProfile(currentUser)
-    } catch (error) {
-      if (ownsRequest()) {
-        setProfileMessage(
-          error.message || 'Could not load your passport profile.'
-        )
-      }
-      return
-    }
-    if (!ownsRequest()) return
-    if (savedProfile?.id === currentUser.id) {
-      publishPrivateProfile(savedProfile, currentUser.id)
-      if (savedProfile.rave_name) setRaveName(savedProfile.rave_name)
-      if (savedProfile.country) setCountry(savedProfile.country)
     }
 
     const savedFamilies = await loadFamilies(currentUser)
@@ -1547,23 +1853,108 @@ export default function App() {
 
     setCountry(values.country)
     setRaveName(values.raveName.trim())
+    setAuthenticatedProfileStatus('complete')
+    const isAuthenticatedWelcome =
+      passportEditorSession.authenticatedWelcome
     const destination = getPassportEditorDestination(passportEditorSession, true)
     setPassportEditorSession(null)
     setProfileSaveConfirmation('Passport profile saved.')
+    if (isAuthenticatedWelcome) {
+      setBookOpen(false)
+      setTopLevelDestination(
+        activeJourneyFestivalId ? 'dashboard' : 'festivals'
+      )
+      return
+    }
     setBookOpen(destination.bookOpen)
     if (destination.sectionId) openPassportSection(destination.sectionId)
     else if (destination.pageIndex !== null) setPageIndex(destination.pageIndex)
   }
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: getOAuthRedirectUrl(window.location.origin),
-        queryParams: {
-          prompt: 'select_account',
+    if (!oauthRequestLockRef.current.tryAcquire()) return
+    setOauthRedirecting(true)
+    setOauthCallbackError(null)
+    writeOnboardingDraft(sessionStorage, { country, raveName })
+    const redirectTo = getOAuthRedirectUrl(window.location.origin)
+    const attempt = beginOAuthAttempt(localStorage, {
+      origin: window.location.origin,
+    })
+    if (!attempt) {
+      oauthRequestLockRef.current.release()
+      setOauthRedirecting(false)
+      setOauthCallbackError({
+        code: 'oauth_attempt_in_progress',
+        message:
+          'Another Google login attempt is already in progress. Finish it or clear the local OAuth test state.',
+      })
+      return
+    }
+
+    if (import.meta.env.DEV) {
+      console.info('[oauth:attempt-start]', {
+        attemptId: attempt.id,
+        href: window.location.href,
+        origin: window.location.origin,
+        redirectTo,
+        timestamp: new Date(attempt.createdAt).toISOString(),
+      })
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          queryParams: {
+            prompt: 'select_account',
+          },
         },
-      },
+      })
+      if (error) throw error
+      if (!data?.url) {
+        throw new Error('Google sign-in did not return an authorization URL.')
+      }
+      if (!authorizationUrlMatchesRedirect(data.url, redirectTo)) {
+        throw new Error(
+          `OAuth redirect mismatch: expected ${redirectTo}.`
+        )
+      }
+      if (import.meta.env.DEV) {
+        console.info('[oauth:authorization-url]', {
+          attemptId: attempt.id,
+          authorizationUrl: data.url,
+          redirectTo,
+        })
+      }
+      window.location.assign(data.url)
+    } catch (error) {
+      clearPendingOAuthAttempt(localStorage)
+      oauthRequestLockRef.current.release()
+      setOauthRedirecting(false)
+      setOauthCallbackError({
+        code: 'oauth_start_failed',
+        message:
+          error?.message ||
+          'Google sign-in could not be started. Please try again.',
+      })
+    }
+  }
+
+  async function clearLocalOAuthTestState() {
+    if (!isLocalOAuthTest) return
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    const removedKeys = clearOAuthBrowserState({
+      localStorage,
+      sessionStorage,
+      projectRef: getSupabaseProjectRef(supabaseUrl),
+    })
+    oauthRequestLockRef.current.release()
+    setOauthRedirecting(false)
+    setOauthCallbackError({
+      code: 'oauth_test_state_cleared',
+      message: `Local OAuth test state cleared (${removedKeys.length} keys). Start a new Google login.`,
     })
   }
 
@@ -2478,15 +2869,28 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
     const hiddenOperationalPageOpen = bookOpen && !activePassportSection
     setSelectedFestivalId(festivalId)
     if (user?.id) {
-      hydrateActiveJourneyCache(user, festivalId)
+      hydrateActiveJourneyCache(user, festivalId, {
+        preserveProfileReadiness: true,
+      })
     }
     setTopLevelDestination('dashboard')
     setBookOpen(false)
     setAdminFestivalId(festivalId)
     setSelectedStamp(null)
     setRewardCelebrations([])
-    refreshFestivalPersistenceData(festivalId, user, null, true)
-    refreshFestivalDiscoveryData(festivalId)
+    refreshFestivalPersistenceData(
+      festivalId,
+      user,
+      null,
+      true
+    ).catch((error) => {
+      console.error('Background festival persistence refresh failed:', error)
+    })
+    Promise.resolve()
+      .then(() => refreshFestivalDiscoveryData(festivalId))
+      .catch((error) => {
+        console.error('Background festival discovery refresh failed:', error)
+      })
     if (publicProfileId) {
       loadPublicPassportProfile(publicProfileId, festivalId)
     }
@@ -2499,11 +2903,37 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
     }
   }
 
+  function clearFestivalSelectionTransition(festivalId) {
+    if (festivalSelectionWatchdogRef.current) {
+      window.clearTimeout(festivalSelectionWatchdogRef.current)
+      festivalSelectionWatchdogRef.current = null
+    }
+    if (import.meta.env.DEV) {
+      console.info('[PREPARING_STATE_CLEAR]', {
+        festivalId,
+        profileStatus: authenticatedProfileStatus,
+      })
+    }
+  }
+
   function selectFestival(festivalId) {
+    if (import.meta.env.DEV) {
+      console.info('[FESTIVAL_SELECT_START]', {
+        festivalId,
+        userId: user?.id || null,
+      })
+    }
     const festival =
       managedFestivals.find((item) => item.id === festivalId) ||
       getFestivalProfile(festivalId)
     const lifecycle = resolveFestivalLifecycle(festival || {})
+    if (import.meta.env.DEV) {
+      console.info('[FESTIVAL_SELECT_EDITION]', {
+        festivalId,
+        lifecycle,
+        profileStatus: authenticatedProfileStatus,
+      })
+    }
 
     if (lifecycle === 'completed') {
       setJourneyCompletionPending(false)
@@ -2521,12 +2951,71 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
       return
     }
 
-    if (user?.id) {
-      persistActiveJourney(localStorage, user.id, festivalId)
+    setFestivalSelectionError('')
+    setFestivalSelectionRetryId(festivalId)
+    if (import.meta.env.DEV) {
+      console.info('[PREPARING_STATE_SET]', {
+        festivalId,
+        selectionOnly: true,
+        profileStatus: authenticatedProfileStatus,
+      })
     }
-    setActiveJourneyFestivalId(festivalId)
-    setJourneyCompletionPending(false)
-    openFestivalEdition(festivalId)
+    festivalSelectionWatchdogRef.current = window.setTimeout(() => {
+      setFestivalSelectionError(
+        'Festival selection timed out. Your passport profile is unchanged.'
+      )
+      if (import.meta.env.DEV) {
+        console.error('[ACTIVE_JOURNEY_SAVE_ERROR]', {
+          festivalId,
+          message: 'Festival selection timed out.',
+        })
+      }
+      clearFestivalSelectionTransition(festivalId)
+    }, 10000)
+
+    try {
+      if (!user?.id) throw new Error('Login required to start a journey.')
+      if (import.meta.env.DEV) {
+        console.info('[ACTIVE_JOURNEY_SAVE_START]', {
+          festivalId,
+          userId: user.id,
+        })
+      }
+      const saved = persistActiveJourney(
+        localStorage,
+        user.id,
+        festivalId
+      )
+      if (!saved) {
+        throw new Error('Active Journey could not be saved.')
+      }
+      if (import.meta.env.DEV) {
+        console.info('[ACTIVE_JOURNEY_SAVE_SUCCESS]', {
+          festivalId,
+          userId: user.id,
+        })
+        console.info('[DASHBOARD_ROUTE_START]', { festivalId })
+      }
+      setActiveJourneyFestivalId(festivalId)
+      setJourneyCompletionPending(false)
+      openFestivalEdition(festivalId)
+      setFestivalSelectionRetryId('')
+      if (import.meta.env.DEV) {
+        console.info('[DASHBOARD_ROUTE_SUCCESS]', { festivalId })
+      }
+      clearFestivalSelectionTransition(festivalId)
+    } catch (error) {
+      setFestivalSelectionError(
+        error.message || 'Festival selection failed.'
+      )
+      if (import.meta.env.DEV) {
+        console.error('[ACTIVE_JOURNEY_SAVE_ERROR]', {
+          festivalId,
+          message: error.message,
+        })
+      }
+      clearFestivalSelectionTransition(festivalId)
+    }
   }
 
   function changeFestival() {
@@ -2545,6 +3034,13 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
   }
 
   function navigateTopLevel(destination) {
+    if (destination === 'admin') {
+      setBookOpen(false)
+      setAdminHomeRequestToken((token) => token + 1)
+      setTopLevelDestination(isAdmin ? 'admin' : 'admin-denied')
+      return
+    }
+
     if (destination === 'festivals') {
       if (
         activeJourneyFestivalId &&
@@ -2675,9 +3171,77 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
     )
   }
 
+  if (user && authenticatedProfileStatus === 'loading') {
+    return (
+      <main style={styles.screen}>
+        <section style={styles.card}>
+          <AccountChip
+            raveName={accountChipRaveName}
+            avatarUrl={
+              user?.user_metadata?.avatar_url ||
+              user?.user_metadata?.picture ||
+              ''
+            }
+            onOpenProfile={openAccountProfile}
+            onEditPassport={() => beginPassportProfileEdit()}
+            onSwitchAccount={switchAccount}
+            onSignOut={signOut}
+          />
+          <h1 style={styles.title}>EDM Passport</h1>
+          <p style={styles.successText}>Preparing your passport...</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (user && authenticatedProfileStatus === 'error') {
+    return (
+      <main style={styles.screen}>
+        <section style={styles.card}>
+          <AccountChip
+            raveName={accountChipRaveName}
+            avatarUrl={
+              user?.user_metadata?.avatar_url ||
+              user?.user_metadata?.picture ||
+              ''
+            }
+            onOpenProfile={openAccountProfile}
+            onEditPassport={() => beginPassportProfileEdit()}
+            onSwitchAccount={switchAccount}
+            onSignOut={signOut}
+          />
+          <h1 style={styles.title}>EDM Passport</h1>
+          <p style={styles.successText}>
+            {profileMessage ||
+              'Your passport profile could not be loaded.'}
+          </p>
+          <button
+            type="button"
+            style={styles.mainButton}
+            onClick={() => {
+              handleAuthenticatedUser(user, 'startup-retry')
+            }}
+          >
+            RETRY
+          </button>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main style={styles.screen}>
-      <section style={styles.card}>
+      <section
+        style={{
+          ...styles.card,
+          ...(
+            user &&
+            ['admin', 'admin-denied'].includes(topLevelDestination)
+              ? styles.adminShell
+              : {}
+          ),
+        }}
+      >
         {user && passportPresentationMode !== 'editor' && (
           <TopLevelNavigation
             activeDestination={
@@ -2687,7 +3251,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             }
             activeFestivalEditionId={activeJourneyFestivalId}
             onNavigate={navigateTopLevel}
-            raveName={profile?.rave_name || raveName}
+            raveName={accountChipRaveName}
             avatarUrl={
               profile?.avatar_url ||
               user?.user_metadata?.avatar_url ||
@@ -2698,7 +3262,25 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             onEditPassport={() => beginPassportProfileEdit()}
             onSwitchAccount={switchAccount}
             onSignOut={signOut}
+            isAdmin={isAdmin}
           />
+        )}
+        {user && passportPresentationMode === 'editor' && (
+          <div style={styles.editorAccountChip}>
+            <AccountChip
+              raveName={accountChipRaveName}
+              avatarUrl={
+                profile?.avatar_url ||
+                user?.user_metadata?.avatar_url ||
+                user?.user_metadata?.picture ||
+                ''
+              }
+              onOpenProfile={openAccountProfile}
+              onEditPassport={() => beginPassportProfileEdit()}
+              onSwitchAccount={switchAccount}
+              onSignOut={signOut}
+            />
+          </div>
         )}
         {passportPresentationMode === 'editor' ? (
           <PassportProfileEditor
@@ -2715,6 +3297,9 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             activeFestivalProfile={activeFestivalProfile}
             activeFestivalBrand={activeFestivalBrand}
             activeFestivalDisplay={activeFestivalDisplay}
+            requiredSetup={Boolean(
+              passportEditorSession?.authenticatedWelcome
+            )}
           />
         ) : passportPresentationMode === 'dashboard' ? (
           <>
@@ -2753,20 +3338,63 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             )}
 
             {user && topLevelDestination === 'festivals' && (
-              <FestivalDirectory
-                festivals={managedFestivals}
-                selectedFestivalId={selectedFestivalId}
-                progressByFestival={directoryProgressByFestival}
-                expandedSections={directoryExpandedSections}
-                onToggleSection={(section) =>
-                  setDirectoryExpandedSections((current) => ({
-                    ...current,
-                    [section]: !current[section],
-                  }))
-                }
-                onSelectFestival={selectFestival}
-              />
+              <>
+                {festivalSelectionError && (
+                  <section role="alert" style={styles.linkCard}>
+                    <strong>{festivalSelectionError}</strong>
+                    {festivalSelectionRetryId && (
+                      <button
+                        type="button"
+                        style={styles.mainButton}
+                        onClick={() =>
+                          selectFestival(festivalSelectionRetryId)
+                        }
+                      >
+                        RETRY
+                      </button>
+                    )}
+                  </section>
+                )}
+                <FestivalDirectory
+                  festivals={managedFestivals}
+                  selectedFestivalId={selectedFestivalId}
+                  progressByFestival={directoryProgressByFestival}
+                  attendedFestivalIds={festivalHistoryIds}
+                  expandedSections={directoryExpandedSections}
+                  onToggleSection={(section) =>
+                    setDirectoryExpandedSections((current) => ({
+                      ...current,
+                      [section]: !current[section],
+                    }))
+                  }
+                  onSelectFestival={selectFestival}
+                />
+              </>
             )}
+
+            {user &&
+              ['admin', 'admin-denied'].includes(
+                topLevelDestination
+              ) && (
+                <AdminConsole
+                  authorized={
+                    topLevelDestination === 'admin' && isAdmin
+                  }
+                  raveName={accountChipRaveName}
+                  currentFestival={
+                    activeFestivalDisplay?.editionName ||
+                    activeFestivalDisplay?.brandName ||
+                    activeFestival?.name ||
+                    ''
+                  }
+                  festivals={managedFestivals}
+                  adminUserId={user.id}
+                  homeRequestToken={adminHomeRequestToken}
+                  onReturnToDashboard={() =>
+                    navigateTopLevel('dashboard')
+                  }
+                />
+              )}
 
             {user &&
               topLevelDestination === 'dashboard' &&
@@ -2792,8 +3420,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               topLevelDestination === 'dashboard' &&
               selectedFestivalId &&
               !journeyCompletionPending &&
-              activeFestivalLifecycle === 'live' &&
-              activeFestivalProfile && (
+              activeFestivalLifecycle === 'live' && (
               <FestivalDashboard
                 raveName={profile?.rave_name || raveName}
                 displayName={displayName}
@@ -2832,6 +3459,22 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 }
                 onRepeatPreviousDiscovery={repeatPreviousDiscovery}
                 onOpenPassport={openDashboardPassport}
+                onOpenDiscoveries={() => {
+                  setBookOpen(true)
+                  openPassportSection('discoveries')
+                }}
+                onOpenMap={() => {
+                  setBookOpen(true)
+                  openPassportSection('festival')
+                }}
+                onOpenSchedule={() => {
+                  setBookOpen(true)
+                  openPassportSection('festival')
+                }}
+                onOpenCrew={() => {
+                  setBookOpen(true)
+                  setPageIndex(5)
+                }}
                 onOpenCollections={() => {
                   setBookOpen(true)
                   openPassportSection(DASHBOARD_PASSPORT_TARGETS.collections)
@@ -2839,6 +3482,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                 onOpenMemories={() => {
                   setBookOpen(true)
                   openPassportSection(DASHBOARD_PASSPORT_TARGETS.memories)
+                }}
+                onOpenAchievements={() => {
+                  setBookOpen(true)
+                  openPassportSection('discoveries')
                 }}
                 onOpenRecentDiscovery={() => {
                   setBookOpen(true)
@@ -2876,8 +3523,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               topLevelDestination === 'dashboard' &&
               selectedFestivalId &&
               !journeyCompletionPending &&
-              (activeFestivalLifecycle !== 'live' ||
-                !activeFestivalProfile) && (
+              activeFestivalLifecycle !== 'live' && (
               <FestivalLifecycleDashboard
                 lifecycle={activeFestivalLifecycle}
                 activeFestival={activeFestival}
@@ -2978,6 +3624,16 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               )}
             </button>
 
+            {isLocalOAuthTest && (
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={clearLocalOAuthTestState}
+              >
+                CLEAR OAUTH TEST STATE
+              </button>
+            )}
+
             <label style={styles.label}>Passport Country</label>
             <select value={country} onChange={(event) => setCountry(event.target.value)} style={styles.input}>
               <option value="">Select Country</option>
@@ -2994,7 +3650,33 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               placeholder="Choose your rave name"
             />
 
-            <button style={styles.mainButton} onClick={signInWithGoogle}>LOGIN WITH GOOGLE</button>
+            {oauthCallbackError && (
+              <div role="alert" style={styles.oauthError}>
+                <p style={styles.successText}>
+                  {oauthCallbackError.message}
+                </p>
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  onClick={signInWithGoogle}
+                  disabled={oauthRedirecting}
+                >
+                  {oauthCallbackError.code === 'bad_oauth_state'
+                    ? 'LOGIN EXPIRED — TRY AGAIN'
+                    : 'TRY GOOGLE LOGIN AGAIN'}
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              style={styles.mainButton}
+              onClick={signInWithGoogle}
+              disabled={oauthRedirecting}
+              aria-busy={oauthRedirecting}
+            >
+              {oauthRedirecting ? 'REDIRECTING…' : 'LOGIN WITH GOOGLE'}
+            </button>
 
             {profileMessage && <p style={styles.successText}>{profileMessage}</p>}
 
@@ -3217,6 +3899,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                   <p style={styles.pageNumber}>Passport Page 3</p>
                   <h2 style={styles.bookTitle}>GPS / QR / NFC Claim</h2>
 
+                  {activeStamp ? (
                   <div style={styles.claimBox}>
                     <p style={styles.labelDark}>Selected Reward</p>
                     <div style={styles.selectedRewardPreview}>
@@ -3297,6 +3980,15 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                       </div>
                     )}
                   </div>
+                  ) : (
+                    <div style={styles.warningBox}>
+                      <strong>NO DISCOVERY AVAILABLE</strong>
+                      <p>
+                        This festival edition does not have a configured
+                        discovery claim for the selected target.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -3855,6 +4547,11 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 }
 
 const styles = {
+  editorAccountChip: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginBottom: 10,
+  },
   profileSaveToast: { position: 'fixed', right: 18, bottom: 18, zIndex: 90, margin: 0, padding: '11px 15px', borderRadius: 12, color: '#171109', background: '#f1bd63', boxShadow: '0 12px 30px rgba(0,0,0,.35)', fontSize: 12, fontWeight: 900 },
   profileEditorPanel: {
     width: '100%',
@@ -3885,6 +4582,9 @@ const styles = {
     boxShadow: '0 0 34px rgba(34,211,238,.18), 0 0 70px rgba(255,45,214,.14), inset 0 0 26px rgba(255,255,255,.04)',
     backdropFilter: 'blur(10px)',
   },
+  adminShell: {
+    maxWidth: 1240,
+  },
   logo: { width: 126, height: 126, borderRadius: 999, objectFit: 'cover', display: 'block', margin: '0 auto 16px', border: '2px solid rgba(34,211,238,.75)', boxShadow: '0 0 30px rgba(34,211,238,.45), 0 0 55px rgba(255,45,214,.22)' },
   title: { textAlign: 'center', fontSize: 34, margin: '8px 0', fontWeight: 900, letterSpacing: '.02em', textShadow: '0 0 16px rgba(255,45,214,.65), 0 0 28px rgba(34,211,238,.35)' },
   tag: { textAlign: 'center', color: '#22d3ee', fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 900, textShadow: '0 0 12px rgba(34,211,238,.9)' },
@@ -3902,6 +4602,7 @@ const styles = {
   inputLight: { maxWidth: '100%', boxSizing: 'border-box', width: '100%', marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.48)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 900, outline: 'none', boxShadow: 'inset 0 0 16px rgba(34,211,238,.10), 0 0 12px rgba(34,211,238,.10)' },
   uploadButton: { width: '100%', marginTop: 12, padding: 18, borderRadius: 18, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(90deg, #ff2dd6, #7c3aed, #22d3ee)', color: '#050510', boxSizing: 'border-box', fontWeight: 900, display: 'block', textAlign: 'center', fontSize: 15, boxShadow: '0 0 22px rgba(34,211,238,.22)' },
   mainButton: { width: '100%', marginTop: 16, padding: 15, borderRadius: 18, border: '1px solid rgba(255,255,255,.16)', fontWeight: 900, background: 'linear-gradient(90deg, #ff2dd6 0%, #8b5cf6 48%, #22d3ee 100%)', color: '#030014', boxShadow: '0 0 22px rgba(255,45,214,.28), 0 0 28px rgba(34,211,238,.18)', letterSpacing: '.04em' },
+  oauthError: { marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(255,120,120,.45)', background: 'rgba(90,20,30,.35)' },
   secondaryButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(135deg, rgba(34,211,238,.18), rgba(124,58,237,.18), rgba(255,45,214,.12))', color: '#f8fbff', fontWeight: 900, boxShadow: '0 0 18px rgba(34,211,238,.14)', letterSpacing: '.03em' },
   dangerButton: { width: '100%', marginTop: 12, padding: 13, borderRadius: 16, border: '1px solid rgba(251,113,133,.35)', background: 'linear-gradient(90deg, #fb7185, #f97316)', color: '#12020a', fontWeight: 900, boxShadow: '0 0 18px rgba(251,113,133,.2)' },
   loginBox: { marginTop: 16, padding: 14, borderRadius: 18, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(34,211,238,.28)' },

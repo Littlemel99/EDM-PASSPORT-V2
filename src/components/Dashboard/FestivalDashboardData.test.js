@@ -7,6 +7,9 @@ import {
   getDashboardCollectionsSummary,
   getExplorerRank,
   getJourneyDay,
+  getMissionControlLocation,
+  formatMissionControlTime,
+  getFestivalCountdown,
 } from './FestivalDashboardData.js'
 
 test('explorer rank is calculated only from collected discovery count', () => {
@@ -65,6 +68,14 @@ test('Journey Day is derived from the edition start date', () => {
     0
   )
   assert.equal(getJourneyDay(null), null)
+  assert.equal(
+    getJourneyDay(
+      '2026-07-17',
+      new Date('2026-07-25T10:00:00Z'),
+      'Europe/Brussels'
+    ),
+    9
+  )
 })
 
 test('Dashboard is limited to Mission Control cards', () => {
@@ -75,7 +86,7 @@ test('Dashboard is limited to Mission Control cards', () => {
   for (const label of [
     'PROGRESS',
     'CREW',
-    'PASSPORT',
+    'OPEN PASSPORT',
     'MEMORIES',
     'CHANGE FESTIVAL',
   ]) {
@@ -95,4 +106,121 @@ test('Dashboard welcomes the returning explorer by rave name', () => {
   assert.match(source, /Welcome back,/)
   assert.match(source, /raveName \|\| 'Explorer'/)
   assert.doesNotMatch(source, /email/i)
+})
+
+test('Mission Control location is derived from local discovery and edition data', () => {
+  assert.equal(
+    getMissionControlLocation({
+      discovery: { location: 'The Crater' },
+      venue: 'Legend Valley',
+    }),
+    'The Crater'
+  )
+  assert.equal(
+    getMissionControlLocation({ venue: 'Legend Valley' }),
+    'Legend Valley'
+  )
+  assert.equal(
+    getMissionControlLocation({ location: 'Boom, Belgium' }),
+    'Boom, Belgium'
+  )
+  assert.equal(getMissionControlLocation(), 'Festival grounds')
+})
+
+test('Mission Control time is local and fails safely', () => {
+  assert.equal(
+    formatMissionControlTime(
+      new Date(2026, 8, 18, 21, 5),
+      'en-US'
+    ),
+    '9:05 PM'
+  )
+  assert.equal(
+    formatMissionControlTime('not-a-date'),
+    'Time unavailable'
+  )
+})
+
+test('upcoming countdown is derived only from valid festival dates', () => {
+  assert.equal(
+    getFestivalCountdown(
+      '2026-09-18',
+      new Date(2026, 8, 16, 18)
+    ),
+    '2 days'
+  )
+  assert.equal(
+    getFestivalCountdown(
+      '2026-09-18',
+      new Date(2026, 8, 17, 18)
+    ),
+    '1 day'
+  )
+  assert.equal(getFestivalCountdown(null), null)
+})
+
+test('live progress uses attendee-facing authenticated progress values', () => {
+  const source = readFileSync(
+    new URL('./FestivalDashboard.jsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /Discoveries Found/)
+  assert.match(source, /\{collectedCount\} \/ \{totalCount\}/)
+  assert.match(source, /Collections Completed/)
+  assert.match(
+    source,
+    /\{collectionsCompleted\} \/ \{collectionsTotal\}/
+  )
+})
+
+test('Dashboard exposes the one-thumb primary and secondary action sets', () => {
+  const source = readFileSync(
+    new URL('./FestivalDashboard.jsx', import.meta.url),
+    'utf8'
+  )
+  for (const label of [
+    'DISCOVER',
+    'RADAR',
+    'MAP',
+    'SCHEDULE',
+    'CREW',
+    'COLLECTIONS',
+    'ACHIEVEMENTS',
+  ]) {
+    assert.match(source, new RegExp(`label="${label}"`))
+  }
+  assert.match(source, /OPEN PASSPORT/)
+  assert.match(source, />\s*SETTINGS\s*</)
+  assert.match(source, /label=\{`MEMORIES ·/)
+  assert.match(source, /CHANGE FESTIVAL/)
+  assert.doesNotMatch(source, /from ['"].*services\//)
+})
+
+test('Tomorrowland live Mission Control uses attendee-facing live language', () => {
+  const source = readFileSync(
+    new URL('./FestivalDashboard.jsx', import.meta.url),
+    'utf8'
+  )
+  const radarSource = readFileSync(
+    new URL('./DiscoveryRadar.jsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /MISSION CONTROL/)
+  assert.match(source, /LIVE NOW/)
+  assert.match(source, /label="RADAR"[\s\S]*primary/)
+  assert.match(radarSource, /OPEN RADAR/)
+  assert.doesNotMatch(source, /Edition pending/)
+  assert.doesNotMatch(source, /FESTIVAL DETAILS COMING SOON/)
+  assert.doesNotMatch(source, /Configured Discoveries|Configured Collections/)
+})
+
+test('Mission Control replaces unavailable Radar and omits discovery missions', () => {
+  const source = readFileSync(
+    new URL('./FestivalDashboard.jsx', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(source, /nextDiscovery \? \(/)
+  assert.match(source, /label="VIEW FESTIVAL GUIDE"/)
+  assert.match(source, /\{totalCount > 0 && \(/)
 })

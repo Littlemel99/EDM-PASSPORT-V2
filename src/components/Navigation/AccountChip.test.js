@@ -14,6 +14,10 @@ const css = readFileSync(
   new URL('./topLevelNavigation.css', import.meta.url),
   'utf8'
 )
+const identity = readFileSync(
+  new URL('./accountChipIdentity.js', import.meta.url),
+  'utf8'
+)
 const app = readFileSync(
   new URL('../../App.jsx', import.meta.url),
   'utf8'
@@ -22,8 +26,10 @@ const app = readFileSync(
 test('account chip exposes identity without rendering email', () => {
   assert.match(source, /raveName/)
   assert.match(source, /avatarUrl/)
-  assert.match(source, /Complete Passport/)
+  assert.match(identity, /Complete Passport/)
   assert.doesNotMatch(source, /email/i)
+  assert.match(source, /getAccountChipLabel/)
+  assert.match(source, /title=\{label\}/)
 })
 
 test('account menu contains the required existing-account actions', () => {
@@ -60,4 +66,10 @@ test('authenticated navigation receives no email presentation prop', () => {
   const navigationEnd = app.indexOf('/>', navigationStart)
   const navigationProps = app.slice(navigationStart, navigationEnd)
   assert.doesNotMatch(navigationProps, /email/i)
+})
+
+test('long rave names use visual ellipsis without changing their label', () => {
+  assert.match(css, /text-overflow: ellipsis/)
+  assert.match(css, /white-space: nowrap/)
+  assert.match(source, /aria-label=\{`Account menu for \$\{label\}`\}/)
 })

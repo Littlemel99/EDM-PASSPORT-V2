@@ -4,8 +4,17 @@ export const TOP_LEVEL_DESTINATIONS = Object.freeze([
   Object.freeze({ id: 'passport', label: 'PASSPORT' }),
 ])
 
-export function getTopLevelDestinations() {
-  return TOP_LEVEL_DESTINATIONS.map((destination) => ({
+export const ADMIN_TOP_LEVEL_DESTINATION = Object.freeze({
+  id: 'admin',
+  label: 'BACKSTAGE',
+})
+
+export function getTopLevelDestinations(isAdmin = false) {
+  const destinations = isAdmin
+    ? [...TOP_LEVEL_DESTINATIONS, ADMIN_TOP_LEVEL_DESTINATION]
+    : TOP_LEVEL_DESTINATIONS
+
+  return destinations.map((destination) => ({
     ...destination,
   }))
 }

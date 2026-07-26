@@ -55,11 +55,11 @@ export function getProfileDisplayName(profile, user, fallbackRaveName = '') {
 export async function loadProfile(user) {
   if (!user) return null
 
-  const authenticatedUser = await requireAuthenticatedUser(user)
-  const userId = authenticatedUser.id
+  const userId = user.id
+  if (!userId) throw new Error('Authenticated user ID is required.')
   logProfilePersistence('select-request', {
     authenticatedUserId: userId,
-    authenticatedEmail: authenticatedUser.email,
+    authenticatedEmail: user.email,
     profileOwnerId: userId,
     filter: `id=eq.${userId}`,
   })
@@ -77,7 +77,7 @@ export async function loadProfile(user) {
   const ownedProfile = assertProfileOwnership(data, userId)
   logProfilePersistence('select-result', {
     authenticatedUserId: userId,
-    authenticatedEmail: authenticatedUser.email,
+    authenticatedEmail: user.email,
     profileRowId: ownedProfile?.id,
     profileOwnerId: ownedProfile?.id,
     raveName: ownedProfile?.rave_name,

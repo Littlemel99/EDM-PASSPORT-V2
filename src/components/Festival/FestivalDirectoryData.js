@@ -7,10 +7,20 @@ export const FESTIVAL_DIRECTORY_SECTIONS = Object.freeze([
 
 export function getFestivalDirectorySections(
   lifecycleGroups = {},
-  expandedSections = {}
+  expandedSections = {},
+  attendedFestivalIds = []
 ) {
+  const attendedIdSet = new Set(attendedFestivalIds)
+
   return FESTIVAL_DIRECTORY_SECTIONS.map((section) => {
-    const editions = lifecycleGroups[section.lifecycle] || []
+    const lifecycleEditions =
+      lifecycleGroups[section.lifecycle] || []
+    const editions =
+      section.lifecycle === 'completed'
+        ? lifecycleEditions.filter((edition) =>
+            attendedIdSet.has(edition.id)
+          )
+        : lifecycleEditions
     return {
       ...section,
       editions: editions.map((edition) => ({ ...edition })),

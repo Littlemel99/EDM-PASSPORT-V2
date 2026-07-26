@@ -32,6 +32,11 @@ export function getFestivalEditionDisplayMetadata({
 } = {}) {
   const selectedEdition = edition || profile || null
   if (!selectedEdition) return null
+  const startDate =
+    selectedEdition.start_date ||
+    selectedEdition.startDate ||
+    profile?.startDate ||
+    null
 
   return {
     brandName:
@@ -49,17 +54,13 @@ export function getFestivalEditionDisplayMetadata({
     year:
       selectedEdition.year ||
       profile?.year ||
-      null,
+      (startDate ? Number(String(startDate).slice(0, 4)) : null),
     location:
       selectedEdition.location ||
       getProfileLocation(selectedEdition) ||
       getProfileLocation(profile) ||
       null,
-    startDate:
-      selectedEdition.start_date ||
-      selectedEdition.startDate ||
-      profile?.startDate ||
-      null,
+    startDate,
     endDate:
       selectedEdition.end_date ||
       selectedEdition.endDate ||

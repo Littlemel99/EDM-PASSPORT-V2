@@ -1,8 +1,11 @@
 import FestivalMissionCard from './FestivalMissionCard.jsx'
 import DiscoveryRadar from './DiscoveryRadar.jsx'
+import { useEffect, useState } from 'react'
 import {
+  formatMissionControlTime,
   getExplorerRank,
   getJourneyDay,
+  getMissionControlLocation,
 } from './FestivalDashboardData.js'
 import { PageIdentity } from '../Festival/index.js'
 
@@ -25,7 +28,13 @@ export default function FestivalDashboard({
   memoriesCount = 0,
   onRepeatPreviousDiscovery,
   onOpenPassport,
+  onOpenDiscoveries,
+  onOpenMap,
+  onOpenSchedule,
+  onOpenCrew,
+  onOpenCollections,
   onOpenMemories,
+  onOpenAchievements,
   onOpenDiscovery,
   onEditPassport,
   onChangeFestival,
@@ -36,17 +45,37 @@ export default function FestivalDashboard({
   activeFestivalBrand,
   activeFestivalDisplay,
 }) {
+  const [currentTime, setCurrentTime] = useState(() => new Date())
   const explorerRank = getExplorerRank(collectedCount)
-  const journeyDay = getJourneyDay(festivalStartDate)
+  const journeyDay = getJourneyDay(
+    festivalStartDate,
+    currentTime,
+    activeFestivalDisplay?.timezone ||
+      activeFestival?.timezone ||
+      activeFestivalProfile?.timezone
+  )
+  const missionControlLocation = getMissionControlLocation({
+    discovery: nextDiscovery,
+    venue: activeFestivalDisplay?.venue,
+    location: activeFestivalDisplay?.location,
+  })
   const safePercent = Math.min(
     Math.max(collectionPercent || 0, 0),
     100
   )
 
+  useEffect(() => {
+    const intervalId = window.setInterval(
+      () => setCurrentTime(new Date()),
+      30000
+    )
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   return (
     <section style={styles.dashboard}>
       <PageIdentity
-        pageName="DASHBOARD"
+        pageName="MISSION CONTROL"
         activeFestival={activeFestival}
         activeFestivalProfile={activeFestivalProfile}
         activeFestivalBrand={activeFestivalBrand}
@@ -55,9 +84,24 @@ export default function FestivalDashboard({
       />
 
       <header style={styles.welcome}>
-        <span>Welcome back,</span>
-        <strong>{raveName || 'Explorer'}</strong>
+        <div>
+          <span>Welcome back,</span>
+          <strong>{raveName || 'Explorer'}</strong>
+        </div>
+        <div style={styles.liveContext}>
+          <span>{missionControlLocation}</span>
+          <time dateTime={currentTime.toISOString()}>
+            {formatMissionControlTime(currentTime)}
+          </time>
+        </div>
       </header>
+
+      <h2 style={styles.liveTitle}>
+        YOU’RE LIVE AT{' '}
+        {activeFestivalDisplay?.brandName ||
+          activeFestivalProfile?.name ||
+          'YOUR FESTIVAL'}
+      </h2>
 
       <section style={styles.missionHeader} aria-label="Journey status">
         <StatusItem
@@ -70,8 +114,12 @@ export default function FestivalDashboard({
                 : `Day ${journeyDay}`
           }
         />
+        <StatusItem label="CURRENT LOCATION" value={missionControlLocation} />
         <StatusItem label="EXPLORER RANK" value={explorerRank.name} />
-        <StatusItem label="LIFECYCLE" value={lifecycle.toUpperCase()} />
+        <StatusItem
+          label="LIFECYCLE"
+          value={lifecycle === 'live' ? 'LIVE NOW' : lifecycle.toUpperCase()}
+        />
       </section>
 
       <section style={styles.targetSection}>
@@ -93,81 +141,110 @@ export default function FestivalDashboard({
         )}
       </section>
 
+      <nav style={styles.primaryActions} aria-label="Festival actions">
+        <MissionAction label="DISCOVER" onClick={onOpenDiscoveries} />
+        {nextDiscovery ? (
+          <MissionAction
+            label="RADAR"
+            onClick={() => onOpenDiscovery?.(nextDiscovery)}
+            primary
+          />
+        ) : (
+          <MissionAction
+            label="VIEW FESTIVAL GUIDE"
+            onClick={onOpenMap}
+            primary
+          />
+        )}
+        <MissionAction label="MAP" onClick={onOpenMap} />
+        <MissionAction label="SCHEDULE" onClick={onOpenSchedule} />
+        <MissionAction label="CREW" onClick={onOpenCrew} />
+        <button
+          type="button"
+          style={styles.missionAction}
+          aria-label="Open festival passport"
+          onClick={onOpenPassport}
+        >
+          OPEN PASSPORT
+        </button>
+      </nav>
+
       <section style={styles.cardGrid} aria-label="Mission control">
         <article style={styles.card}>
           <span style={styles.label}>PROGRESS</span>
           <strong style={styles.cardValue}>{safePercent}%</strong>
           <ProgressBar percent={safePercent} />
-          <p style={styles.cardText}>
-            {collectedCount} / {totalCount} discoveries ·{' '}
-            {collectionsCompleted} / {collectionsTotal} collections
-          </p>
+          <div style={styles.progressSummary}>
+            <span>
+              Discoveries Found
+              <strong>{collectedCount} / {totalCount}</strong>
+            </span>
+            <span>
+              Collections Completed
+              <strong>
+                {collectionsCompleted} / {collectionsTotal}
+              </strong>
+            </span>
+          </div>
         </article>
 
-        <FestivalMissionCard
-          collectedCount={collectedCount}
-          festivalId={festivalId}
-          userId={missionUserId}
-          ready={missionReady}
-        />
+        {totalCount > 0 && (
+          <FestivalMissionCard
+            collectedCount={collectedCount}
+            festivalId={festivalId}
+            userId={missionUserId}
+            ready={missionReady}
+          />
+        )}
 
-        <article style={styles.card}>
-          <span style={styles.label}>CREW</span>
-          <strong style={styles.cardTitle}>
-            {crewName || 'Solo Explorer'}
-          </strong>
-          <p style={styles.cardText}>
-            Your active festival crew.
-          </p>
-        </article>
-
-        <article style={styles.card}>
-          <span style={styles.label}>PASSPORT</span>
-          <strong style={styles.cardTitle}>Your permanent record</strong>
-          <button
-            type="button"
-            style={styles.primaryButton}
-            aria-label="Open festival passport"
-            onClick={onOpenPassport}
-          >
-            OPEN PASSPORT
-          </button>
-          <button
-            type="button"
-            style={styles.secondaryButton}
-            onClick={onEditPassport}
-          >
-            EDIT PASSPORT PROFILE
-          </button>
-        </article>
-
-        <article style={styles.card}>
-          <span style={styles.label}>MEMORIES</span>
-          <strong style={styles.cardTitle}>
-            {memoriesCount} saved
-          </strong>
-          <button
-            type="button"
-            style={styles.secondaryButton}
-            onClick={onOpenMemories}
-          >
-            VIEW MEMORIES
-          </button>
-        </article>
-
-        <article style={styles.card}>
-          <span style={styles.label}>CHANGE FESTIVAL</span>
-          <strong style={styles.cardTitle}>Choose another journey</strong>
-          <button
-            type="button"
-            style={styles.secondaryButton}
-            onClick={onChangeFestival}
-          >
-            CHANGE FESTIVAL
-          </button>
-        </article>
       </section>
+
+      <nav style={styles.secondaryActions} aria-label="Passport actions">
+        <MissionAction label="COLLECTIONS" onClick={onOpenCollections} />
+        <MissionAction
+          label={`MEMORIES · ${memoriesCount}`}
+          onClick={onOpenMemories}
+        />
+        <MissionAction label="ACHIEVEMENTS" onClick={onOpenAchievements} />
+        <button
+          type="button"
+          style={styles.missionAction}
+          aria-label="EDIT PASSPORT PROFILE"
+          onClick={onEditPassport}
+        >
+          SETTINGS
+        </button>
+      </nav>
+
+      <footer style={styles.changeFestival}>
+        <span>
+          {crewName || 'Solo Explorer'} · {lifecycle.toUpperCase()}
+        </span>
+        <button
+          type="button"
+          style={styles.changeFestivalButton}
+          onClick={onChangeFestival}
+        >
+          CHANGE FESTIVAL
+        </button>
+      </footer>
     </section>
+  )
+}
+
+function MissionAction({ label, onClick, primary = false }) {
+  return (
+    <button
+      type="button"
+      style={
+        primary
+          ? styles.missionActionPrimary
+          : styles.missionAction
+      }
+      onClick={onClick}
+    >
+      {label}
+    </button>
   )
 }
 
@@ -205,18 +282,35 @@ const styles = {
   missionHeader: {
     minWidth: 0,
     display: 'grid',
-    gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+    gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
     gap: 8,
     marginTop: 10,
   },
   welcome: {
     minWidth: 0,
-    display: 'grid',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'end',
+    flexWrap: 'wrap',
     gap: 3,
     marginTop: 10,
     padding: '0 3px',
     color: 'rgba(255,255,255,.68)',
     fontSize: 12,
+  },
+  liveContext: {
+    display: 'grid',
+    gap: 2,
+    textAlign: 'right',
+    color: '#f1bd63',
+    fontWeight: 850,
+  },
+  liveTitle: {
+    margin: '14px 2px 0',
+    color: '#fff',
+    fontSize: 'clamp(20px,6vw,30px)',
+    lineHeight: 1.08,
+    overflowWrap: 'anywhere',
   },
   statusItem: {
     minWidth: 0,
@@ -230,6 +324,37 @@ const styles = {
     overflowWrap: 'anywhere',
   },
   targetSection: { minWidth: 0, marginTop: 18 },
+  primaryActions: {
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+    gap: 8,
+    marginTop: 14,
+  },
+  missionAction: {
+    minWidth: 0,
+    minHeight: 50,
+    padding: '8px 5px',
+    border: '1px solid rgba(255,255,255,.16)',
+    borderRadius: 13,
+    color: '#fff',
+    background: 'rgba(255,255,255,.045)',
+    fontSize: 10,
+    fontWeight: 950,
+    cursor: 'pointer',
+  },
+  missionActionPrimary: {
+    minWidth: 0,
+    minHeight: 50,
+    padding: '8px 5px',
+    border: '1px solid #f1bd63',
+    borderRadius: 13,
+    color: '#171109',
+    background: '#f1bd63',
+    fontSize: 10,
+    fontWeight: 950,
+    cursor: 'pointer',
+  },
   targetTitle: {
     margin: 0,
     color: '#f1bd63',
@@ -243,6 +368,33 @@ const styles = {
     gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
     gap: 11,
     marginTop: 18,
+  },
+  secondaryActions: {
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
+    gap: 8,
+    marginTop: 14,
+  },
+  changeFestival: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 8,
+    marginTop: 22,
+    paddingTop: 15,
+    borderTop: '1px solid rgba(255,255,255,.1)',
+    color: 'rgba(255,255,255,.58)',
+    fontSize: 10,
+    fontWeight: 850,
+  },
+  changeFestivalButton: {
+    minHeight: 44,
+    border: '1px solid rgba(241,189,99,.42)',
+    borderRadius: 12,
+    color: '#f1bd63',
+    background: 'transparent',
+    fontWeight: 950,
+    cursor: 'pointer',
   },
   card: {
     minWidth: 0,
@@ -267,6 +419,12 @@ const styles = {
     color: 'rgba(255,255,255,.64)',
     fontSize: 12,
     lineHeight: 1.45,
+  },
+  progressSummary: {
+    display: 'grid',
+    gap: 8,
+    color: 'rgba(255,255,255,.68)',
+    fontSize: 11,
   },
   progressTrack: {
     width: '100%',

@@ -149,6 +149,13 @@ export function selectNextFestivalDiscovery({
       return null
     }
     const discovery = discoveryById.get(stampId) || null
+    if (
+      discovery &&
+      festivalId &&
+      getFestivalId(discovery) !== festivalId
+    ) {
+      return null
+    }
     return discovery?.claimable === false ? null : discovery
   }
   const isSelectedFestival = (item) =>
@@ -207,6 +214,7 @@ export function selectNextFestivalDiscovery({
       discoveries.find(
         (discovery) =>
           discovery?.id &&
+          (!festivalId || getFestivalId(discovery) === festivalId) &&
           discovery.claimable !== false &&
           !collectedSet.has(discovery.id)
       ) || null
@@ -221,7 +229,7 @@ export function selectNextFestivalDiscovery({
         !collectedSet.has(discovery.id)
     )
 
-    if (festivalDiscovery) return festivalDiscovery
+    return festivalDiscovery || null
   }
 
   return (
@@ -303,7 +311,10 @@ export function diagnoseFestivalDiscoverySelection(options = {}) {
       eligibleDiscoveries.length === 0 &&
       remainingDiscoveries.length === 0
     ) {
-      emptyReason = 'All current discoveries collected'
+      emptyReason =
+        discoveries.length === 0
+          ? 'NO DISCOVERIES AVAILABLE YET'
+          : 'All current discoveries collected'
     } else if (
       eligibleDiscoveries.length === 0 &&
       remainingDiscoveries.every(

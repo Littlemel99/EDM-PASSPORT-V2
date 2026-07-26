@@ -6,6 +6,7 @@ import {
   groupFestivalsByLifecycle,
   resolveFestivalLifecycle,
 } from './festivalLifecycle.js'
+import { festivals } from '../data/festivals.js'
 
 const festival = {
   id: 'edition-2026',
@@ -88,4 +89,71 @@ test('directory grouping and lifecycle actions are deterministic', () => {
   assert.equal(getFestivalLifecycleAction('upcoming'), 'VIEW FESTIVAL')
   assert.equal(getFestivalLifecycleAction('completed'), 'VIEW RECAP')
   assert.equal(getFestivalLifecycleAction('unavailable'), 'VIEW FESTIVAL')
+})
+
+test('Tomorrowland 2026 is upcoming before its first date', () => {
+  const tomorrowland = festivals.find(
+    (item) => item.id === 'tomorrowland-2026'
+  )
+  assert.equal(
+    resolveFestivalLifecycle(
+      tomorrowland,
+      new Date('2026-07-16T21:59:00Z')
+    ),
+    'upcoming'
+  )
+})
+
+test('Tomorrowland 2026 is live on July 25 and throughout inclusive dates', () => {
+  const tomorrowland = festivals.find(
+    (item) => item.id === 'tomorrowland-2026'
+  )
+  assert.equal(
+    resolveFestivalLifecycle(
+      tomorrowland,
+      new Date('2026-07-16T22:00:00Z')
+    ),
+    'live'
+  )
+  assert.equal(
+    resolveFestivalLifecycle(
+      tomorrowland,
+      new Date('2026-07-25T10:00:00Z')
+    ),
+    'live'
+  )
+  assert.equal(
+    resolveFestivalLifecycle(
+      tomorrowland,
+      new Date('2026-07-26T21:59:59Z')
+    ),
+    'live'
+  )
+})
+
+test('Tomorrowland 2026 is completed after its inclusive end date', () => {
+  const tomorrowland = festivals.find(
+    (item) => item.id === 'tomorrowland-2026'
+  )
+  assert.equal(
+    resolveFestivalLifecycle(
+      tomorrowland,
+      new Date('2026-07-26T22:00:00Z')
+    ),
+    'completed'
+  )
+})
+
+test('Tomorrowland lifecycle uses the festival timezone, not the browser timezone', () => {
+  const tomorrowland = festivals.find(
+    (item) => item.id === 'tomorrowland-2026'
+  )
+  assert.equal(tomorrowland.timezone, 'Europe/Brussels')
+  assert.equal(
+    resolveFestivalLifecycle(
+      tomorrowland,
+      new Date('2026-07-16T22:30:00Z')
+    ),
+    'live'
+  )
 })

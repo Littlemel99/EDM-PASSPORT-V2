@@ -7,6 +7,8 @@ import {
   clearActiveJourneyFestivalId,
   getActiveJourneyFestivalId,
   getActiveJourneyLandingDestination,
+  restoreActiveJourneyFestivalId,
+  resolveActiveJourneyStartup,
   setActiveJourneyFestivalId,
 } from './activeJourney.js'
 import { createUserStorageKey } from '../auth/accountIsolation.js'
@@ -50,6 +52,43 @@ test('subsequent app opens land on the Active Journey Dashboard', () => {
   )
 })
 
+test('failed Active Journey restore exposes an actionable error', () => {
+  const storage = {
+    getItem() {
+      throw new Error('Storage denied')
+    },
+  }
+  assert.throws(
+    () => restoreActiveJourneyFestivalId(storage, 'user-a'),
+    /Active Journey restore failed: Storage denied/
+  )
+})
+
+test('failed Active Journey save throws without affecting another account', () => {
+  const storage = createStorage()
+  setActiveJourneyFestivalId(storage, 'user-b', 'lost-lands-2026')
+  const failingStorage = {
+    getItem: storage.getItem,
+    setItem() {
+      throw new Error('Storage quota denied')
+    },
+  }
+
+  assert.throws(
+    () =>
+      setActiveJourneyFestivalId(
+        failingStorage,
+        'user-a',
+        'tomorrowland-2026'
+      ),
+    /Storage quota denied/
+  )
+  assert.equal(
+    getActiveJourneyFestivalId(storage, 'user-b'),
+    'lost-lands-2026'
+  )
+})
+
 test('changing festival replaces only the active edition reference', () => {
   const storage = createStorage()
   setActiveJourneyFestivalId(storage, 'user-a', 'lost-lands-2026')
@@ -71,6 +110,52 @@ test('Active Journeys are isolated between accounts', () => {
   assert.equal(
     getActiveJourneyFestivalId(storage, 'user-b'),
     'edc-las-vegas-2026'
+  )
+})
+
+test('switching accounts recalculates the startup destination by UUID', () => {
+  const storage = createStorage()
+  setActiveJourneyFestivalId(storage, 'user-a', 'lost-lands-2026')
+
+  assert.deepEqual(
+    resolveActiveJourneyStartup(storage, 'user-a'),
+    {
+      authenticatedUserId: 'user-a',
+      festivalId: 'lost-lands-2026',
+      destination: 'dashboard',
+    }
+  )
+  assert.deepEqual(
+    resolveActiveJourneyStartup(storage, 'user-b'),
+    {
+      authenticatedUserId: 'user-b',
+      festivalId: '',
+      destination: 'festivals',
+    }
+  )
+})
+
+test('app restart resolves only the persisted account journey', () => {
+  const storage = createStorage()
+  setActiveJourneyFestivalId(storage, 'user-a', 'lost-lands-2026')
+
+  const restoredStorage = {
+    getItem: storage.getItem,
+  }
+  assert.equal(
+    resolveActiveJourneyStartup(restoredStorage, 'user-a').destination,
+    'dashboard'
+  )
+  assert.equal(
+    resolveActiveJourneyStartup(restoredStorage, 'user-b').destination,
+    'festivals'
+  )
+})
+
+test('Active Journey startup rejects a missing authenticated UUID', () => {
+  assert.throws(
+    () => resolveActiveJourneyStartup(createStorage(), ''),
+    /Authenticated user UUID is required/
   )
 })
 

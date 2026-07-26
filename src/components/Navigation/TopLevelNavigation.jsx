@@ -12,14 +12,16 @@ export default function TopLevelNavigation({
   onEditPassport,
   onSwitchAccount,
   onSignOut,
+  isAdmin = false,
 }) {
   return (
     <nav
       className="top-level-navigation"
       aria-label="Primary application navigation"
       data-has-active-journey={Boolean(activeFestivalEditionId)}
+      data-admin={isAdmin}
     >
-      {getTopLevelDestinations().map((destination) => {
+      {getTopLevelDestinations(isAdmin).map((destination) => {
         const active = destination.id === activeDestination
 
         return (

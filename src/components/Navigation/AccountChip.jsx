@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getAccountChipLabel } from './accountChipIdentity.js'
 
 export default function AccountChip({
   raveName,
@@ -10,7 +11,7 @@ export default function AccountChip({
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef(null)
-  const label = raveName?.trim() || 'Complete Passport'
+  const label = getAccountChipLabel(raveName)
 
   useEffect(() => {
     if (!open) return
@@ -45,6 +46,8 @@ export default function AccountChip({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="account-chip-menu"
+        aria-label={`Account menu for ${label}`}
+        title={label}
         onClick={() => setOpen((current) => !current)}
       >
         {avatarUrl ? (

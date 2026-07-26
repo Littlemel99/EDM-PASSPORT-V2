@@ -12,7 +12,11 @@ export const festivals = [
   {
     id: 'tomorrowland-2026',
     name: 'Tomorrowland 2026',
+    year: 2026,
     location: 'Boom, Belgium',
+    timezone: 'Europe/Brussels',
+    publishStatus: 'TESTING',
+    published: false,
     status: 'upcoming',
     startDate: '2026-07-17',
     endDate: '2026-07-26',

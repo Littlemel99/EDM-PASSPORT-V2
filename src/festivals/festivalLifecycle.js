@@ -7,21 +7,68 @@ export const FESTIVAL_LIFECYCLES = Object.freeze({
 
 const VALID_OVERRIDES = new Set(Object.values(FESTIVAL_LIFECYCLES))
 
-function localDate(value, endOfDay = false) {
+function normalizeDateKey(value) {
   if (!value) return null
   const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (!match) return null
   const [, year, month, day] = match
-  const date = new Date(
+  const date = new Date(Date.UTC(
     Number(year),
     Number(month) - 1,
-    Number(day),
-    endOfDay ? 23 : 0,
-    endOfDay ? 59 : 0,
-    endOfDay ? 59 : 0,
-    endOfDay ? 999 : 0
+    Number(day)
+  ))
+  const key = `${year}-${month}-${day}`
+  return !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === key
+    ? key
+    : null
+}
+
+export function getFestivalCalendarDate(
+  now = new Date(),
+  timezone = null
+) {
+  const current = now instanceof Date ? now : new Date(now)
+  if (Number.isNaN(current.getTime())) return null
+
+  if (!timezone) {
+    const year = current.getFullYear()
+    const month = String(current.getMonth() + 1).padStart(2, '0')
+    const day = String(current.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(current)
+    const values = Object.fromEntries(
+      parts.map(({ type, value }) => [type, value])
+    )
+    return `${values.year}-${values.month}-${values.day}`
+  } catch {
+    return null
+  }
+}
+
+export function getFestivalJourneyDay(
+  startDate,
+  now = new Date(),
+  timezone = null
+) {
+  const startKey = normalizeDateKey(startDate)
+  const currentKey = getFestivalCalendarDate(now, timezone)
+  if (!startKey || !currentKey) return null
+
+  const start = new Date(`${startKey}T00:00:00Z`)
+  const current = new Date(`${currentKey}T00:00:00Z`)
+  const elapsed = Math.floor(
+    (current.getTime() - start.getTime()) / 86400000
   )
-  return Number.isNaN(date.getTime()) ? null : date
+  return elapsed >= 0 ? elapsed + 1 : 0
 }
 
 export function resolveFestivalLifecycle(
@@ -46,25 +93,27 @@ export function resolveFestivalLifecycle(
     return FESTIVAL_LIFECYCLES.COMPLETED
   }
 
-  const startDate = localDate(
+  const startDate = normalizeDateKey(
     festival.start_date || festival.startDate
   )
-  const endDate = localDate(
-    festival.end_date || festival.endDate,
-    true
+  const endDate = normalizeDateKey(
+    festival.end_date || festival.endDate
   )
-  const current = now instanceof Date ? now : new Date(now)
+  const currentDate = getFestivalCalendarDate(
+    now,
+    festival.timezone || festival.time_zone || null
+  )
 
   if (
     !startDate ||
     !endDate ||
-    Number.isNaN(current.getTime()) ||
+    !currentDate ||
     endDate < startDate
   ) {
     return FESTIVAL_LIFECYCLES.UNAVAILABLE
   }
-  if (current < startDate) return FESTIVAL_LIFECYCLES.UPCOMING
-  if (current > endDate) return FESTIVAL_LIFECYCLES.COMPLETED
+  if (currentDate < startDate) return FESTIVAL_LIFECYCLES.UPCOMING
+  if (currentDate > endDate) return FESTIVAL_LIFECYCLES.COMPLETED
   return FESTIVAL_LIFECYCLES.LIVE
 }
 

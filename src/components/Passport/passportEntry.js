@@ -1,9 +1,17 @@
-export function createPassportEditorSession({ country = '', raveName = '', bookOpen = false, pageIndex = null, afterSaveSectionId = null } = {}) {
+export function createPassportEditorSession({
+  country = '',
+  raveName = '',
+  bookOpen = false,
+  pageIndex = null,
+  afterSaveSectionId = null,
+  authenticatedWelcome = false,
+} = {}) {
   return {
     original: { country, raveName },
     draft: { country, raveName },
     origin: { bookOpen: Boolean(bookOpen), pageIndex },
     afterSaveSectionId,
+    authenticatedWelcome: Boolean(authenticatedWelcome),
   }
 }
 
