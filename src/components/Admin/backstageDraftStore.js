@@ -45,11 +45,21 @@ export function loadBackstageDrafts(
     storageKey(userId, festivalId, 'collections'),
     []
   )
+  const schedule = readJson(
+    storage,
+    storageKey(userId, festivalId, 'schedule'),
+    []
+  )
   return {
     information:
       information && typeof information === 'object' ? information : null,
     discoveries: Array.isArray(discoveries) ? discoveries : [],
     collections: Array.isArray(collections) ? collections : [],
+    schedule: Array.isArray(schedule)
+      ? schedule.filter(
+          (draft) => draft && typeof draft === 'object' && !Array.isArray(draft)
+        )
+      : [],
   }
 }
 
@@ -233,6 +243,150 @@ export function restoreCollectionDraft(drafts = [], draftId = '') {
   )
 }
 
+export function validateScheduleDraft(
+  input = {},
+  festival = {},
+  discoveryDrafts = [],
+  collectionDrafts = []
+) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return {
+      valid: false,
+      errors: { draft: 'Schedule draft is malformed.' },
+    }
+  }
+  const errors = {}
+  for (const field of [
+    'title',
+    'date',
+    'startTime',
+    'endTime',
+    'timezone',
+    'location',
+    'category',
+  ]) {
+    if (!String(input[field] || '').trim()) errors[field] = 'Required'
+  }
+  if (
+    input.startTime &&
+    input.endTime &&
+    input.endTime <= input.startTime
+  ) {
+    errors.endTime = 'End time must be after start time.'
+  }
+  if (
+    input.date &&
+    festival.startDate &&
+    festival.endDate &&
+    (input.date < festival.startDate || input.date > festival.endDate)
+  ) {
+    errors.date = `Date must be between ${festival.startDate} and ${festival.endDate}.`
+  }
+  if (input.festivalId && input.festivalId !== festival.id) {
+    errors.festivalId = 'Schedule item must belong to the selected festival.'
+  }
+  const allowedDiscoveries = new Set(
+    discoveryDrafts
+      .filter((draft) => draft.festivalId === festival.id)
+      .map((draft) => draft.id)
+  )
+  const allowedCollections = new Set(
+    collectionDrafts
+      .filter((draft) => draft.festivalId === festival.id)
+      .map((draft) => draft.id)
+  )
+  if (
+    input.linkedDiscoveryId &&
+    !allowedDiscoveries.has(input.linkedDiscoveryId)
+  ) {
+    errors.linkedDiscoveryId =
+      'Linked discovery must belong to the selected festival.'
+  }
+  if (
+    input.linkedCollectionId &&
+    !allowedCollections.has(input.linkedCollectionId)
+  ) {
+    errors.linkedCollectionId =
+      'Linked collection must belong to the selected festival.'
+  }
+  return { valid: Object.keys(errors).length === 0, errors }
+}
+
+export function parseScheduleTime12(value = '') {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value))
+  if (!match) return { hour: '12', minute: '00', period: 'AM' }
+  const hour24 = Number(match[1])
+  return {
+    hour: String(hour24 % 12 || 12),
+    minute: match[2],
+    period: hour24 >= 12 ? 'PM' : 'AM',
+  }
+}
+
+export function formatScheduleTime24({
+  hour = '12',
+  minute = '00',
+  period = 'AM',
+} = {}) {
+  const hour12 = Number(hour)
+  if (
+    !Number.isInteger(hour12) ||
+    hour12 < 1 ||
+    hour12 > 12 ||
+    !/^[0-5]\d$/.test(String(minute)) ||
+    !['AM', 'PM'].includes(period)
+  ) {
+    return ''
+  }
+  const hour24 =
+    period === 'PM'
+      ? hour12 === 12 ? 12 : hour12 + 12
+      : hour12 === 12 ? 0 : hour12
+  return `${String(hour24).padStart(2, '0')}:${minute}`
+}
+
+export function formatScheduleTime12Label(value = '') {
+  if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(String(value))) {
+    return 'Time not provided'
+  }
+  const parts = parseScheduleTime12(value)
+  return `${parts.hour}:${parts.minute} ${parts.period}`
+}
+
+export function archiveScheduleDraft(drafts = [], draftId = '') {
+  return drafts.map((draft) =>
+    draft.id === draftId ? { ...draft, archived: true } : { ...draft }
+  )
+}
+
+export function restoreScheduleDraft(drafts = [], draftId = '') {
+  return drafts.map((draft) =>
+    draft.id === draftId ? { ...draft, archived: false } : { ...draft }
+  )
+}
+
+export function duplicateScheduleDraft(
+  drafts = [],
+  draftId = '',
+  nextId = ''
+) {
+  const source = drafts.find((draft) => draft.id === draftId)
+  if (!source || !nextId || drafts.some((draft) => draft.id === nextId)) {
+    return drafts.map((draft) => ({ ...draft }))
+  }
+  return [
+    ...drafts.map((draft) => ({ ...draft })),
+    {
+      ...source,
+      id: nextId,
+      originalId: '',
+      title: `${source.title} Copy`,
+      archived: false,
+      unsynced: true,
+    },
+  ]
+}
+
 const INFORMATION_REVIEW_FIELDS = Object.freeze([
   ['name', 'Festival name'],
   ['year', 'Edition year'],
@@ -278,6 +432,19 @@ export function getPublishingPipelineReview(festival = {}, drafts = {}) {
   const activeCollectionDrafts = validCollectionDrafts.filter(
     (draft) => draft.active !== false
   )
+  const validScheduleDrafts = (drafts?.schedule || []).filter(
+    (draft) =>
+      !draft.archived &&
+      validateScheduleDraft(
+        draft,
+        festival,
+        drafts?.discoveries || [],
+        drafts?.collections || []
+      ).valid
+  )
+  const activeScheduleDrafts = validScheduleDrafts.filter(
+    (draft) => draft.active !== false
+  )
   const localTestingBlockers = [
     !informationValidation.valid && 'Required festival information incomplete',
     !String(information?.timezone || '').trim() && 'Timezone missing',
@@ -285,12 +452,17 @@ export function getPublishingPipelineReview(festival = {}, drafts = {}) {
       'Publish status not set',
     activeDiscoveryDrafts.length === 0 && 'No active discovery draft',
     activeCollectionDrafts.length === 0 && 'No active collection draft',
+    festival.scheduleRequiredForTesting === true &&
+      activeScheduleDrafts.length === 0 &&
+      Number(festival.scheduleItemCount) === 0 &&
+      'No active schedule draft',
   ].filter(Boolean)
   const readyForLocalTesting = localTestingBlockers.length === 0
   const hasUnsyncedDrafts = Boolean(
     information ||
       (drafts?.discoveries || []).length ||
-      (drafts?.collections || []).length
+      (drafts?.collections || []).length ||
+      (drafts?.schedule || []).length
   )
   const productionBlockers = [
     !readyForLocalTesting && 'Local testing requirements incomplete',
@@ -329,6 +501,8 @@ export function getPublishingPipelineReview(festival = {}, drafts = {}) {
       localDiscoveries: validDiscoveryDrafts.length,
       repositoryCollections: Number(festival.collectionCount) || 0,
       localCollections: validCollectionDrafts.length,
+      repositorySchedule: Number(festival.scheduleItemCount) || 0,
+      localSchedule: validScheduleDrafts.length,
     },
     hasUnsyncedDrafts,
     readyForLocalTesting,
@@ -358,6 +532,23 @@ export function getPublishingPipelineReview(festival = {}, drafts = {}) {
         : 0,
       xp: Number(draft.xp) || 0,
     })),
+    scheduleDrafts: validScheduleDrafts.map((draft) => ({
+      id: draft.id,
+      title: draft.title,
+      date: draft.date,
+      startTime: draft.startTime,
+      endTime: draft.endTime,
+      location: draft.location,
+      active: draft.active !== false,
+      featured: draft.featured === true,
+      status: 'LOCAL DRAFT',
+    })),
+    scheduleBlockers:
+      festival.scheduleRequiredForTesting === true &&
+      activeScheduleDrafts.length === 0 &&
+      Number(festival.scheduleItemCount) === 0
+        ? ['No active schedule draft']
+        : [],
     backend: {
       securePersistence: 'NOT AVAILABLE',
       publishing: 'NOT AVAILABLE',
@@ -385,6 +576,16 @@ export function mergeFestivalWithDrafts(festival, drafts) {
         draft,
         validDiscoveryDrafts,
         festival.id
+      ).valid
+  )
+  const validScheduleDrafts = (drafts?.schedule || []).filter(
+    (draft) =>
+      !draft.archived &&
+      validateScheduleDraft(
+        draft,
+        festival,
+        drafts?.discoveries || [],
+        drafts?.collections || []
       ).valid
   )
   const infoValidation = validateFestivalInformation(
@@ -417,10 +618,14 @@ export function mergeFestivalWithDrafts(festival, drafts) {
     ),
     localDiscoveryDraftCount: validDiscoveryDrafts.length,
     localCollectionDraftCount: validCollectionDrafts.length,
+    localScheduleDraftCount: validScheduleDrafts.filter(
+      (draft) => draft.active !== false
+    ).length,
     localDraftsUnsynced: Boolean(
       Object.keys(information).length ||
       drafts?.discoveries?.length ||
-      drafts?.collections?.length
+      drafts?.collections?.length ||
+      drafts?.schedule?.length
     ),
   }
 }

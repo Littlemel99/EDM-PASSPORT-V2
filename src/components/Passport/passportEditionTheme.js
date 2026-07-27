@@ -1,6 +1,7 @@
 import { calculateCollectionProgress, getNextCollectionTarget } from '../../collections/index.js'
 import { formatFestivalDates } from '../../festivals/index.js'
 import { getExplorerRank } from '../Dashboard/FestivalDashboardData.js'
+import { resolveAttendeeContentState } from '../../attendee/attendeeContentState.js'
 import { getFestivalScopedMemories } from './passportSections.js'
 
 const LOST_LANDS_EDITION_ID = 'lost-lands-2026'
@@ -60,25 +61,40 @@ export function getPassportEditionTheme({ edition = {}, brand = {}, display = {}
   })
 }
 
-export function getPassportJourneySummary({ collections = [], discoveries = [], collectedIds = [], memories = [], achievement = null, achievementProgress = {} } = {}) {
-  const claimableDiscoveries = discoveries.filter((discovery) => discovery.claimable !== false && discovery.sourceType !== 'derived-achievement')
-  const claimableIds = new Set(claimableDiscoveries.map((discovery) => discovery.id))
-  const collectedSet = new Set(collectedIds)
-  const collectedCount = [...claimableIds].filter((id) => collectedSet.has(id)).length
-  const totalCount = claimableIds.size
-  const collectionProgress = collections.map((collection) => ({ collection, ...calculateCollectionProgress(collection, collectedIds) }))
+export function getPassportJourneySummary({ festivalId = null, collections = [], discoveries = [], collectedIds = [], memories = [], achievement = null, achievementProgress = {}, contentState = null } = {}) {
+  const resolvedContentState =
+    contentState ||
+    resolveAttendeeContentState({
+      festivalId,
+      collections,
+      discoveries,
+      collectedIds,
+    })
+  const visibleDiscoveries =
+    resolvedContentState.eligibleDiscoveries || discoveries
+  const visibleCollections =
+    resolvedContentState.eligibleCollections || collections
+  const collectionProgress = visibleCollections.map((collection) => ({ collection, ...calculateCollectionProgress(collection, collectedIds) }))
   const currentCollection = collectionProgress.find((item) => !item.complete) || null
-  const nextTarget = currentCollection ? getNextCollectionTarget(currentCollection.collection, discoveries, collectedIds) : null
+  const nextTarget = currentCollection ? getNextCollectionTarget(currentCollection.collection, visibleDiscoveries, collectedIds) : null
   const safelyVisibleTarget = nextTarget && !['hidden', 'secret'].includes(String(nextTarget.visibility || '').toLowerCase()) ? nextTarget : null
-  const scopedMemories = getFestivalScopedMemories(memories, discoveries).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+  const scopedMemories = getFestivalScopedMemories(memories, visibleDiscoveries).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
 
   return {
-    rank: getExplorerRank(collectedCount),
-    collectedCount,
-    totalCount,
-    percent: totalCount ? Math.round((collectedCount / totalCount) * 100) : 0,
-    collectionsCompleted: collectionProgress.filter((item) => item.complete).length,
-    collectionsTotal: collectionProgress.length,
+    rank: getExplorerRank(resolvedContentState.completedDiscoveries),
+    collectedCount: resolvedContentState.completedDiscoveries,
+    totalCount: resolvedContentState.totalDiscoveries,
+    percent: resolvedContentState.discoveryProgressPercent,
+    collectionsCompleted: resolvedContentState.completedCollections,
+    collectionsTotal: resolvedContentState.totalCollections,
+    hasCompletableContent: resolvedContentState.hasAnyPublishedContent,
+    contentState: resolvedContentState,
+    collectionGoalState:
+      !resolvedContentState.hasPublishedCollections
+        ? 'unavailable'
+        : currentCollection
+          ? 'in-progress'
+          : 'complete',
     currentCollection: currentCollection ? {
       id: currentCollection.collection.id,
       name: currentCollection.collection.name,

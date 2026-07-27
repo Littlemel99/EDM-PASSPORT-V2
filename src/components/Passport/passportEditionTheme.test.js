@@ -120,6 +120,38 @@ test('completed collections are skipped as the current goal', () => {
   assert.equal(summary.currentCollection.name, 'Exploration')
 })
 
+test('empty festival Journey uses unavailable content states', () => {
+  const summary = getPassportJourneySummary({
+    collections: [],
+    discoveries: [],
+    collectedIds: [],
+  })
+  assert.equal(summary.hasCompletableContent, false)
+  assert.equal(summary.collectionGoalState, 'unavailable')
+  assert.equal(summary.currentCollection, null)
+  assert.equal(summary.percent, 0)
+})
+
+test('configured collections retain genuine completion messaging state', () => {
+  const collections = getFestivalCollections(lostLands2026.id).slice(0, 1)
+  const summary = getPassportJourneySummary({
+    collections,
+    discoveries: lostDiscoveries,
+    collectedIds: collections[0].discoveryIds,
+  })
+  assert.equal(summary.hasCompletableContent, true)
+  assert.equal(summary.collectionGoalState, 'complete')
+  assert.equal(summary.collectionsCompleted, 1)
+})
+
+test('Journey page distinguishes unavailable collections from completed collections', () => {
+  const source = readFileSync(new URL('./PassportJourneyPage.jsx', import.meta.url), 'utf8')
+  assert.match(source, /Collections not yet available/)
+  assert.match(source, /No collections have been configured for this festival yet/)
+  assert.match(source, /journey\.collectionGoalState === 'unavailable'/)
+  assert.match(source, /Every configured collection for this edition is complete/)
+})
+
 test('memory summary uses festival-scoped memories', () => {
   const memories = [{ id: 'old', stamp_id: 'lost-lands-crater', created_at: '2026-01-01' }, { id: 'new', stamp_id: 'lost-lands-prehistoric-stage', created_at: '2026-02-01' }, { id: 'edc', stamp_id: 'basspod', created_at: '2026-03-01' }]
   const summary = getPassportJourneySummary({ discoveries: lostDiscoveries, memories })

@@ -2,6 +2,7 @@ import {
   getExplorerRank,
   getFestivalCountdown,
 } from './FestivalDashboardData.js'
+import { resolveAttendeeContentStateFromCounts } from '../../attendee/attendeeContentState.js'
 import { PageIdentity } from '../Festival/index.js'
 import { formatFestivalDates } from '../../festivals/index.js'
 
@@ -23,11 +24,25 @@ export default function FestivalLifecycleDashboard({
   onOpenMemories,
   onReturnToFestivals,
   onChangeFestival,
+  contentState,
 }) {
   const rank = getExplorerRank(collectedCount)
-  const upcoming = lifecycle === 'upcoming'
-  const completed = lifecycle === 'completed'
-  const unavailable = !upcoming && !completed
+  const resolvedContentState =
+    contentState ||
+    resolveAttendeeContentStateFromCounts({
+    completedDiscoveries: collectedCount,
+    totalDiscoveries: totalCount,
+    completedCollections: collectionsCompleted,
+    totalCollections: collectionsTotal,
+  })
+  const empty = resolvedContentState.isEmpty
+  const upcoming = !empty && lifecycle === 'upcoming'
+  const completed =
+    lifecycle === 'completed' && resolvedContentState.isComplete
+  const inProgress =
+    lifecycle === 'completed' && resolvedContentState.isInProgress
+  const unavailable =
+    !empty && !upcoming && !completed && !inProgress
   const countdown = getFestivalCountdown(
     activeFestivalDisplay?.startDate
   )
@@ -46,6 +61,20 @@ export default function FestivalLifecycleDashboard({
         activeFestivalDisplay={activeFestivalDisplay}
         variant="dashboard"
       />
+
+      {empty && (
+        <section style={styles.hero}>
+          <span style={styles.eyebrow}>EDITION INFORMATION</span>
+          <h2 style={styles.title}>FESTIVAL GUIDE COMING SOON</h2>
+          <strong style={styles.festivalName}>{festivalName}</strong>
+          <p style={styles.statusCopy}>
+            No discoveries or collections are available for this festival yet.
+          </p>
+          <button type="button" style={styles.primary} onClick={onReturnToFestivals}>
+            CONTINUE TO FESTIVALS
+          </button>
+        </section>
+      )}
 
       {upcoming && (
         <section style={styles.hero}>
@@ -79,6 +108,27 @@ export default function FestivalLifecycleDashboard({
             CHANGE FESTIVAL
           </button>
         </section>
+      )}
+
+      {inProgress && (
+        <>
+          <section style={styles.hero}>
+            <span style={styles.eyebrow}>ATTENDED</span>
+            <h2 style={styles.title}>FESTIVAL JOURNEY</h2>
+            <strong style={styles.festivalName}>{festivalName}</strong>
+            <p style={styles.statusCopy}>
+              Your festival record remains available in your passport.
+            </p>
+            <div style={styles.metrics}>
+              <Metric label="Discoveries Found" value={`${collectedCount} / ${totalCount}`} />
+              <Metric label="Collections Completed" value={`${collectionsCompleted} / ${collectionsTotal}`} />
+            </div>
+          </section>
+          <div style={styles.actions}>
+            <button type="button" style={styles.primary} onClick={onOpenPassport}>VIEW PASSPORT</button>
+            <button type="button" style={styles.secondary} onClick={onReturnToFestivals}>RETURN TO FESTIVALS</button>
+          </div>
+        </>
       )}
 
       {completed && (

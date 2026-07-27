@@ -16,9 +16,14 @@ export default function FestivalCollections({
   activeFestivalProfile,
   activeFestivalBrand,
   activeFestivalDisplay,
+  contentState,
 }) {
   const [selectedCollectionId, setSelectedCollectionId] = useState(null)
-  const selectedCollection = collections.find(
+  const visibleCollections =
+    contentState?.eligibleCollections || collections
+  const visibleDiscoveries =
+    contentState?.eligibleDiscoveries || discoveries
+  const selectedCollection = visibleCollections.find(
     (collection) => collection.id === selectedCollectionId
   )
 
@@ -34,7 +39,7 @@ export default function FestivalCollections({
         />
         <CollectionDetail
           collection={selectedCollection}
-          discoveries={discoveries}
+          discoveries={visibleDiscoveries}
           collectedIds={collectedIds}
           onBack={() => setSelectedCollectionId(null)}
         />
@@ -42,7 +47,7 @@ export default function FestivalCollections({
     )
   }
 
-  if (!collections.length) {
+  if (contentState ? !contentState.canShowCollections : !visibleCollections.length) {
     return (
       <>
         <PageIdentity
@@ -56,7 +61,7 @@ export default function FestivalCollections({
           <span style={styles.eyebrow}>COLLECTIONS</span>
           <h2 style={styles.emptyTitle}>{festivalName || 'Festival Edition'}</h2>
           <p style={styles.emptyText}>
-            Collections are not configured for this edition yet.
+            Collections are not yet available for this festival.
           </p>
         </section>
       </>
@@ -64,7 +69,7 @@ export default function FestivalCollections({
   }
 
   const overall = calculateFestivalCollectionsProgress(
-    collections,
+    visibleCollections,
     collectedIds
   )
 
@@ -104,7 +109,7 @@ export default function FestivalCollections({
         {overall.collections.map(({ collection, ...progress }) => {
           const nextTarget = getNextCollectionTarget(
             collection,
-            discoveries,
+            visibleDiscoveries,
             collectedIds
           )
 

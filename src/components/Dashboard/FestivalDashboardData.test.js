@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 import { getFestivalCollections } from '../../collections/CollectionEngine.js'
 import {
+  getAttendeeJourneyCompletion,
   getDashboardCollectionsSummary,
   getExplorerRank,
   getJourneyDay,
@@ -11,6 +12,49 @@ import {
   formatMissionControlTime,
   getFestivalCountdown,
 } from './FestivalDashboardData.js'
+
+test('empty attendee content is never complete or 100 percent', () => {
+  assert.deepEqual(
+    getAttendeeJourneyCompletion({
+      lifecycle: 'completed',
+      collectedDiscoveries: 0,
+      totalDiscoveries: 0,
+      completedCollections: 0,
+      totalCollections: 0,
+    }),
+    {
+      state: 'empty',
+      hasCompletableContent: false,
+      complete: false,
+      percent: 0,
+    }
+  )
+})
+
+test('attendee completion requires all available content to be complete', () => {
+  assert.equal(
+    getAttendeeJourneyCompletion({
+      lifecycle: 'completed',
+      totalDiscoveries: 5,
+    }).state,
+    'in-progress'
+  )
+  assert.deepEqual(
+    getAttendeeJourneyCompletion({
+      lifecycle: 'completed',
+      collectedDiscoveries: 5,
+      totalDiscoveries: 5,
+      completedCollections: 2,
+      totalCollections: 2,
+    }),
+    {
+      state: 'completed',
+      hasCompletableContent: true,
+      complete: true,
+      percent: 100,
+    }
+  )
+})
 
 test('explorer rank is calculated only from collected discovery count', () => {
   assert.equal(getExplorerRank(0).name, 'Explorer I')
@@ -165,12 +209,16 @@ test('live progress uses attendee-facing authenticated progress values', () => {
     'utf8'
   )
   assert.match(source, /Discoveries Found/)
-  assert.match(source, /\{collectedCount\} \/ \{totalCount\}/)
+  assert.match(
+    source,
+    /\{resolvedCollectedCount\} \/ \{resolvedTotalCount\}/
+  )
   assert.match(source, /Collections Completed/)
   assert.match(
     source,
-    /\{collectionsCompleted\} \/ \{collectionsTotal\}/
+    /\{resolvedCollectionsCompleted\} \/ \{resolvedCollectionsTotal\}/
   )
+  assert.match(source, /contentState\?\.completedDiscoveries/)
 })
 
 test('Dashboard exposes the one-thumb primary and secondary action sets', () => {
@@ -222,5 +270,5 @@ test('Mission Control replaces unavailable Radar and omits discovery missions', 
 
   assert.match(source, /nextDiscovery \? \(/)
   assert.match(source, /label="VIEW FESTIVAL GUIDE"/)
-  assert.match(source, /\{totalCount > 0 && \(/)
+  assert.match(source, /\{resolvedTotalCount > 0 && \(/)
 })

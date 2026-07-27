@@ -246,7 +246,7 @@ test('Festival Workspace exposes scoped management tabs and honest states', () =
     'Analytics',
     'Settings',
     'BACKEND REQUIRED',
-    'SCHEDULE NOT CONFIGURED',
+    'Tomorrowland Schedule Builder',
     'ANALYTICS BACKEND REQUIRED',
   ]) {
     assert.match(source, new RegExp(label.replace('/', '\\/')))
@@ -306,6 +306,34 @@ test('Tomorrowland collection builder exposes scoped ordered drafts and reversib
   assert.match(source, /restoreCollectionDraft/)
 })
 
+test('Tomorrowland Schedule Builder exposes scoped drafts and lifecycle actions', () => {
+  for (const label of [
+    'Tomorrowland Schedule Builder',
+    'Default timezone',
+    'Performer or activity',
+    'Stage or location',
+    'Linked discovery',
+    'Linked collection',
+    'ACTIVE SCHEDULE ITEMS',
+    'ARCHIVED SCHEDULE ITEMS',
+    'EDIT / PREVIEW',
+    'DUPLICATE',
+    'ARCHIVE',
+    'RESTORE',
+    'LOCAL DRAFT · NOT SYNCED',
+  ]) {
+    assert.match(source, new RegExp(label.replace('/', '\\/')))
+  }
+  assert.match(source, /draft\.festivalId === festival\.id/)
+  assert.match(source, /validateScheduleDraft/)
+  assert.match(source, /duplicateScheduleDraft/)
+  assert.match(source, /ScheduleTimeField/)
+  assert.match(source, /AM or PM/)
+  assert.doesNotMatch(source, /type="time"/)
+  assert.match(source, /Local Schedule Drafts/)
+  assert.match(source, /Repository Schedule Items/)
+})
+
 test('Publishing Pipeline exposes honest review states and safe navigation only', () => {
   for (const label of [
     'Publishing Pipeline',
@@ -313,6 +341,8 @@ test('Publishing Pipeline exposes honest review states and safe navigation only'
     'Local draft discoveries',
     'Repository collections',
     'Local draft collections',
+    'Repository schedule items',
+    'Local draft schedule items',
     'UNSYNCED LOCAL DRAFTS',
     'SECURE PERSISTENCE',
     'PUBLISHING BACKEND',
@@ -321,9 +351,11 @@ test('Publishing Pipeline exposes honest review states and safe navigation only'
     'Festival Information Changes',
     'Discovery Drafts',
     'Collection Drafts',
+    'Schedule Drafts',
     'REVIEW FESTIVAL INFORMATION',
     'REVIEW DISCOVERIES',
     'REVIEW COLLECTIONS',
+    'REVIEW SCHEDULE',
     'RETURN TO OVERVIEW',
     'RETURN TO LIBRARY',
     'RETURN TO BACKSTAGE',

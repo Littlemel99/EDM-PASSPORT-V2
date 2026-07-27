@@ -44,9 +44,9 @@ export default function FestivalDashboard({
   activeFestivalProfile,
   activeFestivalBrand,
   activeFestivalDisplay,
+  contentState,
 }) {
   const [currentTime, setCurrentTime] = useState(() => new Date())
-  const explorerRank = getExplorerRank(collectedCount)
   const journeyDay = getJourneyDay(
     festivalStartDate,
     currentTime,
@@ -59,8 +59,20 @@ export default function FestivalDashboard({
     venue: activeFestivalDisplay?.venue,
     location: activeFestivalDisplay?.location,
   })
+  const resolvedCollectedCount =
+    contentState?.completedDiscoveries ?? collectedCount
+  const resolvedTotalCount =
+    contentState?.totalDiscoveries ?? totalCount
+  const resolvedCollectionsCompleted =
+    contentState?.completedCollections ?? collectionsCompleted
+  const resolvedCollectionsTotal =
+    contentState?.totalCollections ?? collectionsTotal
+  const explorerRank = getExplorerRank(resolvedCollectedCount)
   const safePercent = Math.min(
-    Math.max(collectionPercent || 0, 0),
+    Math.max(
+      contentState?.discoveryProgressPercent ?? collectionPercent ?? 0,
+      0
+    ),
     100
   )
 
@@ -177,20 +189,20 @@ export default function FestivalDashboard({
           <div style={styles.progressSummary}>
             <span>
               Discoveries Found
-              <strong>{collectedCount} / {totalCount}</strong>
+              <strong>{resolvedCollectedCount} / {resolvedTotalCount}</strong>
             </span>
             <span>
               Collections Completed
               <strong>
-                {collectionsCompleted} / {collectionsTotal}
+                {resolvedCollectionsCompleted} / {resolvedCollectionsTotal}
               </strong>
             </span>
           </div>
         </article>
 
-        {totalCount > 0 && (
+        {resolvedTotalCount > 0 && (
           <FestivalMissionCard
-            collectedCount={collectedCount}
+            collectedCount={resolvedCollectedCount}
             festivalId={festivalId}
             userId={missionUserId}
             ready={missionReady}

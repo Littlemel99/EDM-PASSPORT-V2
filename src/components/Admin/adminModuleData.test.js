@@ -295,6 +295,67 @@ test('Tomorrowland local drafts enable testing but never production', () => {
   )
 })
 
+test('valid local schedule drafts update Overview without merging repository counts', () => {
+  const overview = getFestivalWorkspaceOverview({
+    name: 'Tomorrowland',
+    location: 'Boom, Belgium',
+    startDate: '2026-07-17',
+    endDate: '2026-07-26',
+    timezone: 'Europe/Brussels',
+    lifecycle: 'live',
+    publishStatus: 'TESTING',
+    scheduleItemCount: 0,
+    localScheduleDraftCount: 2,
+  })
+  assert.equal(overview.metrics.scheduleItemCount, 0)
+  assert.equal(overview.metrics.localScheduleDraftCount, 2)
+  assert.equal(
+    overview.statuses.find((item) => item.id === 'schedule').status,
+    'PARTIAL'
+  )
+  assert.ok(
+    !overview.missingConfiguration.includes('Schedule not configured')
+  )
+})
+
+test('schedule milestone and readiness update from a local schedule draft', () => {
+  const dashboard = getFestivalWorkspaceTaskDashboard({
+    name: 'Tomorrowland',
+    location: 'Boom, Belgium',
+    startDate: '2026-07-17',
+    endDate: '2026-07-26',
+    timezone: 'Europe/Brussels',
+    lifecycle: 'live',
+    publishStatus: 'TESTING',
+    published: false,
+    discoveryCount: 0,
+    collectionCount: 0,
+    scheduleItemCount: 0,
+    localDiscoveryDraftCount: 1,
+    localCollectionDraftCount: 1,
+    localScheduleDraftCount: 1,
+  })
+  assert.equal(
+    dashboard.builderSteps.find((step) => step.id === 'schedule').status,
+    'IN PROGRESS'
+  )
+  assert.equal(
+    dashboard.builderSteps.find((step) => step.id === 'schedule')
+      .localDraftCount,
+    1
+  )
+  assert.equal(
+    dashboard.builderSteps.find((step) => step.id === 'schedule')
+      .repositoryCount,
+    0
+  )
+  assert.ok(
+    !dashboard.testingBlockers.includes('Schedule configured')
+  )
+  assert.ok(dashboard.progressPercent > 0)
+  assert.ok(dashboard.missingCount >= 0)
+})
+
 test('Continue Building derives actionable progress without backend penalties', () => {
   const result = getBackstageContinueBuilding({
     id: 'lost-lands-2026',

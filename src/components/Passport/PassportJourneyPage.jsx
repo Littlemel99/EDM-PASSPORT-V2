@@ -2,9 +2,9 @@ import './passportIdentity.css'
 import { DiscoveryCard } from '../DiscoveryCards/index.js'
 import { getPassportEditionTheme, getPassportJourneySummary } from './passportEditionTheme.js'
 
-export default function PassportJourneyPage({ edition, brand, display, crewName, discoveries, collectedIds, collections, memories, achievement, achievementProgress, recentDiscovery }) {
+export default function PassportJourneyPage({ edition, brand, display, crewName, discoveries, collectedIds, collections, memories, achievement, achievementProgress, recentDiscovery, contentState }) {
   const identity = getPassportEditionTheme({ edition, brand, display })
-  const journey = getPassportJourneySummary({ collections, discoveries, collectedIds, memories, achievement, achievementProgress })
+  const journey = getPassportJourneySummary({ festivalId: edition?.id, collections, discoveries, collectedIds, memories, achievement, achievementProgress, contentState })
 
   return (
     <section className="passport-identity" style={styles.page}>
@@ -21,29 +21,31 @@ export default function PassportJourneyPage({ edition, brand, display, crewName,
         </div>
       </header>
 
-      <JourneySection eyebrow="JOURNEY PROGRESS" title={`${journey.percent}% complete`}>
-        <div style={styles.progressHeader}><span>DISCOVERIES</span><strong>{journey.collectedCount} / {journey.totalCount}</strong></div>
-        <Progress percent={journey.percent} accent={identity.accent} />
-        <div style={styles.metricGrid}>
-          <Metric label="Collections Completed" value={`${journey.collectionsCompleted} / ${journey.collectionsTotal}`} />
-          <Metric label="Achievement Progress" value={journey.achievement ? `${journey.achievementProgress.collectedCount || 0} / ${journey.achievementProgress.totalCount || journey.totalCount}` : 'Not configured'} />
-        </div>
+      <JourneySection eyebrow="JOURNEY PROGRESS" title={journey.hasCompletableContent ? `${journey.percent}% complete` : 'FESTIVAL GUIDE COMING SOON'}>
+        {journey.hasCompletableContent ? <>
+          <div style={styles.progressHeader}><span>DISCOVERIES</span><strong>{journey.collectedCount} / {journey.totalCount}</strong></div>
+          <Progress percent={journey.percent} accent={identity.accent} />
+          <div style={styles.metricGrid}>
+            <Metric label="Collections Completed" value={`${journey.collectionsCompleted} / ${journey.collectionsTotal}`} />
+            <Metric label="Achievement Progress" value={journey.achievement ? `${journey.achievementProgress.collectedCount || 0} / ${journey.achievementProgress.totalCount || journey.totalCount}` : 'Not configured'} />
+          </div>
+        </> : <p style={styles.empty}>No discoveries or collections are available for this festival yet.</p>}
       </JourneySection>
 
       <JourneySection eyebrow="RECENT DISCOVERY" title="Latest archive entry">
-        {recentDiscovery ? <DiscoveryCard discovery={recentDiscovery} collected variant="compact" /> : <p style={styles.empty}>Your first {identity.brandName} discovery is waiting.</p>}
+        {recentDiscovery ? <DiscoveryCard discovery={recentDiscovery} collected variant="compact" /> : <p style={styles.empty}>{journey.hasCompletableContent ? `Your first ${identity.brandName} discovery is waiting.` : 'Discoveries are not yet available for this festival.'}</p>}
       </JourneySection>
 
-      <JourneySection eyebrow="CURRENT COLLECTION GOAL" title={journey.currentCollection?.name || 'All collections complete'}>
+      <JourneySection eyebrow="CURRENT COLLECTION GOAL" title={journey.collectionGoalState === 'unavailable' ? 'Collections not yet available' : journey.currentCollection?.name || 'All collections complete'}>
         {journey.currentCollection ? <>
           <div style={styles.progressHeader}><span>COLLECTION PROGRESS</span><strong>{journey.currentCollection.collectedCount} / {journey.currentCollection.totalCount}</strong></div>
           <Progress percent={journey.currentCollection.percent} accent={identity.accent} />
           <p style={styles.supporting}>{journey.currentCollection.nextDiscovery ? `Next discovery: ${journey.currentCollection.nextDiscovery.name}` : 'Continue exploring to reveal the next discovery.'}</p>
-        </> : <p style={styles.empty}>Every configured collection for this edition is complete.</p>}
+        </> : <p style={styles.empty}>{journey.collectionGoalState === 'unavailable' ? 'No collections have been configured for this festival yet.' : 'Every configured collection for this edition is complete.'}</p>}
       </JourneySection>
 
       <JourneySection eyebrow="ACHIEVEMENT" title={journey.achievement?.name || 'No edition achievement configured'}>
-        {journey.achievement ? <>
+        {journey.hasCompletableContent && journey.achievement ? <>
           <DiscoveryCard discovery={journey.achievement} collected={Boolean(journey.achievementProgress.unlocked)} variant="compact" />
           <div style={styles.progressHeader}><span>{journey.achievementProgress.unlocked ? 'COMPLETED' : 'PROGRESSION REQUIRED'}</span><strong>{journey.achievementProgress.collectedCount || 0} / {journey.achievementProgress.totalCount || journey.totalCount}</strong></div>
           <Progress percent={journey.achievementProgress.percent || 0} accent={identity.accent} />

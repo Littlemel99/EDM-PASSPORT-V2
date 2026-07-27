@@ -45,6 +45,31 @@ test('completed Dashboard renders persisted recap metrics', () => {
   }
 })
 
+test('empty festival renders an honest guide state without recap actions', () => {
+  assert.match(lifecycleSource, /FESTIVAL GUIDE COMING SOON/)
+  assert.match(
+    lifecycleSource,
+    /No discoveries or collections are available for this festival yet/
+  )
+  assert.match(lifecycleSource, /CONTINUE TO FESTIVALS/)
+  assert.doesNotMatch(lifecycleSource, /VIEW RECAP/)
+  assert.match(lifecycleSource, /resolvedContentState\.isEmpty/)
+})
+
+test('App guards Journey Complete with actual attendee completion', () => {
+  assert.match(appSource, /attendeeContentState\.canShowRecap/)
+  assert.match(
+    appSource,
+    /attendeeContentState\.hasAnyPublishedContent/
+  )
+  assert.match(appSource, /resolveAttendeeContentState/)
+})
+
+test('attendee lifecycle does not consume Backstage local drafts', () => {
+  assert.doesNotMatch(lifecycleSource, /backstageDraft|local draft/i)
+  assert.doesNotMatch(liveSource, /backstageDraft|local draft/i)
+})
+
 test('unavailable Dashboard presents reliable details without failure language', () => {
   assert.match(lifecycleSource, /FESTIVAL DETAILS COMING SOON/)
   assert.doesNotMatch(
@@ -81,7 +106,7 @@ test('App renders exactly one lifecycle Dashboard for the selected edition', () 
 test('live fallback editions do not require a structured Festival Profile', () => {
   assert.match(
     appSource,
-    /activeFestivalLifecycle === 'live' && \(/
+    /activeFestivalLifecycle === 'live' &&\s+attendeeContentState\.hasAnyPublishedContent && \(/
   )
   assert.doesNotMatch(
     appSource,
@@ -89,6 +114,6 @@ test('live fallback editions do not require a structured Festival Profile', () =
   )
   assert.match(
     appSource,
-    /activeFestivalLifecycle !== 'live' && \(/
+    /activeFestivalLifecycle !== 'live' \|\|\s+!attendeeContentState\.hasAnyPublishedContent/
   )
 })

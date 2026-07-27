@@ -91,7 +91,7 @@ import ProfilePage from './components/Profile/ProfilePage'
 import FestivalDashboard from './components/Dashboard/FestivalDashboard'
 import FestivalLifecycleDashboard from './components/Dashboard/FestivalLifecycleDashboard.jsx'
 import JourneyComplete from './components/Dashboard/JourneyComplete.jsx'
-import { getDashboardCollectionsSummary } from './components/Dashboard/FestivalDashboardData.js'
+import { resolveAttendeeContentState } from './attendee/attendeeContentState.js'
 import FestivalCollections from './components/Collections/FestivalCollections.jsx'
 import { DiscoveryCardGrid, FestivalAchievementShowcase, getAchievementProgress } from './components/DiscoveryCards/index.js'
 import RewardCelebration from './components/Dashboard/RewardCelebration'
@@ -455,6 +455,17 @@ export default function App() {
       festivalId: resolvedFestivalId,
     })
   }, [adminCreatedStamps, selectedFestivalId])
+  const attendeeDiscoveryState = useMemo(
+    () =>
+      resolveAttendeeContentState({
+        festivalId: selectedFestivalId || '',
+        discoveries: allStamps,
+        collectedIds,
+      }),
+    [allStamps, collectedIds, selectedFestivalId]
+  )
+  const attendeeVisibleDiscoveries =
+    attendeeDiscoveryState.eligibleDiscoveries
   const activeStamp = useMemo(() => getActiveStampFromList(allStamps, activeId), [allStamps, activeId])
   const gpsStatus = useMemo(() => getGpsStatus(activeId, location), [activeId, location])
   const activeClaimIsAchievement = activeStamp?.claimable === false
@@ -468,7 +479,7 @@ export default function App() {
     !activeClaimIsUnconfigured &&
     (gpsStatus.unlocked || adminTestMode)
   const isHiddenStamp = (stamp) => ['hidden', 'secret', 'legendary'].includes(String(stamp?.rarity || '').toLowerCase()) || stamp?.is_hidden || stamp?.hidden
-  const hiddenStampCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && !collectedIds.includes(stamp.id)).length
+  const hiddenStampCount = attendeeVisibleDiscoveries.filter((stamp) => isHiddenStamp(stamp) && !collectedIds.includes(stamp.id)).length
   const getStampRarity = (stamp) => String(stamp?.rarity || 'common').toLowerCase()
   const rarityLabels = {
     common: 'COMMON',
@@ -482,7 +493,7 @@ export default function App() {
     secret: 'SECRET',
   }
   const rarityStats = ['common', 'rare', 'epic', 'legendary', 'mythic', 'hidden'].map((rarity) => {
-    const matching = allStamps.filter((stamp) => {
+    const matching = attendeeVisibleDiscoveries.filter((stamp) => {
       const stampRarity = getStampRarity(stamp)
       if (rarity === 'common') return stampRarity === 'common' || stampRarity === 'normal'
       return stampRarity === rarity
@@ -591,13 +602,13 @@ export default function App() {
   )
 
   const collectionProgress = useMemo(
-    () => getCollectionProgress(allStamps, collectedIds),
-    [allStamps, collectedIds]
+    () => getCollectionProgress(attendeeVisibleDiscoveries, collectedIds),
+    [attendeeVisibleDiscoveries, collectedIds]
   )
   const collectedStamps = collectionProgress.collected
-  const collectionTotal = collectionProgress.total || 1
+  const collectionTotal = collectionProgress.total
   const collectionPercent = collectionProgress.percent
-  const filteredCollectionStamps = allStamps.filter((stamp) => {
+  const filteredCollectionStamps = attendeeVisibleDiscoveries.filter((stamp) => {
     const collected = collectedIds.includes(stamp.id)
     const live = activeDrops.includes(stamp.id)
 
@@ -615,19 +626,12 @@ export default function App() {
   const festivalAchievements = allStamps.filter(
     (stamp) => stamp.claimable === false || stamp.sourceType === 'derived-achievement'
   )
-  const festivalClaimableDiscoveries = allStamps.filter(
-    (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
-  )
+  const festivalClaimableDiscoveries = attendeeVisibleDiscoveries
   const collectedClaimableDiscoveries = festivalClaimableDiscoveries.filter(
     (stamp) => collectedIds.includes(stamp.id)
   )
-  const festivalClaimablePercent = festivalClaimableDiscoveries.length
-    ? Math.round(
-        (collectedClaimableDiscoveries.length /
-          festivalClaimableDiscoveries.length) *
-          100
-      )
-    : 0
+  const festivalClaimablePercent =
+    attendeeDiscoveryState.discoveryProgressPercent
   const passportDiscoveries = filteredCollectionStamps.filter(
     (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
   )
@@ -655,10 +659,20 @@ export default function App() {
     () => getFestivalCollections(activeFestivalId),
     [activeFestivalId]
   )
-  const dashboardCollectionsSummary = useMemo(
-    () => getDashboardCollectionsSummary(festivalCollections, collectedIds),
-    [festivalCollections, collectedIds]
+  const attendeeContentState = useMemo(
+    () =>
+      resolveAttendeeContentState({
+        festivalId: activeFestivalId,
+        discoveries: allStamps,
+        collections: festivalCollections,
+        collectedIds,
+      }),
+    [activeFestivalId, allStamps, collectedIds, festivalCollections]
   )
+  const dashboardCollectionsSummary = {
+    completed: attendeeContentState.completedCollections,
+    total: attendeeContentState.totalCollections,
+  }
   const dashboardRecentDiscovery =
     lastClaimedDiscovery?.festivalId === activeFestivalId
       ? lastClaimedDiscovery
@@ -3399,7 +3413,8 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             {user &&
               topLevelDestination === 'dashboard' &&
               selectedFestivalId &&
-              journeyCompletionPending && (
+              journeyCompletionPending &&
+              attendeeContentState.canShowRecap && (
               <JourneyComplete
                 activeFestival={activeFestival}
                 activeFestivalProfile={activeFestivalProfile}
@@ -3420,8 +3435,10 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               topLevelDestination === 'dashboard' &&
               selectedFestivalId &&
               !journeyCompletionPending &&
-              activeFestivalLifecycle === 'live' && (
+              activeFestivalLifecycle === 'live' &&
+              attendeeContentState.hasAnyPublishedContent && (
               <FestivalDashboard
+                contentState={attendeeContentState}
                 raveName={profile?.rave_name || raveName}
                 displayName={displayName}
                 country={country}
@@ -3522,9 +3539,12 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
             {user &&
               topLevelDestination === 'dashboard' &&
               selectedFestivalId &&
-              !journeyCompletionPending &&
-              activeFestivalLifecycle !== 'live' && (
+              (!journeyCompletionPending ||
+                !attendeeContentState.canShowRecap) &&
+              (activeFestivalLifecycle !== 'live' ||
+                !attendeeContentState.hasAnyPublishedContent) && (
               <FestivalLifecycleDashboard
+                contentState={attendeeContentState}
                 lifecycle={activeFestivalLifecycle}
                 activeFestival={activeFestival}
                 activeFestivalProfile={activeFestivalProfile}
@@ -3837,60 +3857,74 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               {pageIndex === 1 && (
                 <>
                   <p style={styles.pageNumber}>DISCOVERIES</p>
-                  <h2 style={styles.bookTitle}>Discovery Album</h2>
+                  {!attendeeContentState.canShowDiscoveryAlbum ? (
+                    <>
+                      <h2 style={styles.bookTitle}>Festival Guide Coming Soon</h2>
+                      <div style={styles.progressCard}>
+                        <strong>Discoveries not yet available</strong>
+                        <small>
+                          No published discoveries are available for this festival yet.
+                        </small>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 style={styles.bookTitle}>Discovery Album</h2>
 
-                  <div style={styles.progressCard}>
-                    <strong>Collection Progress</strong>
-                    <small>{collectedStamps.length} / {collectionTotal} stamps collected • {hiddenStampCount} hidden</small>
-                    <div style={styles.progressTrack}>
-                      <div style={{ ...styles.progressFill, width: `${collectionPercent}%` }} />
-                    </div>
-                    <small>{collectionPercent}% complete</small>
-                  </div>
+                      <div style={styles.progressCard}>
+                        <strong>Collection Progress</strong>
+                        <small>{collectedStamps.length} / {collectionTotal} stamps collected • {hiddenStampCount} hidden</small>
+                        <div style={styles.progressTrack}>
+                          <div style={{ ...styles.progressFill, width: `${collectionPercent}%` }} />
+                        </div>
+                        <small>{collectionPercent}% complete</small>
+                      </div>
 
-                  <div style={styles.rarityStatsGrid}>
-                    {rarityStats.map((item) => (
-                      <button
-                        key={item.rarity}
-                        type="button"
-                        style={collectionFilter === item.rarity ? styles.rarityStatActive : styles.rarityStat}
-                        onClick={() => setCollectionFilter(item.rarity)}
-                      >
-                        <strong>{rarityLabels[item.rarity]}</strong>
-                        <small>{item.collected}/{item.total}</small>
-                      </button>
-                    ))}
-                  </div>
+                      <div style={styles.rarityStatsGrid}>
+                        {rarityStats.map((item) => (
+                          <button
+                            key={item.rarity}
+                            type="button"
+                            style={collectionFilter === item.rarity ? styles.rarityStatActive : styles.rarityStat}
+                            onClick={() => setCollectionFilter(item.rarity)}
+                          >
+                            <strong>{rarityLabels[item.rarity]}</strong>
+                            <small>{item.collected}/{item.total}</small>
+                          </button>
+                        ))}
+                      </div>
 
-                  <div style={styles.filterRow}>
-                    {[
-                      ['all', 'ALL'],
-                      ['collected', 'COLLECTED'],
-                      ['locked', 'LOCKED'],
-                      ['live', 'LIVE'],
-                      ['hidden', 'HIDDEN'],
-                    ].map(([filter, label]) => (
-                      <button
-                        key={filter}
-                        type="button"
-                        style={collectionFilter === filter ? styles.filterButtonActive : styles.filterButton}
-                        onClick={() => setCollectionFilter(filter)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                      <div style={styles.filterRow}>
+                        {[
+                          ['all', 'ALL'],
+                          ['collected', 'COLLECTED'],
+                          ['locked', 'LOCKED'],
+                          ['live', 'LIVE'],
+                          ['hidden', 'HIDDEN'],
+                        ].map(([filter, label]) => (
+                          <button
+                            key={filter}
+                            type="button"
+                            style={collectionFilter === filter ? styles.filterButtonActive : styles.filterButton}
+                            onClick={() => setCollectionFilter(filter)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
 
-                  <DiscoveryCardGrid
-                    discoveries={passportDiscoveries}
-                    collectedIds={collectedIds}
-                    onOpen={chooseStamp}
-                  />
-                  <FestivalAchievementShowcase
-                    achievements={festivalAchievements}
-                    discoveries={allStamps}
-                    collectedIds={collectedIds}
-                  />
+                      <DiscoveryCardGrid
+                        discoveries={passportDiscoveries}
+                        collectedIds={collectedIds}
+                        onOpen={chooseStamp}
+                      />
+                      <FestivalAchievementShowcase
+                        achievements={festivalAchievements}
+                        discoveries={allStamps}
+                        collectedIds={collectedIds}
+                      />
+                    </>
+                  )}
                 </>
               )}
 
@@ -4359,6 +4393,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
               {pageIndex === 13 && (
                 <FestivalCollections
+                  contentState={attendeeContentState}
                   festivalName={activeFestivalDisplay?.brandName}
                   collections={festivalCollections}
                   discoveries={allStamps}
@@ -4466,6 +4501,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
 
               {pageIndex === PASSPORT_SECTION_PAGE_INDEX.journey && (
                 <PassportJourneyPage
+                  contentState={attendeeContentState}
                   edition={activeFestivalProfile || activeFestival || { id: activeFestivalId }}
                   brand={activeFestivalBrand}
                   display={activeFestivalDisplay}

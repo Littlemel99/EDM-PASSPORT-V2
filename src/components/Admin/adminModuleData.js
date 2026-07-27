@@ -275,6 +275,8 @@ export function getFestivalWorkspaceOverview(festival = {}) {
   const localCollectionDraftCount =
     Number(festival.localCollectionDraftCount) || 0
   const scheduleItemCount = Number(festival.scheduleItemCount) || 0
+  const localScheduleDraftCount =
+    Number(festival.localScheduleDraftCount) || 0
   const lifecycleReady = Boolean(
     festival.lifecycle && festival.lifecycle !== 'unavailable'
   )
@@ -322,7 +324,12 @@ export function getFestivalWorkspaceOverview(festival = {}) {
     {
       id: 'schedule',
       label: 'Schedule',
-      status: scheduleItemCount > 0 ? 'READY' : 'NOT CONFIGURED',
+      status:
+        scheduleItemCount > 0
+          ? 'READY'
+          : localScheduleDraftCount > 0
+            ? 'PARTIAL'
+            : 'NOT CONFIGURED',
     },
     {
       id: 'publishing',
@@ -356,7 +363,11 @@ export function getFestivalWorkspaceOverview(festival = {}) {
       collectionCount + localCollectionDraftCount > 0,
       'MISSING',
     ],
-    ['Schedule configured', scheduleItemCount > 0, 'MISSING'],
+    [
+      'Schedule configured',
+      scheduleItemCount + localScheduleDraftCount > 0,
+      'MISSING',
+    ],
     [
       'QR / NFC backend available',
       Boolean(festival.qrNfcBackendAvailable),
@@ -384,7 +395,8 @@ export function getFestivalWorkspaceOverview(festival = {}) {
       'No discoveries configured',
     collectionCount + localCollectionDraftCount === 0 &&
       'No collections configured',
-    scheduleItemCount === 0 && 'Schedule not configured',
+    scheduleItemCount + localScheduleDraftCount === 0 &&
+      'Schedule not configured',
     !festival.qrNfcBackendAvailable && 'QR / NFC backend required',
     !festival.analyticsBackendAvailable && 'Analytics backend required',
   ].filter(Boolean)
@@ -397,6 +409,7 @@ export function getFestivalWorkspaceOverview(festival = {}) {
       localDiscoveryDraftCount,
       localCollectionDraftCount,
       scheduleItemCount,
+      localScheduleDraftCount,
       missingRequiredFieldsCount: checklist.filter(
         (item) => item.status === 'MISSING'
       ).length,
@@ -538,12 +551,16 @@ export function getFestivalWorkspaceTaskDashboard(festival = {}) {
           ? overview.metrics.discoveryCount
           : id === 'collections'
             ? overview.metrics.collectionCount
-            : null,
+            : id === 'schedule'
+              ? overview.metrics.scheduleItemCount
+              : null,
       localDraftCount:
         id === 'discoveries'
           ? overview.metrics.localDiscoveryDraftCount
           : id === 'collections'
             ? overview.metrics.localCollectionDraftCount
+            : id === 'schedule'
+              ? overview.metrics.localScheduleDraftCount
             : null,
     }
   })
@@ -591,7 +608,9 @@ export function getFestivalWorkspaceTaskDashboard(festival = {}) {
   if (festival.scheduleRequiredForTesting === true) {
     testingRequirements.push([
       'Schedule configured',
-      overview.metrics.scheduleItemCount > 0,
+      overview.metrics.scheduleItemCount +
+        overview.metrics.localScheduleDraftCount >
+        0,
     ])
   }
   const testingBlockers = testingRequirements

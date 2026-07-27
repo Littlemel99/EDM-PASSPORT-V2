@@ -1,4 +1,5 @@
 import { getFestivalJourneyDay } from '../../festivals/festivalLifecycle.js'
+import { resolveAttendeeContentStateFromCounts } from '../../attendee/attendeeContentState.js'
 
 const EXPLORER_RANKS = [
   { name: 'Explorer I', minimum: 0 },
@@ -46,6 +47,34 @@ export function getDashboardCollectionsSummary(
     completed: progress.completedCount,
     total: progress.totalCollections,
   }
+}
+
+export function getAttendeeJourneyCompletion({
+  lifecycle,
+  collectedDiscoveries = 0,
+  totalDiscoveries = 0,
+  completedCollections = 0,
+  totalCollections = 0,
+} = {}) {
+  const contentState = resolveAttendeeContentStateFromCounts({
+    totalDiscoveries,
+    completedDiscoveries: collectedDiscoveries,
+    totalCollections,
+    completedCollections,
+  })
+
+  return Object.freeze({
+    state: contentState.isEmpty
+      ? 'empty'
+      : lifecycle === 'completed' && contentState.isComplete
+        ? 'completed'
+        : lifecycle === 'completed'
+          ? 'in-progress'
+          : lifecycle || 'unavailable',
+    hasCompletableContent: contentState.hasAnyPublishedContent,
+    complete: contentState.isComplete,
+    percent: contentState.overallProgressPercent,
+  })
 }
 
 function parseLocalDate(value) {

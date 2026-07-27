@@ -19,15 +19,22 @@ import {
 } from './adminModuleData.js'
 import {
   archiveCollectionDraft,
+  archiveScheduleDraft,
   createFestivalInformationInput,
+  duplicateScheduleDraft,
   getPublishingPipelineReview,
+  formatScheduleTime24,
+  formatScheduleTime12Label,
   loadBackstageDrafts,
   mergeFestivalWithDrafts,
+  parseScheduleTime12,
   restoreCollectionDraft,
+  restoreScheduleDraft,
   saveBackstageDraft,
   validateCollectionDraft,
   validateDiscoveryDraft,
   validateFestivalInformation,
+  validateScheduleDraft,
 } from './backstageDraftStore.js'
 import './adminConsole.css'
 
@@ -107,6 +114,7 @@ export default function AdminConsole({
         information: null,
         discoveries: [],
         collections: [],
+        schedule: [],
         ...current[festivalId],
         [draftType]: saved,
       },
@@ -666,10 +674,14 @@ function FestivalWorkspace({
           />
         )}
         {activeTab === 'schedule' && (
-          <WorkspaceState
-            title="Schedule"
-            status="READ ONLY"
-            copy="SCHEDULE NOT CONFIGURED"
+          <ScheduleDraftBuilder
+            festival={festival}
+            discoveryDrafts={drafts?.discoveries || []}
+            collectionDrafts={drafts?.collections || []}
+            drafts={drafts?.schedule || []}
+            onSaveDrafts={(value) =>
+              onSaveDraft(festival.id, 'schedule', value)
+            }
           />
         )}
         {activeTab === 'publishing' && (
@@ -880,8 +892,21 @@ function WorkspaceOverview({
                 {item.label}
                 {item.repositoryCount !== null && (
                   <small>
-                    Repository: {item.repositoryCount} · Local drafts:{' '}
-                    {item.localDraftCount}
+                    {item.id === 'schedule' ? (
+                      <>
+                        <span>
+                          Repository Schedule Items: {item.repositoryCount}
+                        </span>
+                        <span>
+                          Local Schedule Drafts: {item.localDraftCount}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Repository: {item.repositoryCount} · Local drafts:{' '}
+                        {item.localDraftCount}
+                      </>
+                    )}
                   </small>
                 )}
               </span>
@@ -1033,6 +1058,14 @@ function PublishingWorkspace({
           label="Local draft collections"
           value={review.counts.localCollections}
         />
+        <Definition
+          label="Repository schedule items"
+          value={review.counts.repositorySchedule}
+        />
+        <Definition
+          label="Local draft schedule items"
+          value={review.counts.localSchedule}
+        />
         <Definition label="SECURE PERSISTENCE" value="NOT AVAILABLE" />
         <Definition label="PUBLISHING BACKEND" value="NOT AVAILABLE" />
       </dl>
@@ -1089,11 +1122,25 @@ function PublishingWorkspace({
             </div>
           )) : <p>No valid active collection drafts.</p>}
         </article>
+        <article>
+          <h3>Schedule Drafts</h3>
+          {review.scheduleDrafts.length ? review.scheduleDrafts.map((draft) => (
+            <div className="admin-console__review-record" key={draft.id}>
+              <strong>{draft.title}</strong>
+              <span>{draft.status} · {draft.active ? 'ACTIVE' : 'INACTIVE'}{draft.featured ? ' · FEATURED' : ''}</span>
+              <span>{draft.date} · {formatScheduleTime12Label(draft.startTime)}–{formatScheduleTime12Label(draft.endTime)} · {draft.location}</span>
+            </div>
+          )) : <p>No valid schedule drafts.</p>}
+          {review.scheduleBlockers.map((blocker) => (
+            <p key={blocker}>{blocker}</p>
+          ))}
+        </article>
       </section>
       <nav className="admin-console__publishing-actions" aria-label="Publishing review actions">
         <button type="button" onClick={() => onOpenTab('settings')}>REVIEW FESTIVAL INFORMATION</button>
         <button type="button" onClick={() => onOpenTab('discoveries')}>REVIEW DISCOVERIES</button>
         <button type="button" onClick={() => onOpenTab('collections')}>REVIEW COLLECTIONS</button>
+        <button type="button" onClick={() => onOpenTab('schedule')}>REVIEW SCHEDULE</button>
         <button type="button" onClick={() => onOpenTab('overview')}>RETURN TO OVERVIEW</button>
         <button type="button" onClick={onReturnToLibrary}>RETURN TO LIBRARY</button>
         <button type="button" onClick={onReturnToBackstage}>RETURN TO BACKSTAGE</button>
@@ -1786,6 +1833,273 @@ function CollectionDraftBuilder({
         </aside>
       </div>
     </section>
+  )
+}
+
+const EMPTY_SCHEDULE_DRAFT = {
+  id: '',
+  originalId: '',
+  title: '',
+  performer: '',
+  description: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  timezone: '',
+  location: '',
+  category: '',
+  linkedDiscoveryId: '',
+  linkedCollectionId: '',
+  active: true,
+  featured: false,
+  image: '',
+}
+
+function ScheduleDraftBuilder({
+  festival,
+  discoveryDrafts,
+  collectionDrafts,
+  drafts,
+  onSaveDrafts,
+}) {
+  const [input, setInput] = useState(() => ({
+    ...EMPTY_SCHEDULE_DRAFT,
+    timezone: festival.timezone || '',
+  }))
+  const [errors, setErrors] = useState({})
+  const [preview, setPreview] = useState(null)
+  const discoveries = discoveryDrafts.filter(
+    (draft) => !draft.archived && draft.festivalId === festival.id
+  )
+  const collections = collectionDrafts.filter(
+    (draft) => !draft.archived && draft.festivalId === festival.id
+  )
+  const activeDrafts = drafts
+    .filter((draft) => !draft.archived)
+    .sort((a, b) =>
+      `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`)
+    )
+  const archivedDrafts = drafts.filter((draft) => draft.archived)
+  const update = (field, value) =>
+    setInput((current) => ({ ...current, [field]: value }))
+  const edit = (draft) => {
+    setInput({
+      ...EMPTY_SCHEDULE_DRAFT,
+      ...draft,
+      originalId: draft.id,
+    })
+    setErrors({})
+    setPreview(draft)
+  }
+  const save = (event) => {
+    event.preventDefault()
+    const candidate = {
+      ...input,
+      id: input.id || createDraftId('tomorrowland-schedule', input.title),
+      festivalId: festival.id,
+      sourceType: 'backstage-local-draft',
+      unsynced: true,
+      archived: false,
+    }
+    const validation = validateScheduleDraft(
+      candidate,
+      festival,
+      discoveryDrafts,
+      collectionDrafts
+    )
+    setErrors(validation.errors)
+    if (!validation.valid) return
+    const next = input.originalId
+      ? drafts.map((draft) =>
+          draft.id === input.originalId ? candidate : draft
+        )
+      : [...drafts, candidate]
+    onSaveDrafts(next)
+    setInput({
+      ...EMPTY_SCHEDULE_DRAFT,
+      timezone: festival.timezone || '',
+    })
+    setPreview(candidate)
+  }
+  const duplicate = (draft) => {
+    const nextId = createDraftId(
+      'tomorrowland-schedule-copy',
+      `${draft.title}-${Date.now()}`
+    )
+    onSaveDrafts(duplicateScheduleDraft(drafts, draft.id, nextId))
+  }
+  const discoveryName = (id) =>
+    discoveries.find((draft) => draft.id === id)?.title || 'None'
+  const collectionName = (id) =>
+    collections.find((draft) => draft.id === id)?.name || 'None'
+
+  return (
+    <section className="admin-console__draft-builder">
+      <ModuleHeader
+        title="Tomorrowland Schedule Builder"
+        status="LOCAL DRAFT"
+        copy="Schedule drafts remain browser-local and are never exposed to the attendee schedule."
+      />
+      <div className="admin-console__draft-flags">
+        <Badge>LOCAL DRAFT</Badge><Badge>NOT SYNCED</Badge>
+      </div>
+      <p>
+        Valid festival dates: {festival.startDate}–{festival.endDate} · Default timezone: {festival.timezone}
+      </p>
+      <div className="admin-console__schedule-list" aria-label="Active schedule drafts">
+        <h2>ACTIVE SCHEDULE ITEMS</h2>
+        {activeDrafts.map((draft) => (
+          <article key={draft.id}>
+            <div>
+              <strong>{draft.title}</strong>
+              <span>{draft.date} · {formatScheduleTime12Label(draft.startTime)}–{formatScheduleTime12Label(draft.endTime)}</span>
+              <span>{draft.location} · {draft.active ? 'ACTIVE' : 'INACTIVE'}</span>
+            </div>
+            <div>
+              <button type="button" onClick={() => edit(draft)}>EDIT / PREVIEW</button>
+              <button type="button" aria-label={`Duplicate ${draft.title}`} onClick={() => duplicate(draft)}>DUPLICATE</button>
+              <button type="button" aria-label={`Archive ${draft.title}`} onClick={() => onSaveDrafts(archiveScheduleDraft(drafts, draft.id))}>ARCHIVE</button>
+            </div>
+          </article>
+        ))}
+        {!activeDrafts.length && <p>No active schedule drafts.</p>}
+      </div>
+      <div className="admin-console__builder-layout">
+        <form className="admin-console__builder-form" onSubmit={save}>
+          <BuilderField label="Title" required error={errors.title}>
+            <input value={input.title} onChange={(event) => update('title', event.target.value)} />
+          </BuilderField>
+          <BuilderField label="Performer or activity">
+            <input value={input.performer} onChange={(event) => update('performer', event.target.value)} />
+          </BuilderField>
+          <BuilderField label="Description">
+            <textarea rows="3" value={input.description} onChange={(event) => update('description', event.target.value)} />
+          </BuilderField>
+          <BuilderField label="Date" required error={errors.date}>
+            <input type="date" min={festival.startDate} max={festival.endDate} value={input.date} onChange={(event) => update('date', event.target.value)} />
+          </BuilderField>
+          <ScheduleTimeField
+            label="Start time"
+            value={input.startTime}
+            onChange={(value) => update('startTime', value)}
+            error={errors.startTime}
+          />
+          <ScheduleTimeField
+            label="End time"
+            value={input.endTime}
+            onChange={(value) => update('endTime', value)}
+            error={errors.endTime}
+          />
+          <BuilderField label="Timezone" required error={errors.timezone}>
+            <input value={input.timezone} onChange={(event) => update('timezone', event.target.value)} />
+          </BuilderField>
+          <BuilderField label="Stage or location" required error={errors.location}>
+            <input value={input.location} onChange={(event) => update('location', event.target.value)} />
+          </BuilderField>
+          <BuilderField label="Category" required error={errors.category}>
+            <input value={input.category} onChange={(event) => update('category', event.target.value)} />
+          </BuilderField>
+          <BuilderField label="Linked discovery" error={errors.linkedDiscoveryId}>
+            <select value={input.linkedDiscoveryId} onChange={(event) => update('linkedDiscoveryId', event.target.value)}>
+              <option value="">None</option>
+              {discoveries.map((draft) => <option key={draft.id} value={draft.id}>{draft.title}</option>)}
+            </select>
+          </BuilderField>
+          <BuilderField label="Linked collection" error={errors.linkedCollectionId}>
+            <select value={input.linkedCollectionId} onChange={(event) => update('linkedCollectionId', event.target.value)}>
+              <option value="">None</option>
+              {collections.map((draft) => <option key={draft.id} value={draft.id}>{draft.name}</option>)}
+            </select>
+          </BuilderField>
+          <BuilderField label="Optional image reference">
+            <input value={input.image} onChange={(event) => update('image', event.target.value)} />
+          </BuilderField>
+          <label><input type="checkbox" checked={input.active} onChange={(event) => update('active', event.target.checked)} /> Active</label>
+          <label><input type="checkbox" checked={input.featured} onChange={(event) => update('featured', event.target.checked)} /> Featured</label>
+          {errors.festivalId && <small role="alert">{errors.festivalId}</small>}
+          <button className="admin-console__primary-button" type="submit">SAVE LOCAL DRAFT</button>
+        </form>
+        <aside className="admin-console__draft-preview">
+          <h2>PREVIEW</h2>
+          {preview ? (
+            <div className="admin-console__collection-preview">
+              <strong>{preview.title}</strong>
+              <p>{preview.performer || 'No performer or activity provided.'}</p>
+              <p>{preview.description || 'No description provided.'}</p>
+              <dl>
+                <dt>Date</dt><dd>{preview.date}</dd>
+                <dt>Time</dt><dd>{formatScheduleTime12Label(preview.startTime)}–{formatScheduleTime12Label(preview.endTime)}</dd>
+                <dt>Timezone</dt><dd>{preview.timezone}</dd>
+                <dt>Stage / location</dt><dd>{preview.location}</dd>
+                <dt>Category</dt><dd>{preview.category}</dd>
+                <dt>Linked discovery</dt><dd>{discoveryName(preview.linkedDiscoveryId)}</dd>
+                <dt>Linked collection</dt><dd>{collectionName(preview.linkedCollectionId)}</dd>
+                <dt>Status</dt><dd>{preview.active ? 'ACTIVE' : 'INACTIVE'}</dd>
+                <dt>Featured</dt><dd>{preview.featured ? 'YES' : 'NO'}</dd>
+              </dl>
+              <Badge>LOCAL DRAFT · NOT SYNCED</Badge>
+            </div>
+          ) : <p>Save or select a schedule item to preview it.</p>}
+          <h3>ARCHIVED SCHEDULE ITEMS</h3>
+          <div className="admin-console__draft-list">
+            {archivedDrafts.map((draft) => (
+              <article key={draft.id}>
+                <strong>{draft.title}</strong>
+                <span>{draft.date} · ARCHIVED</span>
+                <button type="button" onClick={() => setPreview(draft)}>PREVIEW</button>
+                <button type="button" aria-label={`Restore ${draft.title}`} onClick={() => onSaveDrafts(restoreScheduleDraft(drafts, draft.id))}>RESTORE</button>
+              </article>
+            ))}
+            {!archivedDrafts.length && <p>No archived schedule items.</p>}
+          </div>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+function ScheduleTimeField({ label, value, onChange, error = '' }) {
+  const parts = parseScheduleTime12(value)
+  const updatePart = (field, nextValue) => {
+    onChange(formatScheduleTime24({ ...parts, [field]: nextValue }))
+  }
+  const idPrefix = `schedule-${label.toLowerCase().replace(/\s+/g, '-')}`
+  return (
+    <fieldset className="admin-console__time-field">
+      <legend>{label} *</legend>
+      <div>
+        <label htmlFor={`${idPrefix}-hour`}>Hour</label>
+        <select
+          id={`${idPrefix}-hour`}
+          value={parts.hour}
+          onChange={(event) => updatePart('hour', event.target.value)}
+        >
+          {Array.from({ length: 12 }, (_, index) => String(index + 1)).map(
+            (hour) => <option key={hour} value={hour}>{hour}</option>
+          )}
+        </select>
+        <label htmlFor={`${idPrefix}-minute`}>Minute</label>
+        <select
+          id={`${idPrefix}-minute`}
+          value={parts.minute}
+          onChange={(event) => updatePart('minute', event.target.value)}
+        >
+          {Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0')).map(
+            (minute) => <option key={minute} value={minute}>{minute}</option>
+          )}
+        </select>
+        <label htmlFor={`${idPrefix}-period`}>AM or PM</label>
+        <select
+          id={`${idPrefix}-period`}
+          value={parts.period}
+          onChange={(event) => updatePart('period', event.target.value)}
+        >
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+      {error && <small role="alert">{error}</small>}
+    </fieldset>
   )
 }
 
