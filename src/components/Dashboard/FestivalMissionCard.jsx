@@ -17,6 +17,8 @@ export default function FestivalMissionCard({
   const missionMatchesFestival =
     mission?.festivalId === resolveFestivalId(festivalId)
 
+  // Mission state mirrors the account-scoped local persistence boundary.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!ready) return
 
@@ -53,6 +55,7 @@ export default function FestivalMissionCard({
     )
   }, [collectedCount, mission, missionMatchesFestival])
 
+  // Persisting completion intentionally publishes the resulting stored value.
   useEffect(() => {
     if (!mission || !missionMatchesFestival || mission.completed) return
     if (progress < mission.target) return
@@ -66,6 +69,7 @@ export default function FestivalMissionCard({
 
     setMission(saveStoredMission(completedMission, festivalId, localStorage, userId))
   }, [festivalId, mission, missionMatchesFestival, progress, userId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!ready || !mission || !missionMatchesFestival) {
     return (

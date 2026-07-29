@@ -100,7 +100,6 @@ export default function AdminPage({
   setAdminStampNameInput,
   adminStampImageUrlInput,
   setAdminStampImageUrlInput,
-  adminStampImageFile,
   setAdminStampImageFile,
   adminStampUploadPreview,
   setAdminStampUploadPreview,
@@ -119,10 +118,10 @@ export default function AdminPage({
   const tileLayerRef = useRef(null)
   const dropLayerRef = useRef(null)
   const selectedLayerRef = useRef(null)
-  const [mapMode, setMapMode] = useState('satellite')
-  const [mapExpanded, setMapExpanded] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
-  const [mapError, setMapError] = useState('')
+  const [mapMode] = useState('satellite')
+  const [mapExpanded] = useState(false)
+  const [, setMapReady] = useState(false)
+  const [, setMapError] = useState('')
   const [selectedMapPin, setSelectedMapPin] = useState(null)
   const [festivalMapNote, setFestivalMapNote] = useState('')
   const [wizardStep, setWizardStep] = useState(1)
@@ -240,6 +239,9 @@ export default function AdminPage({
     }).addTo(map)
   }
 
+  // Leaflet is an imperative external system. These effects intentionally
+  // initialize and synchronize it only on the existing state boundaries.
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     let cancelled = false
 
@@ -371,6 +373,7 @@ export default function AdminPage({
       map.invalidateSize()
     }, 250)
   }, [mapExpanded])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     if (gpsLatitude && gpsLongitude) {
@@ -388,33 +391,6 @@ export default function AdminPage({
 
   const activeFestivalMapUrl = adminFestival?.map_url || adminFestival?.mapUrl || festivalMapUrl || ''
   const selectedMapDropStamp = stamps.find((stamp) => stamp.id === adminStampId) || stamps[0]
-  const phoneLockCardStyle = {
-    ...styles.adminCard,
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
-    overflowWrap: 'anywhere',
-    wordBreak: 'break-word',
-    boxSizing: 'border-box',
-  }
-
-  const phoneLockListStyle = {
-    ...styles.linkList,
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
-    boxSizing: 'border-box',
-  }
-
-  const phoneLockGridStyle = {
-    ...styles.stampGrid,
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    boxSizing: 'border-box',
-  }
-
   const phoneLockInputStyle = {
     ...styles.inputLight,
     fontSize: '16px',
@@ -565,33 +541,6 @@ export default function AdminPage({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(distributionClaimUrl)}`
     : ''
 
-  const mapShellStyle = mapExpanded
-    ? {
-        position: 'fixed', maxWidth: 'calc(100vw - 24px)', overflow: 'hidden',
-        inset: 12,
-        zIndex: 9999,
-        background: '#050510',
-        borderRadius: 22,
-        padding: 12,
-        boxSizing: 'border-box',
-        display: 'grid',
-        gridTemplateRows: 'auto 1fr',
-        gap: 10,
-      }
-    : {
-        marginTop: 12,
-      }
-
-  const mapStyle = {
-    height: mapExpanded ? '100%' : 460,
-    minHeight: mapExpanded ? 500 : 460,
-    borderRadius: 20,
-    overflow: 'hidden',
-    border: '2px solid rgba(0,255,255,.45)',
-    boxShadow: '0 0 25px rgba(0,255,255,.18)',
-    background: '#111827',
-  }
-
   return (
     <>
       <p style={styles.pageNumber}>ADMIN</p>
@@ -687,7 +636,7 @@ export default function AdminPage({
               <img
                 src={stampClaimQrUrl}
                 alt={`${selectedClaimStamp.name} claim QR`}
-                style={{ width: 240, maxWidth: '100%', maxWidth: '100%', borderRadius: 12 }}
+                style={{ width: 240, maxWidth: '100%', borderRadius: 12 }}
               />
               <small>Scan this to unlock the selected stamp.</small>
             </div>
@@ -785,7 +734,7 @@ export default function AdminPage({
               {distributionQrUrl && (
                 <div style={{ background: 'white', color: '#111', padding: 16, borderRadius: 18, display: 'grid', gap: 8, justifyItems: 'center' }}>
                   <strong>QR CLAIM CODE</strong>
-                  <img src={distributionQrUrl} alt="QR claim code" style={{ width: 220, maxWidth: '100%', maxWidth: '100%', borderRadius: 12 }} />
+                  <img src={distributionQrUrl} alt="QR claim code" style={{ width: 220, maxWidth: '100%', borderRadius: 12 }} />
                 </div>
               )}
               <input style={phoneLockInputStyle} readOnly value={distributionClaimUrl} onClick={(event) => event.target.select()} />

@@ -49,6 +49,35 @@ test('hidden discovery does not leak secret content', () => {
   assert.equal(JSON.stringify(view).includes('Secret Name'), false)
 })
 
+test('normalized hidden state conceals all restricted metadata', () => {
+  const view = getDiscoveryCardPresentation({
+    ...prehistoricStage,
+    state: 'HIDDEN',
+    title: 'Restricted Title',
+    name: 'Restricted Name',
+    description: 'Restricted Description',
+    location: 'Restricted Location',
+    xpReward: 900,
+  })
+
+  assert.equal(view.stateLabel, 'HIDDEN')
+  assert.equal(view.title, 'Mystery Discovery')
+  assert.equal(view.location, null)
+  assert.equal(view.xp, null)
+  assert.equal(JSON.stringify(view).includes('Restricted'), false)
+})
+
+test('normalized locked state is labeled locked without becoming collected', () => {
+  const view = getDiscoveryCardPresentation({
+    ...prehistoricStage,
+    state: 'LOCKED',
+  })
+
+  assert.equal(view.locked, true)
+  assert.equal(view.restricted, false)
+  assert.equal(view.stateLabel, 'LOCKED')
+})
+
 test('achievement-only card displays achievement state', () => {
   const achievement = lostLands2026Discoveries.find(({ category }) => category === 'achievement')
   const view = getDiscoveryCardPresentation(achievement)

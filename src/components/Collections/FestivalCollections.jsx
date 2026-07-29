@@ -17,12 +17,19 @@ export default function FestivalCollections({
   activeFestivalBrand,
   activeFestivalDisplay,
   contentState,
+  adventureState,
 }) {
   const [selectedCollectionId, setSelectedCollectionId] = useState(null)
   const visibleCollections =
     contentState?.eligibleCollections || collections
   const visibleDiscoveries =
     contentState?.eligibleDiscoveries || discoveries
+  const adventureCollectionById = new Map(
+    (adventureState?.collections || []).map((collection) => [
+      collection.id,
+      collection,
+    ])
+  )
   const selectedCollection = visibleCollections.find(
     (collection) => collection.id === selectedCollectionId
   )
@@ -107,6 +114,8 @@ export default function FestivalCollections({
 
         <div style={styles.collectionList}>
         {overall.collections.map(({ collection, ...progress }) => {
+          const adventureCollection =
+            adventureCollectionById.get(collection.id)
           const nextTarget = getNextCollectionTarget(
             collection,
             visibleDiscoveries,
@@ -118,7 +127,8 @@ export default function FestivalCollections({
               <div style={styles.cardHeader}>
                 <div>
                   <span style={styles.state}>
-                    {progress.complete ? 'COMPLETE' : 'IN PROGRESS'}
+                    {adventureCollection?.state ||
+                      (progress.complete ? 'COMPLETE' : 'IN PROGRESS')}
                   </span>
                   <h3 style={styles.collectionName}>{collection.name}</h3>
                 </div>

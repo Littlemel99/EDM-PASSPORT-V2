@@ -30,6 +30,7 @@ import {
   getUnlockedItems,
   diagnoseFestivalDiscoverySelection,
   normalizeDiscoveries,
+  resolveAdventureState,
 } from './adventure'
 import Stamp from './components/Stamp'
 import StampModal from './components/StampModal'
@@ -57,7 +58,6 @@ import {
   createFamily,
   joinFamily,
   leaveFamily,
-  loadPrimaryFamilyByOwner,
 } from './services/crewService'
 import {
   loadGpsDrops,
@@ -66,7 +66,6 @@ import {
 } from './services/gpsDropService'
 import {
   loadProfile,
-  loadPublicProfile,
   getProfileDisplayName,
   saveProfile,
 } from './services/profileService'
@@ -134,7 +133,6 @@ import {
 } from './auth/devIncompleteProfile.js'
 import {
   clearActiveJourneyFestivalId as clearPersistedActiveJourney,
-  getActiveJourneyLandingDestination,
   resolveActiveJourneyStartup,
   setActiveJourneyFestivalId as persistActiveJourney,
 } from './navigation/activeJourney.js'
@@ -233,19 +231,13 @@ export default function App() {
     profileMessage,
     setProfileMessage,
     profileSaving,
-    setProfileSaving,
     publicProfileId,
     setPublicProfileId,
     publicProfile,
-    setPublicProfile,
     publicProfileCollectedIds,
-    setPublicProfileCollectedIds,
     publicProfileLoading,
-    setPublicProfileLoading,
     publicProfileMessage,
-    setPublicProfileMessage,
     publicOwnerFamily,
-    setPublicOwnerFamily,
     publicSmartMessage,
     setPublicSmartMessage,
     publicJoinLoading,
@@ -358,8 +350,7 @@ export default function App() {
     familyMembers: false,
     festivalTimeline: false,
   })
-  const [memoryCardMessage, setMemoryCardMessage] = useState('')
-  const memoryCardRef = useRef(null)
+  const [, setMemoryCardMessage] = useState('')
 
   const [adminCreatedStamps, setAdminCreatedStamps] = useState([])
   const [adminStampNameInput, setAdminStampNameInput] = useState('')
@@ -402,6 +393,13 @@ export default function App() {
   const isLocalOAuthTest =
     import.meta.env.DEV && isLocalOAuthHost(window.location.hostname)
 
+  /*
+   * These startup effects intentionally translate URL, authentication, and
+   * device-subscription state into the existing React state machine. They are
+   * mount/subscription effects; expanding their dependency lists would rerun
+   * authentication and claim initialization.
+   */
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     if (!oauthCallbackError) return
     clearPendingOAuthAttempt(localStorage)
@@ -506,7 +504,6 @@ export default function App() {
       collected: collectedMatching.length,
     }
   })
-  const discoveredHiddenCount = allStamps.filter((stamp) => isHiddenStamp(stamp) && collectedIds.includes(stamp.id)).length
   const stageStampIds = ['kinetic-field', 'circuit-grounds', 'cosmic-meadow', 'basspod', 'neon-garden', 'wasteland', 'quantum-valley', 'stereo-bloom', 'bionic-jungle', 'art-cars-downtown-edc']
   const stageStamps = allStamps.filter((stamp) => {
     const haystack = `${stamp.id || ''} ${stamp.name || ''} ${stamp.location || ''}`.toLowerCase()
@@ -608,21 +605,6 @@ export default function App() {
   const collectedStamps = collectionProgress.collected
   const collectionTotal = collectionProgress.total
   const collectionPercent = collectionProgress.percent
-  const filteredCollectionStamps = attendeeVisibleDiscoveries.filter((stamp) => {
-    const collected = collectedIds.includes(stamp.id)
-    const live = activeDrops.includes(stamp.id)
-
-    if (collectionFilter === 'collected') return collected
-    if (collectionFilter === 'locked') return !collected
-    if (collectionFilter === 'live') return live
-    if (collectionFilter === 'hidden') return isHiddenStamp(stamp)
-    if (['common', 'rare', 'epic', 'legendary', 'mythic'].includes(collectionFilter)) {
-      const stampRarity = getStampRarity(stamp)
-      if (collectionFilter === 'common') return stampRarity === 'common' || stampRarity === 'normal'
-      return stampRarity === collectionFilter
-    }
-    return true
-  })
   const festivalAchievements = allStamps.filter(
     (stamp) => stamp.claimable === false || stamp.sourceType === 'derived-achievement'
   )
@@ -632,9 +614,6 @@ export default function App() {
   )
   const festivalClaimablePercent =
     attendeeDiscoveryState.discoveryProgressPercent
-  const passportDiscoveries = filteredCollectionStamps.filter(
-    (stamp) => stamp.claimable !== false && stamp.sourceType !== 'derived-achievement'
-  )
   const primaryFestivalAchievement = festivalAchievements[0] || null
   const festivalAchievementProgress = getAchievementProgress(
     primaryFestivalAchievement,
@@ -685,6 +664,67 @@ export default function App() {
   })
   const activeFestivalLifecycle = resolveFestivalLifecycle(
     activeFestival || activeFestivalProfile || {}
+  )
+  const attendeeAdventureState = useMemo(
+    () =>
+      resolveAdventureState({
+        festival: {
+          ...(activeFestivalProfile || {}),
+          ...(activeFestival || {}),
+          id: activeFestivalId,
+          timezone:
+            activeFestivalDisplay?.timezone ||
+            activeFestival?.timezone ||
+            activeFestivalProfile?.timezone,
+        },
+        discoveries: attendeeContentState.eligibleDiscoveries,
+        collections: attendeeContentState.eligibleCollections,
+        collectedDiscoveryIds: collectedIds,
+        now: new Date(),
+      }),
+    [
+      activeFestival,
+      activeFestivalDisplay?.timezone,
+      activeFestivalId,
+      activeFestivalProfile,
+      attendeeContentState,
+      collectedIds,
+    ]
+  )
+  const filteredCollectionStamps = attendeeAdventureState.discoveries.filter(
+    (stamp) => {
+      const live = activeDrops.includes(stamp.id)
+
+      if (collectionFilter === 'collected') {
+        return stamp.state === 'COLLECTED'
+      }
+      if (collectionFilter === 'locked') {
+        return stamp.state === 'LOCKED'
+      }
+      if (collectionFilter === 'live') {
+        return live && stamp.state === 'AVAILABLE'
+      }
+      if (collectionFilter === 'hidden') {
+        return stamp.state === 'HIDDEN'
+      }
+      if (
+        ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(
+          collectionFilter
+        )
+      ) {
+        const stampRarity = getStampRarity(stamp)
+        if (collectionFilter === 'common') {
+          return stampRarity === 'common' || stampRarity === 'normal'
+        }
+        return stampRarity === collectionFilter
+      }
+      return stamp.state !== 'UNAVAILABLE'
+    }
+  )
+  const passportDiscoveries = filteredCollectionStamps.filter(
+    (stamp) =>
+      stamp.claimable !== false &&
+      stamp.sourceType !== 'derived-achievement'
   )
   const directoryProgressByFestival = selectedFestivalId
     ? {
@@ -991,6 +1031,7 @@ export default function App() {
       }
     }
   }, [bookOpen, autoCollectEnabled, user])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   function createPassportFromScannedQr() {
     const scannedName = publicProfile?.rave_name || 'this passport holder'
@@ -1308,8 +1349,7 @@ export default function App() {
     refreshUserData(
       currentUser,
       festivalId,
-      request,
-      startupDestination
+      request
     ).catch((error) => {
       if (accountRequestGuardRef.current.isCurrent(request)) {
         console.error('Background journey refresh failed:', error)
@@ -1353,8 +1393,7 @@ export default function App() {
   async function refreshUserData(
     currentUser = user,
     festivalId = activeFestivalId,
-    accountRequest = null,
-    startupDestination = getActiveJourneyLandingDestination(festivalId)
+    accountRequest = null
   ) {
     if (!currentUser) return
     const ownsRequest = () => accountRequest
@@ -1595,6 +1634,9 @@ export default function App() {
     }
   }
 
+  // Account-bound attendance is intentionally cleared/published at this
+  // boundary; the refresh functions are not stable callback identities.
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     if (!user?.id) {
       setFestivalAttendance([])
@@ -1604,6 +1646,7 @@ export default function App() {
     refreshUserFestivalAttendance()
     refreshFestivalDemandSummary()
   }, [user?.id])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   async function refreshUserFestivalAttendance() {
     if (!user?.id) return
@@ -2242,23 +2285,6 @@ export default function App() {
     window.history.replaceState({}, '', cleanUrl)
   }
 
-  async function autoJoinPendingFamilyInvite(currentUser, inviteCode) {
-    if (!currentUser || !inviteCode) return
-
-    try {
-      setFamilyMessage(`Joining family ${inviteCode}...`)
-      await joinFamily(currentUser, inviteCode)
-      await clearPendingFamilyInvite()
-      setJoinCode('')
-      await refreshUserData(currentUser)
-      await refreshPublicFamilies()
-      setFamilyMessage('Family invite accepted. You joined the family.')
-    } catch (error) {
-      await clearPendingFamilyInvite()
-      setFamilyMessage(error.message || 'Could not join this family invite.')
-    }
-  }
-
   async function handleCreateFamily() {
     if (!user) {
       setFamilyMessage('Login first to create a family.')
@@ -2327,10 +2353,6 @@ export default function App() {
       ...current,
       [sectionName]: !current[sectionName],
     }))
-  }
-
-  function jumpToStampCollection() {
-    openPassportSection('discoveries')
   }
 
   function jumpToMemories() {
@@ -2409,6 +2431,8 @@ export default function App() {
     window.prompt('Copy this share text:', text)
   }
 
+  // Retained for compatibility with legacy memory-card exports.
+  // eslint-disable-next-line no-unused-vars
   function downloadMemoryCard(memory = getLatestMemoryForActiveStamp()) {
     if (!memory) {
       setMemoryCardMessage('Save a memory first, then download a memory card.')
@@ -3913,16 +3937,35 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
                         ))}
                       </div>
 
-                      <DiscoveryCardGrid
-                        discoveries={passportDiscoveries}
-                        collectedIds={collectedIds}
-                        onOpen={chooseStamp}
-                      />
-                      <FestivalAchievementShowcase
-                        achievements={festivalAchievements}
-                        discoveries={allStamps}
-                        collectedIds={collectedIds}
-                      />
+                      {passportDiscoveries.length > 0 ? (
+                        <DiscoveryCardGrid
+                          discoveries={passportDiscoveries}
+                          collectedIds={collectedIds}
+                          onOpen={chooseStamp}
+                        />
+                      ) : (
+                        <div style={styles.progressCard}>
+                          <strong>
+                            {collectionFilter === 'locked'
+                              ? 'No locked discoveries'
+                              : collectionFilter === 'hidden'
+                                ? 'No hidden discoveries'
+                                : 'No discoveries match this filter'}
+                          </strong>
+                          <small>
+                            {collectionFilter === 'locked'
+                              ? 'This festival has no published discoveries with unmet prerequisites.'
+                              : 'Try another Discovery Album filter.'}
+                          </small>
+                        </div>
+                      )}
+                      {collectionFilter === 'all' && (
+                        <FestivalAchievementShowcase
+                          achievements={festivalAchievements}
+                          discoveries={allStamps}
+                          collectedIds={collectedIds}
+                        />
+                      )}
                     </>
                   )}
                 </>
@@ -4394,6 +4437,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               {pageIndex === 13 && (
                 <FestivalCollections
                   contentState={attendeeContentState}
+                  adventureState={attendeeAdventureState}
                   festivalName={activeFestivalDisplay?.brandName}
                   collections={festivalCollections}
                   discoveries={allStamps}
@@ -4635,7 +4679,7 @@ const styles = {
   emptyPassport: { padding: 60, borderRadius: 24, background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.7)', fontWeight: 900, border: '1px dashed rgba(34,211,238,.45)' },
   label: { display: 'block', marginTop: 18, color: '#22d3ee', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', fontWeight: 900 },
   input: { width: '100%', marginTop: 8, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.36)', background: 'rgba(3,0,20,.78)', color: 'white', boxSizing: 'border-box', outline: 'none', boxShadow: 'inset 0 0 18px rgba(34,211,238,.08)' },
-  inputLight: { maxWidth: '100%', boxSizing: 'border-box', width: '100%', marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.48)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 900, outline: 'none', boxShadow: 'inset 0 0 16px rgba(34,211,238,.10), 0 0 12px rgba(34,211,238,.10)' },
+  inputLight: { maxWidth: '100%', width: '100%', marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(34,211,238,.48)', background: 'rgba(3,0,20,.82)', color: '#f8fbff', boxSizing: 'border-box', fontWeight: 900, outline: 'none', boxShadow: 'inset 0 0 16px rgba(34,211,238,.10), 0 0 12px rgba(34,211,238,.10)' },
   uploadButton: { width: '100%', marginTop: 12, padding: 18, borderRadius: 18, border: '1px solid rgba(34,211,238,.55)', background: 'linear-gradient(90deg, #ff2dd6, #7c3aed, #22d3ee)', color: '#050510', boxSizing: 'border-box', fontWeight: 900, display: 'block', textAlign: 'center', fontSize: 15, boxShadow: '0 0 22px rgba(34,211,238,.22)' },
   mainButton: { width: '100%', marginTop: 16, padding: 15, borderRadius: 18, border: '1px solid rgba(255,255,255,.16)', fontWeight: 900, background: 'linear-gradient(90deg, #ff2dd6 0%, #8b5cf6 48%, #22d3ee 100%)', color: '#030014', boxShadow: '0 0 22px rgba(255,45,214,.28), 0 0 28px rgba(34,211,238,.18)', letterSpacing: '.04em' },
   oauthError: { marginTop: 16, padding: 14, borderRadius: 16, border: '1px solid rgba(255,120,120,.45)', background: 'rgba(90,20,30,.35)' },

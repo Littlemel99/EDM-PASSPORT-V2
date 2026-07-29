@@ -3,7 +3,11 @@ import { getDiscoveryCardPresentation } from './discoveryCardTheme.js'
 
 export default function DiscoveryCard({ discovery, collected = false, variant = 'grid', onOpen }) {
   const view = getDiscoveryCardPresentation(discovery, { collected, variant })
-  const interactive = Boolean(onOpen) && !view.achievement
+  const interactive =
+    Boolean(onOpen) &&
+    !view.achievement &&
+    !view.restricted &&
+    !view.locked
   const Element = interactive ? 'button' : 'article'
 
   return (
@@ -15,7 +19,7 @@ export default function DiscoveryCard({ discovery, collected = false, variant = 
       aria-label={interactive ? `Open ${view.title}` : undefined}
       data-discovery-id={view.discoveryId}
     >
-      <Artwork discovery={discovery} view={view} />
+      <Artwork view={view} />
       <div style={styles.content}>
         <div style={styles.topline}>
           <span style={{ ...styles.rarity, color: view.rarity.accent }}>{view.rarity.label}</span>
@@ -35,11 +39,11 @@ export default function DiscoveryCard({ discovery, collected = false, variant = 
   )
 }
 
-function Artwork({ discovery, view }) {
+function Artwork({ view }) {
   return (
     <div style={{ ...styles.artwork, background: view.artwork.background }} className="discovery-card__art">
       {view.image ? (
-        <img src={view.image} alt={`${discovery.name} discovery artwork`} style={styles.image} />
+        <img src={view.image} alt={`${view.title} discovery artwork`} style={styles.image} />
       ) : (
         <>
           <div className={`discovery-card__shape discovery-card__shape--${view.artwork.motif}`} style={{ color: view.artwork.accent }} />

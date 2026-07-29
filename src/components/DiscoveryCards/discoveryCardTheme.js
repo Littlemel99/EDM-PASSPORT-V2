@@ -59,9 +59,15 @@ function getEdition(discovery = {}) {
 }
 
 export function getDiscoveryCardPresentation(discovery = {}, options = {}) {
-  const collected = Boolean(options.collected)
+  const normalizedState = String(discovery.state || '').toUpperCase()
+  const collected =
+    normalizedState === 'COLLECTED' || Boolean(options.collected)
   const visibility = String(discovery.visibility || 'visible').toLowerCase()
-  const restricted = !collected && ['hidden', 'secret'].includes(visibility)
+  const restricted =
+    !collected &&
+    (normalizedState === 'HIDDEN' ||
+      ['hidden', 'secret'].includes(visibility))
+  const locked = normalizedState === 'LOCKED'
   const achievement = discovery.claimable === false || discovery.category === 'achievement' || discovery.sourceType === 'derived-achievement'
   const rarity = getDiscoveryRarityTheme(restricted ? 'common' : discovery.rarity)
   const artwork = getDiscoveryCategoryArtwork(discovery.category)
@@ -70,18 +76,39 @@ export function getDiscoveryCardPresentation(discovery = {}, options = {}) {
   return {
     discoveryId: discovery.id || null,
     variant: ['full', 'compact', 'grid', 'detail'].includes(options.variant) ? options.variant : 'grid',
-    title: restricted ? 'Mystery Discovery' : discovery.name || 'Untitled Discovery',
+    title: restricted
+      ? 'Mystery Discovery'
+      : discovery.title || discovery.name || 'Untitled Discovery',
     description: restricted ? 'Continue exploring to reveal this discovery.' : discovery.description || 'A festival discovery awaits.',
     categoryLabel: restricted ? 'RESTRICTED' : String(discovery.category || 'discovery').toUpperCase(),
     location: restricted ? null : discovery.location || null,
-    xp: restricted || achievement ? null : Math.max(0, Number(discovery.xp) || 0),
+    xp:
+      restricted || achievement
+        ? null
+        : Math.max(
+            0,
+            Number(discovery.xpReward ?? discovery.xp) || 0
+          ),
     rarity: restricted ? { ...rarity, label: 'RARITY HIDDEN' } : { ...rarity },
     artwork: { ...artwork },
     image: collected && discovery.image ? discovery.image : null,
     usesFallbackArtwork: !(collected && discovery.image),
     restricted,
+    locked,
     achievement,
-    stateLabel: achievement ? 'ACHIEVEMENT' : collected ? 'COLLECTED' : 'UNDISCOVERED',
+    stateLabel: achievement
+      ? 'ACHIEVEMENT'
+      : collected
+        ? 'COLLECTED'
+        : restricted
+          ? 'HIDDEN'
+          : locked
+            ? 'LOCKED'
+            : normalizedState === 'EXPIRED'
+              ? 'EXPIRED'
+              : normalizedState === 'AVAILABLE'
+                ? 'AVAILABLE'
+                : 'UNDISCOVERED',
     editionLabel: edition.label,
     editionYear: edition.year,
     claimMessage: achievement
