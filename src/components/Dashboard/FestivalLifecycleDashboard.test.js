@@ -10,6 +10,10 @@ const liveSource = readFileSync(
   new URL('./FestivalDashboard.jsx', import.meta.url),
   'utf8'
 )
+const adventureGuideSource = readFileSync(
+  new URL('./MissionControlAdventureGuide.jsx', import.meta.url),
+  'utf8'
+)
 const appSource = readFileSync(
   new URL('../../App.jsx', import.meta.url),
   'utf8'
@@ -18,7 +22,8 @@ const appSource = readFileSync(
 test('live Dashboard retains Radar and Daily Mission', () => {
   assert.match(liveSource, /MISSION CONTROL/)
   assert.match(liveSource, /YOU’RE LIVE AT/)
-  assert.match(liveSource, /<DiscoveryRadar/)
+  assert.match(liveSource, /<MissionControlAdventureGuide/)
+  assert.match(adventureGuideSource, /<DiscoveryRadar/)
   assert.match(liveSource, /<FestivalMissionCard/)
   assert.match(appSource, /activeFestivalLifecycle === 'live'/)
 })

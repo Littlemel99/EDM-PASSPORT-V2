@@ -98,7 +98,11 @@ test('Page Identity uses a semantic heading and compact responsive layout', () =
 test('Dashboard identity precedes Mission Control and Radar', () => {
   const dashboard = source('../Dashboard/FestivalDashboard.jsx')
   assert.ok(dashboard.indexOf('<PageIdentity') < dashboard.indexOf('aria-label="Journey status"'))
-  assert.ok(dashboard.indexOf('aria-label="Journey status"') < dashboard.indexOf('<DiscoveryRadar'))
+  assert.ok(dashboard.indexOf('aria-label="Journey status"') < dashboard.indexOf('<MissionControlAdventureGuide'))
+  assert.match(
+    source('../Dashboard/MissionControlAdventureGuide.jsx'),
+    /<DiscoveryRadar/
+  )
 })
 
 test('Passport shell supplies one section identity while Collections owns detail identity', () => {

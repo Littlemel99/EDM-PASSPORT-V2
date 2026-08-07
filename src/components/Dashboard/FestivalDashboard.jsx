@@ -1,5 +1,5 @@
 import FestivalMissionCard from './FestivalMissionCard.jsx'
-import DiscoveryRadar from './DiscoveryRadar.jsx'
+import MissionControlAdventureGuide from './MissionControlAdventureGuide.jsx'
 import { useEffect, useState } from 'react'
 import {
   formatMissionControlTime,
@@ -13,9 +13,6 @@ export default function FestivalDashboard({
   raveName,
   collectedCount,
   totalCount,
-  collectionPercent,
-  collectionsCompleted = 0,
-  collectionsTotal = 0,
   festivalStartDate,
   festivalId,
   lifecycle = 'live',
@@ -45,6 +42,7 @@ export default function FestivalDashboard({
   activeFestivalBrand,
   activeFestivalDisplay,
   contentState,
+  adventureState,
 }) {
   const [currentTime, setCurrentTime] = useState(() => new Date())
   const journeyDay = getJourneyDay(
@@ -63,18 +61,7 @@ export default function FestivalDashboard({
     contentState?.completedDiscoveries ?? collectedCount
   const resolvedTotalCount =
     contentState?.totalDiscoveries ?? totalCount
-  const resolvedCollectionsCompleted =
-    contentState?.completedCollections ?? collectionsCompleted
-  const resolvedCollectionsTotal =
-    contentState?.totalCollections ?? collectionsTotal
   const explorerRank = getExplorerRank(resolvedCollectedCount)
-  const safePercent = Math.min(
-    Math.max(
-      contentState?.discoveryProgressPercent ?? collectionPercent ?? 0,
-      0
-    ),
-    100
-  )
 
   useEffect(() => {
     const intervalId = window.setInterval(
@@ -134,40 +121,29 @@ export default function FestivalDashboard({
         />
       </section>
 
-      <section style={styles.targetSection}>
-        <h2 style={styles.targetTitle}>NEXT TARGET</h2>
-        <DiscoveryRadar
-          discovery={nextDiscovery}
-          loading={discoveryLoading}
-          emptyReason={radarEmptyReason}
-          onOpenDiscovery={onOpenDiscovery}
-        />
-        {developerMode && previousDiscovery && (
-          <button
-            type="button"
-            style={styles.developerButton}
-            onClick={onRepeatPreviousDiscovery}
-          >
-            REPEAT PREVIOUS DISCOVERY
-          </button>
-        )}
-      </section>
+      <MissionControlAdventureGuide
+        adventureState={adventureState}
+        contentState={contentState}
+        radarDiscovery={nextDiscovery}
+        discoveryLoading={discoveryLoading}
+        radarEmptyReason={radarEmptyReason}
+        onOpenDiscovery={onOpenDiscovery}
+        onOpenDiscoveries={onOpenDiscoveries}
+        onOpenCollections={onOpenCollections}
+        onOpenGuide={onOpenMap}
+      />
+      {developerMode && previousDiscovery && (
+        <button
+          type="button"
+          style={styles.developerButton}
+          onClick={onRepeatPreviousDiscovery}
+        >
+          REPEAT PREVIOUS DISCOVERY
+        </button>
+      )}
 
       <nav style={styles.primaryActions} aria-label="Festival actions">
         <MissionAction label="DISCOVER" onClick={onOpenDiscoveries} />
-        {nextDiscovery ? (
-          <MissionAction
-            label="RADAR"
-            onClick={() => onOpenDiscovery?.(nextDiscovery)}
-            primary
-          />
-        ) : (
-          <MissionAction
-            label="VIEW FESTIVAL GUIDE"
-            onClick={onOpenMap}
-            primary
-          />
-        )}
         <MissionAction label="MAP" onClick={onOpenMap} />
         <MissionAction label="SCHEDULE" onClick={onOpenSchedule} />
         <MissionAction label="CREW" onClick={onOpenCrew} />
@@ -182,24 +158,6 @@ export default function FestivalDashboard({
       </nav>
 
       <section style={styles.cardGrid} aria-label="Mission control">
-        <article style={styles.card}>
-          <span style={styles.label}>PROGRESS</span>
-          <strong style={styles.cardValue}>{safePercent}%</strong>
-          <ProgressBar percent={safePercent} />
-          <div style={styles.progressSummary}>
-            <span>
-              Discoveries Found
-              <strong>{resolvedCollectedCount} / {resolvedTotalCount}</strong>
-            </span>
-            <span>
-              Collections Completed
-              <strong>
-                {resolvedCollectionsCompleted} / {resolvedCollectionsTotal}
-              </strong>
-            </span>
-          </div>
-        </article>
-
         {resolvedTotalCount > 0 && (
           <FestivalMissionCard
             collectedCount={resolvedCollectedCount}
@@ -244,15 +202,11 @@ export default function FestivalDashboard({
   )
 }
 
-function MissionAction({ label, onClick, primary = false }) {
+function MissionAction({ label, onClick }) {
   return (
     <button
       type="button"
-      style={
-        primary
-          ? styles.missionActionPrimary
-          : styles.missionAction
-      }
+      style={styles.missionAction}
       onClick={onClick}
     >
       {label}
@@ -265,14 +219,6 @@ function StatusItem({ label, value }) {
     <div style={styles.statusItem}>
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
-  )
-}
-
-function ProgressBar({ percent }) {
-  return (
-    <div style={styles.progressTrack} aria-label={`${percent}% complete`}>
-      <div style={{ ...styles.progressFill, width: `${percent}%` }} />
     </div>
   )
 }
@@ -335,7 +281,6 @@ const styles = {
     fontSize: 10,
     overflowWrap: 'anywhere',
   },
-  targetSection: { minWidth: 0, marginTop: 18 },
   primaryActions: {
     minWidth: 0,
     display: 'grid',
@@ -354,25 +299,6 @@ const styles = {
     fontSize: 10,
     fontWeight: 950,
     cursor: 'pointer',
-  },
-  missionActionPrimary: {
-    minWidth: 0,
-    minHeight: 50,
-    padding: '8px 5px',
-    border: '1px solid #f1bd63',
-    borderRadius: 13,
-    color: '#171109',
-    background: '#f1bd63',
-    fontSize: 10,
-    fontWeight: 950,
-    cursor: 'pointer',
-  },
-  targetTitle: {
-    margin: 0,
-    color: '#f1bd63',
-    fontSize: 12,
-    fontWeight: 950,
-    letterSpacing: '.18em',
   },
   cardGrid: {
     minWidth: 0,
@@ -423,32 +349,6 @@ const styles = {
     fontSize: 10,
     fontWeight: 950,
     letterSpacing: '.16em',
-  },
-  cardValue: { fontSize: 32 },
-  cardTitle: { fontSize: 18, overflowWrap: 'anywhere' },
-  cardText: {
-    margin: 0,
-    color: 'rgba(255,255,255,.64)',
-    fontSize: 12,
-    lineHeight: 1.45,
-  },
-  progressSummary: {
-    display: 'grid',
-    gap: 8,
-    color: 'rgba(255,255,255,.68)',
-    fontSize: 11,
-  },
-  progressTrack: {
-    width: '100%',
-    height: 10,
-    overflow: 'hidden',
-    borderRadius: 999,
-    background: 'rgba(255,255,255,.1)',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    background: 'linear-gradient(90deg,#63e6be,#f1bd63)',
   },
   primaryButton: {
     minHeight: 44,

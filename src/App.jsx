@@ -3463,6 +3463,7 @@ ${memory.image_url ? `<img src="${memory.image_url}" alt="Festival memory" />` :
               attendeeContentState.hasAnyPublishedContent && (
               <FestivalDashboard
                 contentState={attendeeContentState}
+                adventureState={attendeeAdventureState}
                 raveName={profile?.rave_name || raveName}
                 displayName={displayName}
                 country={country}

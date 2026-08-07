@@ -71,8 +71,12 @@ test('location is optional and safe when missing', () => {
 test('Dashboard page identity precedes mission status, Radar, and mission cards', () => {
   const dashboard = source('../Dashboard/FestivalDashboard.jsx')
   assert.ok(dashboard.indexOf('<PageIdentity') < dashboard.indexOf('aria-label="Journey status"'))
-  assert.ok(dashboard.indexOf('aria-label="Journey status"') < dashboard.indexOf('<DiscoveryRadar'))
-  assert.ok(dashboard.indexOf('<DiscoveryRadar') < dashboard.indexOf('<FestivalMissionCard'))
+  assert.ok(dashboard.indexOf('aria-label="Journey status"') < dashboard.indexOf('<MissionControlAdventureGuide'))
+  assert.ok(dashboard.indexOf('<MissionControlAdventureGuide') < dashboard.indexOf('<FestivalMissionCard'))
+  assert.match(
+    source('../Dashboard/MissionControlAdventureGuide.jsx'),
+    /<DiscoveryRadar/
+  )
 })
 
 test('Passport shell has one persistent compact context bar', () => {

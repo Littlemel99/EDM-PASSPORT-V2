@@ -127,8 +127,11 @@ test('Dashboard is limited to Mission Control cards', () => {
     new URL('./FestivalDashboard.jsx', import.meta.url),
     'utf8'
   )
+  const adventureSource = readFileSync(
+    new URL('./MissionControlAdventureGuide.jsx', import.meta.url),
+    'utf8'
+  )
   for (const label of [
-    'PROGRESS',
     'CREW',
     'OPEN PASSPORT',
     'MEMORIES',
@@ -140,6 +143,7 @@ test('Dashboard is limited to Mission Control cards', () => {
   assert.doesNotMatch(source, /RECENT DISCOVERY/)
   assert.doesNotMatch(source, /YOUR JOURNEY/)
   assert.doesNotMatch(source, /JOURNEY PROGRESS/)
+  assert.match(adventureSource, /Adventure progress/)
 })
 
 test('Dashboard welcomes the returning explorer by rave name', () => {
@@ -205,20 +209,20 @@ test('upcoming countdown is derived only from valid festival dates', () => {
 
 test('live progress uses attendee-facing authenticated progress values', () => {
   const source = readFileSync(
-    new URL('./FestivalDashboard.jsx', import.meta.url),
+    new URL('./MissionControlAdventureGuide.jsx', import.meta.url),
     'utf8'
   )
-  assert.match(source, /Discoveries Found/)
+  assert.match(source, /label="Discoveries"/)
   assert.match(
     source,
-    /\{resolvedCollectedCount\} \/ \{resolvedTotalCount\}/
+    /data\.progress\.collectedDiscoveries/
   )
-  assert.match(source, /Collections Completed/)
+  assert.match(source, /label="Collections"/)
   assert.match(
     source,
-    /\{resolvedCollectionsCompleted\} \/ \{resolvedCollectionsTotal\}/
+    /data\.progress\.completedCollections/
   )
-  assert.match(source, /contentState\?\.completedDiscoveries/)
+  assert.match(source, /data\.progress\.earnedXpFromContent/)
 })
 
 test('Dashboard exposes the one-thumb primary and secondary action sets', () => {
@@ -228,7 +232,6 @@ test('Dashboard exposes the one-thumb primary and secondary action sets', () => 
   )
   for (const label of [
     'DISCOVER',
-    'RADAR',
     'MAP',
     'SCHEDULE',
     'CREW',
@@ -242,6 +245,11 @@ test('Dashboard exposes the one-thumb primary and secondary action sets', () => 
   assert.match(source, /label=\{`MEMORIES ·/)
   assert.match(source, /CHANGE FESTIVAL/)
   assert.doesNotMatch(source, /from ['"].*services\//)
+  const adventureSource = readFileSync(
+    new URL('./MissionControlAdventureGuide.jsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(adventureSource, /<DiscoveryRadar/)
 })
 
 test('Tomorrowland live Mission Control uses attendee-facing live language', () => {
@@ -253,10 +261,14 @@ test('Tomorrowland live Mission Control uses attendee-facing live language', () 
     new URL('./DiscoveryRadar.jsx', import.meta.url),
     'utf8'
   )
+  const adventureSource = readFileSync(
+    new URL('./MissionControlAdventureGuide.jsx', import.meta.url),
+    'utf8'
+  )
   assert.match(source, /MISSION CONTROL/)
   assert.match(source, /LIVE NOW/)
-  assert.match(source, /label="RADAR"[\s\S]*primary/)
   assert.match(radarSource, /OPEN RADAR/)
+  assert.match(adventureSource, /NEXT ADVENTURE/)
   assert.doesNotMatch(source, /Edition pending/)
   assert.doesNotMatch(source, /FESTIVAL DETAILS COMING SOON/)
   assert.doesNotMatch(source, /Configured Discoveries|Configured Collections/)
@@ -264,11 +276,11 @@ test('Tomorrowland live Mission Control uses attendee-facing live language', () 
 
 test('Mission Control replaces unavailable Radar and omits discovery missions', () => {
   const source = readFileSync(
-    new URL('./FestivalDashboard.jsx', import.meta.url),
+    new URL('./MissionControlAdventureGuide.jsx', import.meta.url),
     'utf8'
   )
 
-  assert.match(source, /nextDiscovery \? \(/)
-  assert.match(source, /label="VIEW FESTIVAL GUIDE"/)
-  assert.match(source, /\{resolvedTotalCount > 0 && \(/)
+  assert.match(source, /NO ACTIVE ADVENTURE AVAILABLE/)
+  assert.match(source, /VIEW FESTIVAL GUIDE/)
+  assert.match(source, /data\.primaryAction\?\.route === 'radar'/)
 })
